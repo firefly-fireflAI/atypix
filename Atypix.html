@@ -221,6 +221,12 @@
     .color-column { padding: 10px; }
     .color-row { grid-template-columns: 92px 42px; }
   }
+  #tab-help .flow { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+  #tab-help .flow > * { margin: 0; }
+  #tab-help .help-intro, #tab-help .help-footer { grid-column: 1 / -1; font-size: 13px; }
+  #tab-help .help-intro { font-weight: 600; }
+  #tab-help .help-footer { color: var(--muted); font-size: 12px; }
+  @media(max-width:600px) { #tab-help .flow { grid-template-columns: minmax(0,1fr); } }
 </style>
 <!-- the tabs' lettering (the page's own; nothing exported uses it) -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@700&display=swap">
@@ -271,6 +277,7 @@
     <section class="panel" id="tab-finish" role="tabpanel"></section>
     <section class="panel" id="tab-animation" role="tabpanel"></section>
     <section class="panel" id="tab-save" role="tabpanel"></section>
+    <section class="panel" id="tab-help" role="tabpanel"></section>
   </div>
   <div id="panel-scroll-hint" hidden>Scroll for more settings ↓</div>
 </nav>
@@ -1852,22 +1859,97 @@ const controlRows = () => [
     ['delay', 'after its face is in (below 0: before)', motion.extrude, 'delay', -5, 10, 0.05, 's']]],
 ];
 // Animation starting points replace motion only, preserving the artwork and preview mode.
+const CUSTOM_ANIMATION_PRESETS = {
+  "Pop": {
+    "speed": 1,
+    "seed": 1,
+    "loop": false,
+    "hold": 2,
+    "whenVisible": false,
+    "lines": [
+      {
+        "start": 0,
+        "spread": 0.45,
+        "order": "centreOut"
+      },
+      {
+        "start": 0.2,
+        "spread": 0.45,
+        "order": "centreOut"
+      }
+    ],
+    "face": {
+      "entrance": "pop",
+      "ease": "back",
+      "strength": 0.6,
+      "duration": 0.55
+    },
+    "deco": {
+      "entrance": "pop",
+      "ease": "elastic",
+      "strength": 0.2,
+      "duration": 0.9,
+      "delay": 0.12
+    },
+    "extrude": {
+      "ease": "elastic",
+      "strength": 0.5,
+      "duration": 1.75,
+      "delay": -0.2
+    }
+  },
+  "Drop": {
+    "speed": 1,
+    "seed": 1,
+    "loop": false,
+    "hold": 2,
+    "whenVisible": false,
+    "lines": [
+      {
+        "start": 0,
+        "spread": 0.6,
+        "order": "leftToRight"
+      },
+      {
+        "start": 0.2,
+        "spread": 0.6,
+        "order": "leftToRight"
+      }
+    ],
+    "face": {
+      "entrance": "drop",
+      "ease": "bounce",
+      "strength": 0.7,
+      "duration": 0.8
+    },
+    "deco": {
+      "entrance": "drop",
+      "ease": "back",
+      "strength": 0.3,
+      "duration": 0.4,
+      "delay": 0.5
+    },
+    "extrude": {
+      "ease": "out",
+      "strength": 0.5,
+      "duration": 0.5,
+      "delay": -0.1
+    }
+  }
+};
 function animationPreset(name) {
+  if (CUSTOM_ANIMATION_PRESETS[name]) {
+    const saved = structuredClone(CUSTOM_ANIMATION_PRESETS[name]);
+    const timings = saved.lines;
+    saved.lines = design.lines.map((_, i) => ({ ...(timings[i] || timings[timings.length - 1]),
+      start: timings[i]?.start ?? timings[0].start + i * .2 }));
+    return saved;
+  }
   const m = structuredClone(LETTERING_DEFAULTS);
   m.lines = design.lines.map((_, i) => ({ ...LETTERING_DEFAULTS.lines[0], start: i * 0.2 }));
   if (name === 'Cascade') {
     m.lines.forEach(l => { l.order = 'leftToRight'; l.spread = 0.9; });
     m.face.duration = 0.7; m.deco.duration = 0.65; m.extrude.ease = 'out'; m.extrude.duration = 0.6;
-  } else if (name === 'Pop') {
-    m.lines.forEach(l => { l.order = 'centreOut'; l.spread = 0.45; });
-    Object.assign(m.face, { entrance: 'pop', ease: 'back', duration: 0.55, strength: 0.6 });
-    Object.assign(m.deco, { entrance: 'pop', ease: 'back', duration: 0.45, delay: 0.12 });
-    Object.assign(m.extrude, { duration: 0.65, delay: -0.15 });
-  } else if (name === 'Drop') {
-    m.lines.forEach(l => { l.order = 'leftToRight'; l.spread = 0.6; });
-    Object.assign(m.face, { entrance: 'drop', ease: 'bounce', duration: 0.8, strength: 0.7 });
-    Object.assign(m.deco, { entrance: 'fade', ease: 'out', duration: 0.35, delay: 0.4 });
-    Object.assign(m.extrude, { ease: 'out', duration: 0.5, delay: -0.1 });
   } else if (name === 'Soft fade') {
     m.lines.forEach(l => { l.order = 'leftToRight'; l.spread = 0.5; });
     Object.assign(m.face, { entrance: 'fade', ease: 'inOut', duration: 1.2 });
@@ -1923,14 +2005,11 @@ function fillControls() {
 
 // ---------- presets ----------
 // the whole design (the words and lines, every letter's adjustments, the colours, the design's
-// settings and the animation's) as a named preset kept in this browser, or as a JSON file to keep or
+// settings and the animation's) as a JSON file to keep or
 // share. The browser's storage may be missing or refuse (a private window): the page works without
 // it, and says so
-const PRESETS = 'atypix-presets';
 const snapshot = () => ({ atypix: 2, design: structuredClone(design), look: { ...look }, colours: { ...PAL }, face: { ...FACE },
   motion: structuredClone(motion) });
-const stored = () => { try { return JSON.parse(localStorage.getItem(PRESETS)) || {}; } catch { return {}; } };
-const store = all => { try { localStorage.setItem(PRESETS, JSON.stringify(all)); return true; } catch { return false; } };
 // a preset put back: anything missing or unknown in it falls back to the defaults
 function restore(p) {
   if (!Array.isArray(p?.design?.lines)) throw new Error('that is not an Atypix preset');
@@ -2029,7 +2108,7 @@ document.getElementById('redo').addEventListener('click', () => stepHistory(1));
 document.getElementById('reset').addEventListener('click', () => {
   commitEdit();
   restore(initialDesign);
-  commitEdit(); // reset is undoable; named presets and the preview choice are kept
+  commitEdit(); // reset is undoable; the preview choice is kept
 });
 const editableDesignControl = target => target.closest('#panels') && !target.closest('#tab-save');
 document.addEventListener('input', e => {
@@ -2140,7 +2219,7 @@ async function downloadPicture(type) {
 }
 
 // Save & export: editable design first, then finished artwork and embedding.
-let presetName = null, code = null;
+let code = null;
 const refreshCode = () => { if (code) code.textContent = `animateLettering(root, ${JSON.stringify(motion, null, 1).replace(/\n\s*/g, ' ')});`; };
 async function copyExport(b, text, fallback) {
   const original = b.textContent;
@@ -2156,13 +2235,6 @@ async function copyExport(b, text, fallback) {
 function fillSave() {
   const row = (...children) => el('div', { className: 'save-row' }, ...children);
   const note = text => el('p', { className: 'note', textContent: text });
-  presetName = el('input', { type: 'text', placeholder: 'design name', spellcheck: false });
-  presetName.setAttribute('aria-label', 'Design name');
-  const saved = el('select'); saved.setAttribute('aria-label', 'Saved designs in this browser');
-  const list = (current = saved.value) => {
-    saved.replaceChildren(new Option('Choose a browser save…', ''));
-    for (const n of Object.keys(stored()).sort()) saved.append(new Option(n, n, false, n === current));
-  };
   const file = el('input', { type: 'file', accept: '.json,application/json', hidden: true });
   file.setAttribute('aria-label', 'Load Atypix Design');
   file.addEventListener('change', async () => {
@@ -2172,25 +2244,11 @@ function fillSave() {
     catch (e) { say(`Could not load ${selected.name}: ${e.message}`); }
     file.value = '';
   });
-  const browser = el('details', {}, el('summary', { textContent: 'Browser saves' }),
-    row(presetName, button('Save in browser', () => {
-      const n = presetName.value.trim() || words() || 'untitled', all = stored();
-      all[n] = snapshot();
-      say(store(all) ? '' : 'This browser could not save the design. Download Atypix Design instead.');
-      list(n);
-    })),
-    row(saved, button('Load saved', () => {
-      const p = stored()[saved.value]; if (!p) return;
-      presetName.value = saved.value;
-      try { restore(p); } catch (e) { say(`Could not load ${saved.value}: ${e.message}`); }
-    }), button('Delete', () => { const all = stored(); delete all[saved.value]; store(all); list(''); })),
-    note('Your draft saves automatically. Named saves normally survive closing tabs or quitting the browser. Clearing site data can erase them; clearing history alone generally does not.'));
   const backup = el('div', {},
-    note('This file saves every design setting, including animation. Load it again anytime in Atypix.'),
+    el('p', { className: 'note' }, 'This file saves every design setting, including animation. Load it again anytime in Atypix.', el('br'), el('em', { textContent: 'Saves as JSON to your device.' })),
     row(button('Download Atypix Design', () => save(new Blob([JSON.stringify(snapshot(), null, 1)], { type: 'application/json' }),
-      `${slug(presetName.value.trim() || words())}.json`)), button('Load Atypix Design', () => file.click()), file),
-    note('Saves as JSON to your device.'));
-  const designBox = box('Save / load design', backup, browser);
+      `${slug(words())}.json`)), button('Load Atypix Design', () => file.click()), file));
+  const designBox = box('Save / load design', backup);
   designBox.classList.add('save-design');
 
   widthInput = el('input', { type: 'number', min: 16, max: 8000, step: 1, value: 2000 });
@@ -2240,7 +2298,7 @@ function fillSave() {
     });
     b.setAttribute('aria-pressed', kind === format); formats.append(b);
   }
-  const artwork = box('Download artwork', note('Finished artwork for a design, document, or website. No design JSON required.'),
+  const artwork = box('Download artwork', note('Static artwork for a design, document, or website.'),
     formats, widthRow, formatHelp, row(artworkDownload));
 
   code = el('code', { hidden: true });
@@ -2252,11 +2310,24 @@ function fillSave() {
     note('Settings only: for a site that already has the lettering, GSAP, and animateLettering. The complete snippet includes these settings.'),
     row(copySettings, show), code);
   const embed = box('Embed animation', note('Paste this snippet into your site. No design JSON required.'),
-    note('The complete snippet includes the artwork and animation code, and loads GSAP from a CDN.'),
+    el('p', { className: 'note' }, el('em', { textContent: 'Includes artwork and animation code, loads GSAP to function.' })),
     row(button('Download animated HTML', downloadAnimated), copySnippet), snippetFallback, advanced,
     el('p', { className: 'note', id: 'moving-size' }));
   panel('save').replaceChildren(designBox, artwork, embed);
-  list(); refreshCode();
+  refreshCode();
+}
+
+function fillHelp() {
+  const step = (title, text, action, section) => box(title,
+    el('p', { className: 'note', textContent: text }),
+    el('div', { className: 'buttons' }, button(action, () => showTab(section))));
+  const intro = el('p', { className: 'help-intro', textContent: 'Ready? Let’s make some lettering. Start anywhere. You can always Undo.' });
+  panel('help').replaceChildren(intro,
+    step('1. Say something', 'Open Font and type your words. Pick a font, change the size, or add another line. Leading is the space between lines.', 'Start with words', 'font'),
+    step('2. Make it yours', 'Try a preset in Style. Play with Color, 3D, and Finish. Want to change just one letter? Open Letter, then click it in the artwork. Detail lets you fine-tune dots, lines, and other decorations.', 'Try a style', 'style'),
+    step('3. Make it move', 'Open Animation and pick a preset. Press Replay to watch it again. Still shows the finished design; Animate shows it moving.', 'Try animation', 'animation'),
+    step('Go! Save and share', 'Download an Atypix Design file to keep everything editable. Load that file here anytime. SVG, PNG, and WebP are still pictures. For a moving version on your website, use the animated HTML snippet.', 'Save your design', 'save'),
+    el('p', { className: 'help-footer', textContent: 'Your latest draft saves automatically in this browser. Download a design file to keep a copy. Reset starts fresh; Undo brings your design back. On a phone, use the section menu and Hide controls to give the artwork more room.' }));
 }
 
 // ---------- the tabs ----------
@@ -2265,7 +2336,7 @@ function fillSave() {
 // panel's height). Preview mode is controlled separately;
 // the stage takes whatever room the panel leaves. Which tab was open is remembered in this browser
 const TABS = [['font', 'Font'], ['style', 'Style'], ['detail', 'Detail'], ['letter', 'Letter'], ['colour', 'Color'],
-  ['3d', '3D'], ['finish', 'Finish'], ['animation', 'Animation'], ['save', 'Save & export']];
+  ['3d', '3D'], ['finish', 'Finish'], ['animation', 'Animation'], ['save', 'Save & export'], ['help', '?']];
 // Preview is independent of the settings drawer and remembered separately from the design.
 let previewMode = 'still';
 try { if (localStorage.getItem('atypix-preview') === 'animate') previewMode = 'animate'; } catch {}
@@ -2287,7 +2358,7 @@ const TAB_KEY = 'atypix-tab';
 let tab = 'font', open = true;
 const tabs = document.getElementById('tabs'), panels = document.getElementById('panels');
 const sectionPicker = document.getElementById('section-picker'), controlsToggle = document.getElementById('toggle-controls');
-for (const [name, text] of TABS) sectionPicker.append(new Option(text, name));
+for (const [name, text] of TABS) sectionPicker.append(new Option(name === 'help' ? '? How to use' : text, name));
 sectionPicker.addEventListener('change', () => showTab(sectionPicker.value));
 controlsToggle.addEventListener('click', () => showTab(tab, true));
 const scrollHint = document.getElementById('panel-scroll-hint');
@@ -2300,6 +2371,7 @@ new ResizeObserver(updateScrollHint).observe(panels);
 new MutationObserver(() => requestAnimationFrame(updateScrollHint)).observe(panels, { childList: true, subtree: true });
 tabs.append(...TABS.map(([name, text], i) => {
   const b = button(text, () => showTab(name, true), { role: 'tab', id: 'tab-button-' + name });
+  if (name === 'help') { b.setAttribute('aria-label', 'How to use Atypix'); b.title = 'How to use Atypix'; }
   b.append(el('span', { className: 'caret', ariaHidden: 'true' }));   // the open or closed triangle, shown on the chosen tab
   b.style.zIndex = TABS.length - i;         // each tab over the next, which reaches back beneath it
   return b;
@@ -2365,6 +2437,7 @@ function showTab(name, again = false, slide = true) {
 
 document.getElementById('replay').addEventListener('click', play);
 fillSave();
+fillHelp();
 buildAll();
 try {
   const last = JSON.parse(localStorage.getItem(TAB_KEY));
