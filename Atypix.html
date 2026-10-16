@@ -28,7 +28,7 @@
   .panel button:focus-visible, #replay:focus-visible { outline: 2px solid #59abb1; outline-offset: 2px; }
   .panel button:disabled { opacity: .45; cursor: default; }
   /* the stage: the chosen static or animated preview, fitted to the room */
-  #stage { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 8px 16px; }
+  #stage { background: var(--canvas, var(--sky)); flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 8px 16px; }
   #stage figure { flex: 1; min-height: 0; margin: 0; display: flex; flex-direction: column; }
   #stage figure[hidden] { display: none; }
   #stage .art { flex: 1; min-height: 0; }
@@ -141,7 +141,7 @@
   /* registered, so the fades can ease in and out rather than jump */
   @property --fade-l { syntax: '<length>'; inherits: false; initial-value: 0px; }
   @property --fade-r { syntax: '<length>'; inherits: false; initial-value: 0px; }
-  header { position: relative; padding-right: 190px; min-height: 34px; }
+  header { position: relative; padding-right: 228px; min-height: 34px; }
   .tool-group { display: flex; gap: 5px; }
   .tool-group button { border: 0; border-radius: 8px; padding: 7px 12px 6px; cursor: pointer;
     background: #3e5269; color: #fff; font: 700 12px/1 Lato, ui-sans-serif, system-ui, sans-serif;
@@ -149,6 +149,8 @@
   .tool-group button:hover { background: #4f6683; }
   .tool-group button:disabled { opacity: .4; cursor: default; }
   .tool-group button:focus-visible { outline: 2px solid #261a57; outline-offset: 2px; }
+  #canvas-color { width:28px; height:27px; padding:2px; border:1px solid #889ba9; border-radius:6px; background:transparent; cursor:pointer; flex:none; }
+  #canvas-color:focus-visible { outline:2px solid #261a57; outline-offset:2px; }
   #preview-tools { position: absolute; right: 16px; top: 10px; }
   #preview-tools [aria-pressed=false] { background: transparent; color: #3e5269; box-shadow: inset 0 0 0 1px #889ba9; }
   #workspace-tools { display: flex; align-items: center; gap: 8px; padding: 6px 16px 0; }
@@ -180,7 +182,7 @@
     .save-columns > div + div { border-left: 0; border-top: 1px solid var(--rule); padding: 12px 0 0; margin-top: 12px; }
   }
   @media (max-width: 600px) {
-    header { padding-right: 176px; gap: 4px 14px; min-height: 48px; }
+    header { padding-right: 214px; gap: 4px 14px; min-height: 48px; }
     #preview-tools { position: absolute; right: 16px; top: 10px; }
     #tabs { display: none; }
     #mobile-settings { display: flex; align-items: end; gap: 12px; padding: 10px 16px 0; }
@@ -244,6 +246,7 @@
   <span id="status" role="status"></span>
   <div id="preview-tools" class="tool-group" role="group" aria-label="Preview mode">
     <button id="preview-still" type="button" aria-pressed="true">Still</button>
+    <input id="canvas-color" type="color" value="#bccfd6" aria-label="Canvas color" title="Canvas color · preview only; artwork exports stay transparent">
     <button id="preview-animate" type="button" aria-pressed="false">Animate</button>
   </div>
 </header>
@@ -1628,28 +1631,24 @@ const STYLE_ANIMATIONS = {
 };
 // Complete saved example supplied by the user; cloned before each application.
 const JELLYBEANS_PRESET = {"atypix":2,"design":{"lines":[{"text":"ATYPIX","font":"Anton","size":300,"track":-0.012,"align":"centre","styles":["outline"],"letters":[null,{"scale":1,"rot":0,"dx":-6,"dy":0,"style":""},{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"face":"#aec1ef","light":"#ccf0ff","side":"#4767b3","under":"#162850","face2":"#aec1ef","outline":"#4768b3","outline2":"#4768b3"}},{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"face":"#ffcb70","light":"#ffec8f","side":"#fa9e00","under":"#d17f33","face2":"#ffcc70","outline":"#ffab1a","outline2":"#ffcb70"}},{"scale":1,"rot":0,"dx":5,"dy":0,"style":"","colours":{"face":"#ea81ed","side":"#910094","under":"#370038","face2":"#ea81ee","outline":"#900094","outline2":"#900094"}},{"scale":1,"rot":0,"dx":7,"dy":0,"style":""}]},{"text":"TYPE","font":"Fjalla One","size":150,"track":0.12,"align":"centre","styles":["flat"],"letters":[{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"face":"#ffffff","light":"#ffffff","side":"#ffffff","under":"#ffffff","face2":"#ffffff","outline":"#ffffff","outline2":"#ffffff"}},{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"face":"#ffffff","light":"#ffffff","side":"#ffffff","under":"#ffffff","dots":"#ffffff","face2":"#ffffff","stripes":"#ffffff","drop":"#ffffff","outline":"#ffffff","outline2":"#ffffff"}},{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"face":"#ffffff","light":"#ffffff","side":"#ffffff","under":"#ffffff","dots":"#ffffff","face2":"#ffffff","stripes":"#ffffff","drop":"#ffffff","outline":"#ffffff","outline2":"#ffffff"}},{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"face":"#ffffff","light":"#ffffff","side":"#ffffff","under":"#ffffff","dots":"#ffffff","face2":"#ffffff","stripes":"#ffffff","drop":"#ffffff","outline":"#ffffff","outline2":"#ffffff"}},{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"face":"#ffffff","light":"#ffffff","side":"#ffffff","under":"#ffffff","dots":"#ffffff","face2":"#ffffff","stripes":"#ffffff","drop":"#ffffff","outline":"#ffffff","outline2":"#ffffff"}}]}],"spacing":26,"colourMode":"risograph"},"look":{"length":0.45,"direction":40,"shadow":90,"texture":1,"grainPreset":"Speck","wobbleFrequency":0.008,"wobbleJitter":0,"hatching":1,"hatchAngle":30,"wobble":0,"dropDistance":0,"dropDirection":45,"dropSoftness":6,"dropOpacity":1,"outline":3},"colours":{"face":"#f0955a","light":"#f9eec4","side":"#d8461b","under":"#261a57","dots":"#f7c52e","face2":"#f0955a","stripes":"#f9eec4","drop":"#261a57","outline":"#d8461b","outline2":"#d8461b"},"face":{"inset":0.012,"line":0.016,"dotR":0.02,"dotStep":0.07,"risoR":0.005,"risoStep":0.024,"risoOpacity":1,"stripeAngle":0,"stripeWidth":0.02,"stripeGap":0.02,"starR":0.026,"starPoints":5,"starStep":0.085,"dropR":0.016,"dropStep":0.075,"ropeAngle":35,"ropeStep":0.045,"ropeWidth":0.014},"motion":{"speed":1,"seed":1,"loop":false,"hold":2,"whenVisible":false,"lines":[{"start":0,"spread":0.9,"order":"leftToRight"},{"start":0.2,"spread":0.9,"order":"leftToRight"}],"face":{"entrance":"draw","ease":"out","strength":0.5,"duration":0.7},"deco":{"entrance":"draw","ease":"out","strength":0.5,"duration":0.65,"delay":0.3},"extrude":{"ease":"back","strength":0.85,"duration":1.75,"delay":-0.45}}};
+const MARQUEE_PRESET = {"atypix":2,"design":{"lines":[{"text":"ATYPIX","font":"Anton","size":300,"track":-0.012,"align":"centre","styles":["dots"],"letters":[{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"under":"#f58114","outline2":"#e6aa05"}},{"scale":1,"rot":0,"dx":-6,"dy":0,"style":"","colours":{"face":"#ffd052","light":"#ffdc7a","side":"#2e1800","under":"#f58114","dots":"#fdd591","face2":"#ffa200","stripes":"#ffdc7a","drop":"#122e40","outline":"#ffdc7a","outline2":"#e6aa05"}},{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"face":"#ffd052","light":"#ffdc7a","side":"#2e1800","under":"#f58114","dots":"#fdd591","face2":"#ffa200","stripes":"#ffdc7a","drop":"#122e40","outline":"#ffdc7a","outline2":"#e6aa05"}},{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"face":"#ffd052","light":"#ffdc7a","side":"#2e1800","under":"#f58114","dots":"#fdd591","face2":"#ffa200","stripes":"#ffdc7a","drop":"#122e40","outline":"#ffdc7a","outline2":"#e6aa05"}},{"scale":1,"rot":0,"dx":5,"dy":0,"style":"","colours":{"face":"#ffd052","light":"#ffdc7a","side":"#2e1800","under":"#f58114","dots":"#fdd591","face2":"#ffa200","stripes":"#ffdc7a","drop":"#122e40","outline":"#ffdc7a","outline2":"#e6aa05"}},{"scale":1,"rot":0,"dx":7,"dy":0,"style":"","colours":{"face":"#ffd052","light":"#ffdc7a","side":"#2e1800","under":"#f58114","dots":"#fdd591","face2":"#ffa200","stripes":"#ffdc7a","drop":"#122e40","outline":"#ffdc7a","outline2":"#e6aa05"}}]},{"text":"TYPE","font":"Fjalla One","size":150,"track":0.12,"align":"centre","styles":["flat"],"letters":[{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"outline":"#d1d1d1"}},{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"face":"#ffd052","light":"#ffdc7a","side":"#2e1800","under":"#122e40","dots":"#fdd591","face2":"#ffa200","stripes":"#ffdc7a","drop":"#122e40","outline":"#d1d1d1","outline2":"#ffdc7a"}},{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"face":"#ffd052","light":"#ffdc7a","side":"#2e1800","under":"#122e40","dots":"#fdd591","face2":"#ffa200","stripes":"#ffdc7a","drop":"#122e40","outline":"#d1d1d1","outline2":"#ffdc7a"}},{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"face":"#ffd052","light":"#ffdc7a","side":"#2e1800","under":"#122e40","dots":"#fdd591","face2":"#ffa200","stripes":"#ffdc7a","drop":"#122e40","outline":"#d1d1d1","outline2":"#ffdc7a"}},{"scale":1,"rot":0,"dx":0,"dy":0,"style":""}]}],"spacing":26,"colourMode":"solid"},"look":{"length":0.45,"direction":40,"shadow":90,"texture":0.25,"grainPreset":"Coarse paper","wobbleFrequency":0.008,"wobbleJitter":0,"hatching":1,"hatchAngle":30,"wobble":0,"dropDistance":9,"dropDirection":45,"dropSoftness":6,"dropOpacity":0.1,"outline":3},"colours":{"face":"#ffd052","light":"#ffdc7a","side":"#2e1800","under":"#122e40","dots":"#fdd591","face2":"#ffa200","stripes":"#ffdc7a","drop":"#122e40","outline":"#ffdc7a","outline2":"#ffdc7a"},"face":{"inset":0.034,"line":0.016,"dotR":0.02,"dotStep":0.07,"risoR":0.005,"risoStep":0.024,"risoOpacity":1,"stripeAngle":0,"stripeWidth":0.02,"stripeGap":0.02,"starR":0.026,"starPoints":5,"starStep":0.085,"dropR":0.016,"dropStep":0.075,"ropeAngle":35,"ropeStep":0.045,"ropeWidth":0.014},"motion":{"speed":1,"seed":1,"loop":false,"hold":2,"whenVisible":false,"lines":[{"start":0,"spread":0.9,"order":"leftToRight"},{"start":0.2,"spread":0.9,"order":"leftToRight"}],"face":{"entrance":"draw","ease":"out","strength":0.5,"duration":0.7},"deco":{"entrance":"draw","ease":"out","strength":0.5,"duration":0.65,"delay":0.3},"outline":{"entrance":"draw","ease":"inOut","strength":0.15,"duration":0.3,"delay":0.15},"extrude":{"ease":"back","strength":0.85,"duration":1.75,"delay":-0.45}}};
 function applyStylePreset(name) {
+  if (name === 'MARQUEE') { restore({ ...structuredClone(MARQUEE_PRESET), canvasColor }); return; }
   if (name === 'Jellybeans') {
     const saved = structuredClone(JELLYBEANS_PRESET);
     saved.motion = structuredClone(CUSTOM_ANIMATION_PRESETS.Paint);
-    restore(saved);
+    restore({ ...saved, canvasColor });
     return;
   }
-  const riso = name === 'RISO', marquee = name === 'MARQUEE', candy = name === 'Candy pop';
+  const riso = name === 'RISO', candy = name === 'Candy pop';
   design.colourMode = riso ? 'risograph' : 'solid';
   if (!riso) Object.assign(PAL, PALETTES[name === 'Candy pop' ? 'Candy' : name === 'Monochrome' ? 'Monochrome' : 'Tangerine']);
-  if (marquee) {
-    // Colors, outline and grain recovered from the user's exported Mar Type snippet.
-    Object.assign(PAL, { face: '#ffd052', face2: '#ffa200', light: '#ffdc7a', dots: '#fdd591', stripes: '#ffdc7a', side: '#2e1800', under: '#122e40', outline: '#ffdc7a', outline2: '#ffdc7a', drop: '#122e40' });
-    Object.assign(look, { length: .45, direction: 40, shadow: 90, hatching: 1, hatchAngle: 30, texture: 1, grainPreset: 'Speck', wobble: 0, wobbleFrequency: .008, wobbleJitter: 0, outline: 3, dropDistance: 0 });
-    Object.assign(FACE, { inset: FACE_DEFAULTS.inset, dotR: .02, dotStep: .07 });
-  }
   if (candy) {
     Object.assign(look, LOOK_DEFAULTS, { texture: .85 });
     Object.assign(FACE, { inset: FACE_DEFAULTS.inset, starR: .026, starStep: .085, starPoints: 5 });
   }
   design.lines.forEach((ln, i) => {
-    ln.styles = i ? ['flat'] : marquee ? ['dots'] : riso ? ['risograph'] : name === 'Monochrome' ? ['plain'] : candy ? ['stars'] : [...CYCLE];
+    ln.styles = i ? ['flat'] : riso ? ['risograph'] : name === 'Monochrome' ? ['plain'] : candy ? ['stars'] : [...CYCLE];
     ln.letters.forEach(v => { if (v) { v.style = ''; delete v.colours; delete v.outline; } });
   });
   if (riso) Object.assign(FACE, { risoR: FACE_DEFAULTS.risoR, risoStep: FACE_DEFAULTS.risoStep, risoOpacity: 1 });
@@ -1662,8 +1661,8 @@ function applyStylePreset(name) {
 // are two or more), + to add one
 function fillStyles() {
   const p = panel('style');
-  const presets = box('Style presets', el('div', { className: 'buttons' }, ...['Handletter', 'RISO', 'MARQUEE', 'Candy pop', 'Monochrome', 'Jellybeans'].map(name => button(name, () => applyStylePreset(name), { title: `Includes ${STYLE_ANIMATIONS[name]} animation${name === 'Jellybeans' ? '; loads the complete saved example' : ''}` }))),
-    el('p', { className: 'note', textContent: 'Each style includes an animation and replaces face/color/outline overrides. Most keep your words, fonts and placement; Jellybeans loads the complete saved example. MARQUEE and Candy pop also set depth and finish. Undo brings your design back.' }));
+  const presets = box('Style presets', el('div', { className: 'buttons' }, ...['Handletter', 'RISO', 'MARQUEE', 'Candy pop', 'Monochrome', 'Jellybeans'].map(name => button(name, () => applyStylePreset(name), { title: `Includes ${STYLE_ANIMATIONS[name]} animation${['Jellybeans', 'MARQUEE'].includes(name) ? '; loads the complete saved example' : ''}` }))),
+    el('p', { className: 'note', textContent: 'Each style includes an animation and replaces face/color/outline overrides. Most keep your words, fonts and placement; Jellybeans and MARQUEE load complete saved examples. Candy pop also sets depth and finish. Undo brings your design back.' }));
   presets.classList.add('style-presets');
   p.replaceChildren(presets);
   design.lines.forEach((ln, li) => {
@@ -2060,6 +2059,13 @@ const CUSTOM_ANIMATION_PRESETS = {
       "duration": 0.65,
       "delay": 0.3
     },
+    "outline": {
+      "entrance": "draw",
+      "ease": "linear",
+      "strength": 0.5,
+      "duration": 0.3,
+      "delay": 0
+    },
     "extrude": {
       "ease": "back",
       "strength": 0.85,
@@ -2071,7 +2077,7 @@ const CUSTOM_ANIMATION_PRESETS = {
 function animationPreset(name) {
   if (CUSTOM_ANIMATION_PRESETS[name]) {
     const saved = structuredClone(CUSTOM_ANIMATION_PRESETS[name]);
-    saved.outline = structuredClone(LETTERING_DEFAULTS.outline);
+    saved.outline = { ...LETTERING_DEFAULTS.outline, ...saved.outline };
     const timings = saved.lines;
     saved.lines = design.lines.map((_, i) => ({ ...(timings[i] || timings[timings.length - 1]),
       start: timings[i]?.start ?? timings[0].start + i * .2 }));
@@ -2129,11 +2135,18 @@ function fillControls() {
 // settings and the animation's) as a JSON file to keep or
 // share. The browser's storage may be missing or refuse (a private window): the page works without
 // it, and says so
-const snapshot = () => ({ atypix: 2, design: structuredClone(design), look: { ...look }, colours: { ...PAL }, face: { ...FACE },
+let canvasColor = '#bccfd6';
+function setCanvasColor(color) {
+  canvasColor = /^#[0-9a-f]{6}$/i.test(color) ? color : '#bccfd6';
+  document.documentElement.style.setProperty('--canvas', canvasColor);
+  document.getElementById('canvas-color').value = canvasColor;
+}
+const snapshot = () => ({ atypix: 2, canvasColor, design: structuredClone(design), look: { ...look }, colours: { ...PAL }, face: { ...FACE },
   motion: structuredClone(motion) });
 // a preset put back: anything missing or unknown in it falls back to the defaults
 function restore(p) {
   if (!Array.isArray(p?.design?.lines)) throw new Error('that is not an Atypix preset');
+  setCanvasColor(p.canvasColor);
   const unknown = [];
   design.lines = p.design.lines.map(l => {
     const ln = newLine('', l);
@@ -2473,6 +2486,8 @@ function setPreview(mode) {
   play();       // also kills and clears a playback when returning to Still
   try { localStorage.setItem('atypix-preview', mode); } catch {}
 }
+document.getElementById('canvas-color').addEventListener('input', e => setCanvasColor(e.target.value));
+document.getElementById('canvas-color').addEventListener('change', commitEdit);
 document.getElementById('preview-still').addEventListener('click', () => setPreview('still'));
 document.getElementById('preview-animate').addEventListener('click', () => setPreview('animate'));
 const TAB_KEY = 'atypix-tab';
