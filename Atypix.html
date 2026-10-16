@@ -27,7 +27,7 @@
   .panel button:hover, #replay:hover { background: #4f6683; }
   .panel button:focus-visible, #replay:focus-visible { outline: 2px solid #59abb1; outline-offset: 2px; }
   .panel button:disabled { opacity: .45; cursor: default; }
-  /* the stage: the static SVG (for the first seven tabs) or the animated copy, fitted to the room */
+  /* the stage: the chosen static or animated preview, fitted to the room */
   #stage { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 8px 16px; }
   #stage figure { flex: 1; min-height: 0; margin: 0; display: flex; flex-direction: column; }
   #stage figure[hidden] { display: none; }
@@ -141,6 +141,13 @@
   /* registered, so the fades can ease in and out rather than jump */
   @property --fade-l { syntax: '<length>'; inherits: false; initial-value: 0px; }
   @property --fade-r { syntax: '<length>'; inherits: false; initial-value: 0px; }
+  #workspace-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; padding: 8px 16px 0; }
+  #workspace-tools button { border: 1px solid var(--rule); border-radius: 7px; padding: 6px 12px; color: var(--ink); background: transparent; cursor: pointer; }
+  #workspace-tools button:disabled { opacity: .4; cursor: default; }
+  #workspace-tools button:focus-visible { outline: 2px solid #261a57; outline-offset: 2px; }
+  #workspace-tools [aria-pressed=true] { background: #3e5269; color: white; border-color: #3e5269; }
+  #workspace-tools .tool-group { display: flex; gap: 4px; }
+  #draft-status { font-size: 12px; color: var(--muted); }
 </style>
 <!-- the tabs' lettering (the page's own; nothing exported uses it) -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@700&display=swap">
@@ -154,6 +161,17 @@
   <p>Block lettering as SVG: no font, no library and no canvas to show it; GSAP to move it.</p>
   <span id="status" role="status"></span>
 </header>
+<div id="workspace-tools" aria-label="Design tools">
+  <div class="tool-group" role="group" aria-label="Edit history">
+    <button id="undo" type="button" disabled title="Undo (Ctrl/⌘ Z)">Undo</button>
+    <button id="redo" type="button" disabled title="Redo (Ctrl/⌘ Shift Z)">Redo</button>
+  </div>
+  <div class="tool-group" role="group" aria-label="Preview mode">
+    <button id="preview-still" type="button" aria-pressed="true">Still</button>
+    <button id="preview-animate" type="button" aria-pressed="false">Animate</button>
+  </div>
+  <span id="draft-status" role="status" aria-live="polite"></span>
+</div>
 <main id="stage">
   <figure id="still"><div class="art"></div><figcaption>Static SVG · click a letter to adjust it</figcaption></figure>
   <figure id="moving" hidden><div class="art"></div><figcaption><button id="replay" type="button">Replay</button>
@@ -1611,6 +1629,77 @@ function restore(p) {
   draw().then(() => { if (unknown.length) say(`Not in the font menu, so Anton instead: ${unknown.join(', ')}`); });
 }
 
+// ---------- edit history and local draft recovery ----------
+// One history step per completed gesture; typing is grouped after a short pause.
+// Draft writes also happen during a drag, so a refresh need not lose an unfinished gesture.
+const DRAFT_KEY = 'atypix-draft-v1';
+const HISTORY_LIMIT = 100;
+let history = [], historyIndex = -1, historyTimer = null, draftTimer = null;
+const draftStatus = document.getElementById('draft-status');
+function historyButtons() {
+  document.getElementById('undo').disabled = historyIndex <= 0;
+  document.getElementById('redo').disabled = historyIndex >= history.length - 1;
+}
+function saveDraft() {
+  clearTimeout(draftTimer);
+  try {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(snapshot()));
+    draftStatus.textContent = 'Draft saved in this browser';
+  } catch { draftStatus.textContent = 'Draft could not be saved · download JSON to keep your work'; }
+}
+function commitEdit() {
+  clearTimeout(historyTimer);
+  const state = JSON.stringify(snapshot());
+  if (state !== history[historyIndex]) {
+    history.splice(historyIndex + 1);
+    history.push(state);
+    if (history.length > HISTORY_LIMIT) history.shift();
+    historyIndex = history.length - 1;
+  }
+  historyButtons();
+  saveDraft();
+}
+function stepHistory(direction) {
+  commitEdit(); // include typing or a drag that has not yet lost focus
+  const next = historyIndex + direction;
+  if (next < 0 || next >= history.length) return;
+  historyIndex = next;
+  restore(JSON.parse(history[historyIndex]));
+  historyButtons();
+  saveDraft();
+}
+document.getElementById('undo').addEventListener('click', () => stepHistory(-1));
+document.getElementById('redo').addEventListener('click', () => stepHistory(1));
+const editableDesignControl = target => target.closest('#panels') && !target.closest('#tab-save, #tab-export');
+document.addEventListener('input', e => {
+  if (!editableDesignControl(e.target)) return;
+  draftStatus.textContent = 'Saving draft…';
+  clearTimeout(draftTimer);
+  draftTimer = setTimeout(saveDraft, 200);
+  if (e.target.matches('input[type=text]')) {
+    clearTimeout(historyTimer);
+    historyTimer = setTimeout(commitEdit, 500);
+  }
+});
+document.addEventListener('change', e => {
+  // Include JSON imports and design menus, but not the preset picker or export width.
+  if (editableDesignControl(e.target) || e.target.matches('#tab-export input[type=file]')) setTimeout(commitEdit, 0);
+}, true);
+document.addEventListener('click', e => {
+  // A button can add/remove lines, reset a letter, change the random order, or load a preset.
+  const b = e.target.closest('#panels button');
+  if (b) setTimeout(commitEdit, 0);
+}, true);
+document.addEventListener('keydown', e => {
+  if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+  // Leave native text editing undo/redo and clipboard shortcuts to the browser.
+  if (e.target.closest('input:not([type=range]):not([type=color]), textarea, [contenteditable=true]')) return;
+  if (e.key.toLowerCase() === 'z') { e.preventDefault(); stepHistory(e.shiftKey ? 1 : -1); }
+  else if (e.ctrlKey && e.key.toLowerCase() === 'y') { e.preventDefault(); stepHistory(1); }
+});
+window.addEventListener('pagehide', saveDraft);
+document.addEventListener('visibilitychange', () => { if (document.hidden) saveDraft(); });
+
 // what a visitor would download for each: the static SVG alone; or the animated SVG, GSAP and
 // the animation script (the page itself also loads the font parser and the fonts, for the menu;
 // a site showing the lettering would not)
@@ -1720,7 +1809,7 @@ const refreshCode = () => { if (code) code.textContent = `animateLettering(root,
 function fillExport() {
   const file = el('input', { type: 'file', accept: '.json,application/json', hidden: true });
   file.addEventListener('change', async () => {
-    try { restore(JSON.parse(await file.files[0].text())); say(''); }
+    try { restore(JSON.parse(await file.files[0].text())); commitEdit(); say(''); }
     catch (e) { say(`Could not load ${file.files[0].name}: ${e.message}`); }
     file.value = '';
   });
@@ -1747,11 +1836,27 @@ function fillExport() {
 // ---------- the tabs ----------
 // a drawer at the bottom: a row of tabs with the open tab's panel beneath them, sliding up to
 // open and down to close (choosing the open tab again closes it; another tab slides to its
-// panel's height). The first seven show the static SVG on the stage, the rest the animated copy;
+// panel's height). Preview mode is controlled separately;
 // the stage takes whatever room the panel leaves. Which tab was open is remembered in this browser
 const TABS = [['font', 'Font'], ['style', 'Style'], ['detail', 'Detail'], ['letter', 'Letter'], ['colour', 'Color'],
   ['3d', '3D'], ['finish', 'Finish'], ['animation', 'Animation'], ['save', 'Save'], ['export', 'Export']];
-const STILL_TABS = ['font', 'style', 'detail', 'letter', 'colour', '3d', 'finish'];
+// Preview is independent of the settings drawer and remembered separately from the design.
+let previewMode = 'still';
+try { if (localStorage.getItem('atypix-preview') === 'animate') previewMode = 'animate'; } catch {}
+function setPreview(mode) {
+  previewMode = mode;
+  const animated = mode === 'animate';
+  document.getElementById('still').hidden = animated;
+  document.getElementById('moving').hidden = !animated;
+  document.getElementById('preview-still').setAttribute('aria-pressed', !animated);
+  document.getElementById('preview-animate').setAttribute('aria-pressed', animated);
+  measuring++;  // stop the previous playback's performance readout
+  document.getElementById('fps').textContent = '';
+  play();       // also kills and clears a playback when returning to Still
+  try { localStorage.setItem('atypix-preview', mode); } catch {}
+}
+document.getElementById('preview-still').addEventListener('click', () => setPreview('still'));
+document.getElementById('preview-animate').addEventListener('click', () => setPreview('animate'));
 const TAB_KEY = 'atypix-tab';
 let tab = 'font', open = true;
 const tabs = document.getElementById('tabs'), panels = document.getElementById('panels');
@@ -1809,10 +1914,7 @@ function showTab(name, again = false, slide = true) {
   panels.classList.toggle('shut', !open);
   centreTab(slide);
   mark();                                   // the chosen letter's outline shows on the Letter tab only
-  const animated = !STILL_TABS.includes(tab), shown = !document.getElementById('moving').hidden;
-  document.getElementById('still').hidden = animated;
-  document.getElementById('moving').hidden = !animated;
-  if (animated && !shown) play();
+  // Changing tabs leaves the user's preview mode and playback alone.
   try { localStorage.setItem(TAB_KEY, JSON.stringify({ tab, open })); } catch {}
 }
 
@@ -1825,7 +1927,22 @@ try {
   if (TABS.some(([n]) => n === last?.tab)) { tab = last.tab; open = last.open !== false; }
 } catch {}
 showTab(tab, false, false);
-draw();
+setPreview(previewMode);
+const initialDesign = snapshot();
+let recovered = false;
+try {
+  const draft = localStorage.getItem(DRAFT_KEY);
+  if (draft) { restore(JSON.parse(draft)); recovered = true; }
+} catch {
+  // Restore can reject an invalid draft; keep the normal starting design usable.
+  restore(initialDesign);
+  draftStatus.textContent = 'Saved draft could not be restored';
+}
+history = [JSON.stringify(snapshot())];
+historyIndex = 0;
+historyButtons();
+if (recovered) draftStatus.textContent = 'Draft restored from this browser';
+if (!recovered) draw();
 </script>
 </body>
 </html>
