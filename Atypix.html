@@ -538,7 +538,7 @@ const PAL_DEFAULTS = { ...PAL };
 // palettes to start from, each setting every colour (the colour tab's menu)
 const PALETTES = {
   'Tangerine': PAL_DEFAULTS,
-  'Candy': { face: '#ffd052', face2: '#f5bb35', light: '#fff0a2', side: '#c32b73', under: '#122e40', dots: '#f181af', stripes: '#fff0a2', drop: '#102b3c', outline: '#9c225b' },
+  'Candy': { face: '#ffd052', face2: '#f5bb35', light: '#ffda99', side: '#c32b73', under: '#122e40', dots: '#ffda99', stripes: '#ffda99', drop: '#102b3c', outline: '#9c225b' },
   'Sea glass': { face: '#8ccbb5', face2: '#5eaf9c', light: '#fff5da', side: '#21746c', under: '#163b47', dots: '#ed8b79', stripes: '#fff5da', drop: '#163b47', outline: '#21746c' },
   'Cobalt club': { face: '#446cf2', face2: '#2450cd', light: '#fff3d1', side: '#f5a83b', under: '#17264f', dots: '#f9cb61', stripes: '#fff3d1', drop: '#17264f', outline: '#f5a83b' },
   'Cherry cola': { face: '#d85770', face2: '#a6314e', light: '#ffe8cd', side: '#742c41', under: '#2b2038', dots: '#f8bb81', stripes: '#ffe8cd', drop: '#2b2038', outline: '#742c41' },
@@ -550,6 +550,7 @@ const PALETTES = {
 // plain (the block and the face, with no decoration); or flat (the face alone in the extrusion
 // colour, with no block)
 const STYLES = ['inline', 'light', 'dots', 'risograph', 'stripes', 'stars', 'teardrops', 'rope', 'outline', 'plain', 'flat'];
+const styleLabel = style => ({ light: 'fill', flat: 'none' }[style] || style);
 const CYCLE = ['inline', 'light', 'dots'];   // the cycle a new line's letters take
 const SIZE = 300;                          // the reference font size, in SVG units
 const EX_BASE = [0.085 * SIZE, 0.072 * SIZE];   // the block's reach, right and down
@@ -1366,7 +1367,7 @@ async function draw() {
 
 // ---------- the settings ----------
 // the block's length and direction, the shadow's direction and the hatching (3D); the grain, the
-// wobble, a drop shadow and an outline (Finish); the colours (Color); and the face styles' measures
+// wobble and drop shadow (Finish); outline and face styles (Style); colors (Color); and measures
 // (Detail). A change writes both copies out again from the letters already worked out (fast: no
 // glyph is worked out again); letting go of a slider, or picking a colour, also replays the
 // animation. Rows: label, hover text, target, key, min, max, step, unit
@@ -1377,7 +1378,7 @@ const look = { ...LOOK_DEFAULTS };
 const COLOURS = [
   ['face', 'the front of each letter (the top, with a gradient)', 'face'],
   ['face bottom', 'the bottom of the face: a gradient from the face colour (the same colour: none)', 'face2'],
-  ['outline', 'the line round each letter (its width is in Finish)', 'outline'],
+  ['outline', 'the line round each letter (its width is in Style)', 'outline'],
   ['decoration', 'the inline, the light middle and the open outline’s inside', 'light'],
   ['stripes', 'the stripes', 'stripes'],
   ['dots', 'the dots, stars, teardrops and rope', 'dots'],
@@ -1401,9 +1402,8 @@ const FINISH = [
     ['distance', 'how far the drop shadow falls from the lettering (0: none)', look, 'dropDistance', 0, 80, 1, ''],
     ['direction', 'which way it falls (0: right, 90: down)', look, 'dropDirection', 0, 359, 1, '°'],
     ['softness', 'how blurred its edge is', look, 'dropSoftness', 0, 30, 0.5, ''],
-    ['opacity', 'how strong it is (1: solid, 0: none)', look, 'dropOpacity', 0, 1, 0.05, '']]],
-  ['Outline', [
-    ['width', 'the line round each letter (0: none; its colour is in Color)', look, 'outline', 0, 12, 0.5, '']]]];
+    ['opacity', 'how strong it is (1: solid, 0: none)', look, 'dropOpacity', 0, 1, 0.05, '']]]];
+
 // each style's measures, shown only while some letter has one of the styles that use them
 const DETAIL = [
   ['Decoration spacing', STYLES.filter(s => s !== 'flat' && s !== 'plain'), [
@@ -1571,7 +1571,7 @@ function colorEditor(read, write, after) {
     el('p', { className: 'note', textContent: 'Select a color row to copy or paste. Copy to all applies that color slot to every letter.' })];
 }
 function applyStylePreset(name) {
-  const riso = name === 'RISO', marquee = name === 'MARQUEE';
+  const riso = name === 'RISO', marquee = name === 'MARQUEE', candy = name === 'Candy pop';
   design.colourMode = riso ? 'risograph' : 'solid';
   if (!riso) Object.assign(PAL, PALETTES[name === 'Candy pop' ? 'Candy' : name === 'Monochrome' ? 'Monochrome' : 'Tangerine']);
   if (marquee) {
@@ -1580,8 +1580,12 @@ function applyStylePreset(name) {
     Object.assign(look, { length: .45, direction: 40, shadow: 90, hatching: 1, hatchAngle: 30, texture: 1, grainPreset: 'Speck', wobble: 0, wobbleFrequency: .008, wobbleJitter: 0, outline: 3, dropDistance: 0 });
     Object.assign(FACE, { inset: FACE_DEFAULTS.inset, dotR: .02, dotStep: .07 });
   }
+  if (candy) {
+    Object.assign(look, LOOK_DEFAULTS, { texture: .85 });
+    Object.assign(FACE, { inset: FACE_DEFAULTS.inset, starR: .026, starStep: .085, starPoints: 5 });
+  }
   design.lines.forEach((ln, i) => {
-    ln.styles = i ? ['flat'] : marquee ? ['dots'] : riso ? ['risograph'] : name === 'Monochrome' ? ['plain'] : name === 'Candy pop' ? ['inline', 'dots', 'light'] : [...CYCLE];
+    ln.styles = i ? ['flat'] : marquee ? ['dots'] : riso ? ['risograph'] : name === 'Monochrome' ? ['plain'] : candy ? ['stars'] : [...CYCLE];
     ln.letters.forEach(v => { if (v) { v.style = ''; delete v.colours; delete v.outline; } });
   });
   if (riso) Object.assign(FACE, { risoR: FACE_DEFAULTS.risoR, risoStep: FACE_DEFAULTS.risoStep, risoOpacity: 1 });
@@ -1593,7 +1597,7 @@ function applyStylePreset(name) {
 function fillStyles() {
   const p = panel('style');
   const presets = box('Style presets', el('div', { className: 'buttons' }, ...['Handletter', 'RISO', 'MARQUEE', 'Candy pop', 'Monochrome'].map(name => button(name, () => applyStylePreset(name)))),
-    el('p', { className: 'note', textContent: 'Changes styles and colors, clearing letter face/color/outline overrides. MARQUEE also sets depth and finish. Keeps your words, fonts and letter placement. Undo restores the previous design.' }));
+    el('p', { className: 'note', textContent: 'Changes styles and colors, clearing letter face/color/outline overrides. MARQUEE and Candy pop also set depth and finish. Keeps your words, fonts and letter placement. Undo restores the previous design.' }));
   presets.classList.add('style-presets');
   p.replaceChildren(presets);
   design.lines.forEach((ln, li) => {
@@ -1601,7 +1605,7 @@ function fillStyles() {
     const fillCycle = () => {
       const changed = () => { rebuild(); fillLetter(); settled(); };
       styles.replaceChildren(...ln.styles.map((s, k) => {
-        const step = menu(STYLES.map(v => [v, v]), s);
+        const step = menu(STYLES.map(v => [v, styleLabel(v)]), s);
         step.addEventListener('change', () => { ln.styles[k] = step.value; changed(); });
         const out = button('×', () => { ln.styles.splice(k, 1); fillCycle(); changed(); },
           { title: 'take this step out of the cycle', disabled: ln.styles.length < 2 });
@@ -1612,9 +1616,12 @@ function fillStyles() {
     };
     fillCycle();
     p.append(box(`Line ${li + 1}: ${ln.text.trim() || '(no words)'}`,
-      el('div', { className: 'styles', title: 'the face styles its letters take in turn (a letter given its own face skips it; flat: no block)' },
+      el('div', { className: 'styles', title: 'the face styles its letters take in turn (a letter given its own face skips it; none: no block)' },
         el('span', { textContent: 'styles' }), styles)));
   });
+  p.append(box('Outline',
+    el('p', { className: 'note', textContent: 'Default outline for all letters. Override its width and color on the Letter tab.' }),
+    field('width', 'outline width for all letters unless overridden (0: none)', ...slider(look, 'outline', 0, 12, 0.5, ''))));
 }
 // Detail: the measures of the styles in use, written again only when that set changes (so a
 // slider being dragged there is never replaced under the pointer)
@@ -1626,7 +1633,7 @@ function fillDetail(force = false) {
   if (key === detailKey && !force) return;
   detailKey = key;
   panel('detail').replaceChildren(...(groups.length ? groups.map(([title, , rows]) => box(title, ...rowsOf(rows)))
-    : [el('p', { className: 'note', textContent: 'No letter has a style with measures (flat letters have none).' })]));
+    : [el('p', { className: 'note', textContent: 'No letter has a style with measures (the none style has no decoration).' })]));
 }
 // Letter: the chosen letter's own size, turn, move and face style (a turn about its middle; its
 // block is still made after, so it runs the design's way)
@@ -1643,14 +1650,14 @@ function fillLetter() {
   const ln = design.lines[chosen[0]];
   const v = ln.letters[chosen[1]] = { ...NO_CHANGE, ...ln.letters[chosen[1]] };
   const cycle = parts.find(L => L.it.line === chosen[0] && L.it.index === chosen[1]);
-  const style = menu([['', `the line’s${cycle && !v.style ? ` (${cycle.it.style})` : ''}`], ...STYLES.map(s => [s, s])], v.style);
+  const style = menu([['', `the line’s${cycle && !v.style ? ` (${styleLabel(cycle.it.style)})` : ''}`], ...STYLES.map(s => [s, styleLabel(s)])], v.style);
   style.addEventListener('change', () => { v.style = style.value; rebuild(); settled(); });
   set.append(
     field('size', 'a scale on the line’s size', ...slider(v, 'scale', 0.2, 3, 0.01, '×')),
     field('turn', 'about the letter’s middle, in degrees', ...slider(v, 'rot', -180, 180, 0.5, '°')),
     field('left/right', 'in SVG units', ...slider(v, 'dx', -300, 300, 1, '')),
     field('up/down', 'in SVG units', ...slider(v, 'dy', -300, 300, 1, '')),
-    field('face', 'its face style (flat: no block)', style),
+    field('face', 'its face style (none: no block)', style),
     el('div', { className: 'buttons' }, button('Reset letter', () => { delete v.outline; delete v.colours; Object.assign(v, NO_CHANGE); fillLetter(); rebuild(); settled(); })));
   const inheritOutline = el('input', { type: 'checkbox', checked: !Number.isFinite(v.outline) });
   const outlineWidth = el('input', { type: 'range', min: 0, max: 12, step: 0.5, value: letterOutline(v) });
@@ -1664,8 +1671,8 @@ function fillLetter() {
     outlineWidth.value = letterOutline(v); outlineValue.textContent = outlineWidth.value; rebuild(); settled();
   });
   panel('letter').append(box('Letter outline',
-    el('p', { className: 'note', textContent: 'Finish sets the outline for all letters. Override its width here; 0 removes it. Set its color in Letter colors.' }),
-    field('use global', 'inherit the outline width from Finish', inheritOutline),
+    el('p', { className: 'note', textContent: 'Style sets the outline for all letters. Override its width here; 0 removes it. Set its color in Letter colors.' }),
+    field('use global', 'inherit the outline width from Style', inheritOutline),
     field('width', 'outline width for this letter only', outlineWidth, outlineValue)));
   const colors = el('fieldset', { className: 'colours' }, el('legend', { textContent: 'Letter colors' }),
     el('p', { className: 'note', textContent: 'Changes apply to this letter only. Unchanged colors follow the Color tab’s palette.' }),
