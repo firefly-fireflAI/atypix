@@ -1530,6 +1530,7 @@ function fillFont() {
 }
 // Color tools use HEX as the editable representation. Native swatches remain available.
 let copiedColor = null;
+let copiedSwatches = null;
 function parseHex(text) {
   const value = String(text).trim().replace(/^#/, '');
   if (/^[0-9a-f]{3}$/i.test(value)) return '#' + [...value].map(c => c + c).join('').toLowerCase();
@@ -1582,10 +1583,24 @@ function colorEditor(read, write, after) {
     if (!color) { message.textContent = 'Copy a HEX color first, then select a color row and paste.'; return; }
     write(selected, color); refresh(); after(); commitEdit(); message.textContent = `Pasted ${color}`;
   });
-  const all = button('Copy to all', () => { const colors = Object.fromEntries(COLOURS.map(([, , key]) => [key, read(key)])); colorToAll(colors); refresh(); after(); message.textContent = 'Copied all color settings to every letter'; });
+  const all = button('Copy to All Letters', () => { const colors = Object.fromEntries(COLOURS.map(([, , key]) => [key, read(key)])); colorToAll(colors); refresh(); after(); message.textContent = 'Copied all color settings to every letter'; });
+  const allSwatches = button('Copy to All Swatches', () => {
+    const color = read(selected);
+    for (const [, , key] of COLOURS) write(key, color);
+    refresh(); after(); message.textContent = `Applied ${color} to every swatch`;
+  });
+  const copySwatches = button('Copy Swatches', () => {
+    copiedSwatches = Object.fromEntries(COLOURS.map(([, , key]) => [key, read(key)]));
+    message.textContent = 'Swatches copied. Select another letter, then Paste Swatches.';
+  });
+  const pasteSwatches = button('Paste Swatches', () => {
+    if (!copiedSwatches) { message.textContent = 'Copy Swatches from a letter first.'; return; }
+    for (const [, , key] of COLOURS) write(key, copiedSwatches[key]);
+    refresh(); after(); message.textContent = 'Pasted the complete swatch set';
+  });
   select(selected);
-  return [grid, el('div', { className: 'color-actions' }, copy, paste, all, message),
-    el('p', { className: 'note', textContent: 'Select a color row to copy or paste one color. Copy to all applies this complete color set to every letter.' })];
+  return [grid, el('div', { className: 'color-actions' }, copy, paste, allSwatches, copySwatches, pasteSwatches, all, message),
+    el('p', { className: 'note', textContent: 'Select a swatch to copy or paste one color. Copy to All Swatches fills this set with the selected color. Copy/Paste Swatches transfers the complete set within Atypix. Copy to All Letters applies this set to every letter.' })];
 }
 // Style presets can choose an animation independently of the current preview mode.
 const STYLE_ANIMATIONS = {
