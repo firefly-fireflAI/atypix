@@ -196,6 +196,14 @@
     #toggle-controls { border: 0; border-radius: 8px; padding: 10px; background: #3e5269; color: white; font: 700 11px/1 Lato,ui-sans-serif,system-ui,sans-serif; text-transform: uppercase; cursor: pointer; margin-bottom: 4px; }
     #panel-scroll-hint:not([hidden]) { display: block; background: #3e5269; color: white; font-size: 11px; text-align: center; padding: 4px; }
   }
+  .performance { display: inline-flex; align-items: center; gap: 7px; font-size: 11px; }
+  .performance[hidden] { display: none; }
+  .performance-label { font: 700 10px/1 Lato, ui-sans-serif, system-ui, sans-serif; text-transform: uppercase; letter-spacing: .04em; }
+  .performance-track { display: inline-block; width: 58px; height: 6px; border-radius: 4px; background: #3e526933; overflow: hidden; }
+  #performance-fill { display: block; height: 100%; width: 0; background: #287f64; transition: width .25s; }
+  .performance[data-level=low] #performance-fill { background: #bd352d; }
+  .performance[data-level=unavailable] #performance-fill { width: 0 !important; background: #3e5269; }
+  .performance[data-level=measuring] #performance-fill { width: 30%; background: #3e5269; }
 </style>
 <!-- the tabs' lettering (the page's own; nothing exported uses it) -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@700&display=swap">
@@ -216,7 +224,11 @@
 <main id="stage">
   <figure id="still"><div class="art"></div></figure>
   <figure id="moving" hidden><div class="art"></div><figcaption><button id="replay" type="button">Replay</button>
-    <span id="fps"></span></figcaption></figure>
+    <span id="fps" class="performance" role="status" aria-live="polite" hidden>
+      <span class="performance-label">Performance</span>
+      <span id="performance-meter" class="performance-track" role="meter" aria-label="Playback performance" aria-valuemin="0" aria-valuemax="60"><span id="performance-fill"></span></span>
+      <span id="performance-summary"></span>
+    </span></figcaption></figure>
 </main>
 <nav id="dock" aria-label="Settings">
   <div id="workspace-tools">
@@ -512,10 +524,11 @@ const PAL_DEFAULTS = { ...PAL };
 // palettes to start from, each setting every colour (the colour tab's menu)
 const PALETTES = {
   'Tangerine': PAL_DEFAULTS,
-  'Midnight bloom': { face: '#aa8bfa', face2: '#8053c7', light: '#f7e8ff', side: '#512771', under: '#201c47', dots: '#ffc45d', stripes: '#f7e8ff', drop: '#201c47', outline: '#512771' },
+  'Midnight bloom': { face: '#ffd052', face2: '#f5bb35', light: '#fff0a2', side: '#c32b73', under: '#122e40', dots: '#f181af', stripes: '#fff0a2', drop: '#102b3c', outline: '#9c225b' },
   'Sea glass': { face: '#8ccbb5', face2: '#5eaf9c', light: '#fff5da', side: '#21746c', under: '#163b47', dots: '#ed8b79', stripes: '#fff5da', drop: '#163b47', outline: '#21746c' },
   'Cobalt club': { face: '#446cf2', face2: '#2450cd', light: '#fff3d1', side: '#f5a83b', under: '#17264f', dots: '#f9cb61', stripes: '#fff3d1', drop: '#17264f', outline: '#f5a83b' },
   'Cherry cola': { face: '#d85770', face2: '#a6314e', light: '#ffe8cd', side: '#742c41', under: '#2b2038', dots: '#f8bb81', stripes: '#ffe8cd', drop: '#2b2038', outline: '#742c41' },
+  'Monochrome': { face: '#eeeeee', face2: '#cccccc', light: '#ffffff', side: '#737373', under: '#242424', dots: '#333333', stripes: '#ffffff', drop: '#161616', outline: '#444444' },
   'Paper & ink': { face: '#f2ead6', face2: '#e1d4b7', light: '#262b35', side: '#6e7b80', under: '#20272f', dots: '#d85738', stripes: '#262b35', drop: '#20272f', outline: '#6e7b80' },
 };
 // the faces' styles: an inline; a light middle; dots, stars or teardrops down the middle of each
@@ -568,6 +581,7 @@ const newLine = (text = 'WORDS', more = {}) => ({ text, font: 'Anton', size: SIZ
 const design = {
   lines: [newLine('ATYPIX'), newLine('TYPE', { font: 'Fjalla One', size: 150, track: 0.12, styles: ['flat'] })],
   spacing: 26,
+  colourMode: 'solid',
 };
 const NO_CHANGE = { scale: 1, rot: 0, dx: 0, dy: 0, style: '' };   // a letter as its line places it
 const words = () => design.lines.map(l => l.text.trim()).filter(Boolean).join(' ');
@@ -880,10 +894,38 @@ function seeded(seed) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
+const RAINBOW = ['#ed5d65', '#f59a45', '#f4ca4f', '#61b28b', '#4caec6', '#6c83db', '#a376bf'];
+function letterColours(it) {
+  let base = PAL;
+  if (design.colourMode === 'rainbow') {
+    const before = design.lines.slice(0, it.line).reduce((n, ln) => n + [...ln.text].filter(c => c.trim()).length, 0);
+    const index = before + [...design.lines[it.line].text].slice(0, it.index).filter(c => c.trim()).length;
+    const face = RAINBOW[index % RAINBOW.length];
+    base = { ...PAL, face, face2: face, light: '#fff4dc', stripes: '#fff4dc', dots: '#fff4dc',
+      side: mix(face, '#20263e', .28), under: mix(face, '#20263e', .65), outline: mix(face, '#20263e', .28) };
+  }
+  return { ...base, ...it.colours };
+}
+// Reuse patterns/gradients for letters with the same colors; custom colors get their own IDs.
+function letterPaints(id) {
+  const contexts = new Map();
+  return {
+    forLetter(L) {
+      const palette = letterColours(L.it), key = JSON.stringify(palette);
+      if (!contexts.has(key)) contexts.set(key, wallFills(contexts.size ? `${id}-color${contexts.size}` : id, palette));
+      return contexts.get(key).fills;
+    },
+    defs() { return [...contexts.values()].map(c => c.defs + [...c.fills.shared.values()].join('')).join(''); },
+  };
+}
+function cleanLetterColours(value) {
+  return Object.fromEntries(Object.keys(PAL).filter(k => /^#[0-9a-f]{6}$/i.test(value?.[k])).map(k => [k, value[k]]));
+}
+
 // the walls' fills: a plain colour where they face right, and where they face down a pattern of
 // that colour with short scratches over it, in the side colour (the canvas version's hatching, as
 // strong as HATCH.amount, slanting HATCH.angle degrees up)
-function wallFills(id) {
+function wallFills(id, pal = PAL) {
   const random = seeded(7), tile = 44;
   const turn = -(HATCH.angle - 30) * Math.PI / 180, c = Math.cos(turn), s = Math.sin(turn);
   const hx = 0.85 * c + 0.5 * s, hy = 0.85 * s - 0.5 * c;   // (0.85, -0.5) turned: 30° up as drawn
@@ -894,16 +936,16 @@ function wallFills(id) {
   const thin = strokes(7), thick = strokes(4);
   const fills = [], defs = [];
   for (let k = 0; k < SHADES; k++) {
-    const t = k / (SHADES - 1), color = mix(PAL.side, PAL.under, t);
+    const t = k / (SHADES - 1), color = mix(pal.side, pal.under, t);
     if (t < 0.5) { fills.push({ fill: color, color }); continue; }
     defs.push(`<pattern id="${id}-h${k}" patternUnits="userSpaceOnUse" width="${tile}" height="${tile}">`
       + `<rect width="${tile}" height="${tile}" fill="${color}"/>`
-      + `<g fill="none" stroke="${PAL.side}" stroke-linecap="round" opacity="${Math.min(1, r1(t * 0.9 * HATCH.amount))}">`
+      + `<g fill="none" stroke="${pal.side}" stroke-linecap="round" opacity="${Math.min(1, r1(t * 0.9 * HATCH.amount))}">`
       + `<path stroke-width=".8" d="${thin}"/><path stroke-width="1.8" opacity=".6" d="${thick}"/></g></pattern>`);
     fills.push({ fill: `url(#${id}-h${k})`, color });
   }
   // (and the place for the defs the letters share: see `shared`)
-  return { fills: Object.assign(fills, { id, shared: new Map() }), defs: defs.join('') };
+  return { fills: Object.assign(fills, { id, palette: pal, shared: new Map() }), defs: defs.join('') };
 }
 
 // one glyph, worked out once for its font, character and size, at the origin: its outline, its
@@ -1011,6 +1053,7 @@ function simplify(pts, eps) {
 // shows whole
 function letterSvg(L, id, n, fills, masks) {
   const { it, d } = L;
+  const pal = fills.palette;
   const walls = it.flat ? [] : wallsOf(L);
   if (masks) {
     const xs = L.rings.flat().map(p => p[0]), ys = L.rings.flat().map(p => p[1]), m = L.pen.width;
@@ -1021,9 +1064,9 @@ function letterSvg(L, id, n, fills, masks) {
     const uses = L.pen.lines.map((_, i) => `<use class="pen" href="#${id}-p${n}-${i}"/>`).join('');
     const pen = `<g fill="none" stroke="#fff" stroke-width="${r1(L.pen.width)}" stroke-linecap="round" stroke-linejoin="round">${uses}</g>`;
     if (!it.flat) masks.push(`<mask id="${id}-d${n}" ${box}>${pen}</mask>`);
-    if (!it.flat && PAL.face2 !== PAL.face)
+    if (!it.flat && pal.face2 !== pal.face)
       masks.push(`<linearGradient id="${id}-g${n}" gradientUnits="userSpaceOnUse" x1="0" y1="${r1(Math.min(...ys))}" x2="0" y2="${r1(Math.max(...ys))}">`
-        + `<stop offset="0" stop-color="${PAL.face}"/><stop offset="1" stop-color="${PAL.face2}"/></linearGradient>`);
+        + `<stop offset="0" stop-color="${pal.face}"/><stop offset="1" stop-color="${pal.face2}"/></linearGradient>`);
   }
   const tie = kind => masks ? ` data-mask="${id}-${kind}${n}"` : '';
   // in the animated copy the face is drawn by the pen itself: its strokes, in the face's colour,
@@ -1038,9 +1081,9 @@ function letterSvg(L, id, n, fills, masks) {
       + `<path class="whole" fill="${color}" opacity="0.0015" d="${d}"/></g>`
     : `<g class="face"><path fill="${color}" d="${d}"/></g>`;
   // the line round the face, if any (in the finished letter only: it comes in with the finish)
-  const ring = OUTLINE && !masks ? `<path fill="none" stroke="${PAL.outline}" stroke-width="${r1(OUTLINE)}" stroke-linejoin="round" d="${d}"/>` : '';
-  if (it.flat) return `<g class="letter flat">${faceOf(PAL.side)}${ring}</g>`;
-  let svg = `<g class="letter"><g class="block"><path fill="${PAL.under}" transform="translate(${r1(EX[0])} ${r1(EX[1])})" d="${d}"/>`;
+  const ring = OUTLINE && !masks ? `<path fill="none" stroke="${pal.outline}" stroke-width="${r1(OUTLINE)}" stroke-linejoin="round" d="${d}"/>` : '';
+  if (it.flat) return `<g class="letter flat">${faceOf(pal.side)}${ring}</g>`;
+  let svg = `<g class="letter"><g class="block"><path fill="${pal.under}" transform="translate(${r1(EX[0])} ${r1(EX[1])})" d="${d}"/>`;
   for (let i = 0; i < walls.length;) {
     let j = i, run = '';
     while (j < walls.length && walls[j].k === walls[i].k) run += walls[j++].d();
@@ -1051,27 +1094,27 @@ function letterSvg(L, id, n, fills, masks) {
   const clip = `${id}-c${n}`, inset = r1(2 * FACE.inset * it.size), deg = r1(it.rot);
   // the face's colour, or its gradient, top to bottom: one shared by every face (by each one's own
   // box), but while drawing, the letter's own, since the pen's strokes each have a smaller box
-  const face = PAL.face2 === PAL.face ? PAL.face : masks ? `url(#${id}-g${n})` : `url(#${shared(fills, 'grad')})`;
+  const face = pal.face2 === pal.face ? pal.face : masks ? `url(#${id}-g${n})` : `url(#${shared(fills, 'grad')})`;
   const inside = `<clipPath id="${clip}"><path d="${d}"/></clipPath>`;
   // the face's border, over a decoration filling the face
   const border = `<path clip-path="url(#${clip})" fill="none" stroke-linejoin="miter" stroke="${face}" stroke-width="${inset}" d="${d}"/>`;
   // marks down the strokes: each a shape kept once in the defs, placed (and turned) by a <use>
-  const uses = (shape, turn) => `<g fill="${PAL.dots}">` + L.mark.at.map(([x, y, way]) => {
+  const uses = (shape, turn) => `<g fill="${pal.dots}">` + L.mark.at.map(([x, y, way]) => {
     const t = r1(turn(way));
     return `<use href="#${shape}" transform="translate(${r1(x)} ${r1(y)})${t ? `rotate(${t})` : ''}"/>`;
   }).join('') + '</g>';
   svg += `</g>${faceOf(face)}<g class="deco"${tie('d')}>`;
   if (it.style === 'inline')
     svg += `${inside}<g clip-path="url(#${clip})" fill="none" stroke-linejoin="miter">`
-      + `<path stroke="${PAL.light}" stroke-width="${r1(2 * (FACE.inset + FACE.line) * it.size)}" d="${d}"/>`
+      + `<path stroke="${pal.light}" stroke-width="${r1(2 * (FACE.inset + FACE.line) * it.size)}" d="${d}"/>`
       + `<path stroke="${face}" stroke-width="${inset}" d="${d}"/></g>`;
   else if (it.style === 'light')
-    svg += `${inside}<path fill="${PAL.light}" d="${d}"/>${border}`;
+    svg += `${inside}<path fill="${pal.light}" d="${d}"/>${border}`;
   else if (it.style === 'stripes')
     svg += `${inside}<path fill="url(#${shared(fills, 'stripes', it.size, deg)})" d="${d}"/>${border}`;
   // open: the face in the decoration colour, its edge drawn in the face colour just inside it
   else if (it.style === 'outline')
-    svg += `${inside}<path fill="${PAL.light}" d="${d}"/><path clip-path="url(#${clip})" fill="none" stroke-linejoin="miter" `
+    svg += `${inside}<path fill="${pal.light}" d="${d}"/><path clip-path="url(#${clip})" fill="none" stroke-linejoin="miter" `
       + `stroke="${face}" stroke-width="${r1(2 * FACE.line * it.size)}" d="${d}"/>`;
   else if (it.style === 'stars') svg += uses(shared(fills, 'star', L.mark.r), () => it.rot);
   else if (it.style === 'teardrops') svg += uses(shared(fills, 'drop', L.mark.r), way => way * 180 / Math.PI);
@@ -1090,28 +1133,29 @@ function letterSvg(L, id, n, fills, masks) {
       if (dashes.some(e => crosses(dash, e))) continue;
       dashes.push(dash);
     }
-    svg += `<path fill="none" stroke="${PAL.dots}" stroke-width="${r1(w)}" stroke-linecap="round" d="`
+    svg += `<path fill="none" stroke="${pal.dots}" stroke-width="${r1(w)}" stroke-linecap="round" d="`
       + dashes.map(([[ax, ay], [bx, by]]) => {
         const k = 1 - w / Math.hypot(bx - ax, by - ay) * 2;   // (drawn without that room)
         const mx = (ax + bx) / 2, my = (ay + by) / 2, hx = (bx - ax) / 2 * k, hy = (by - ay) / 2 * k;
         return `M${r1(mx - hx)} ${r1(my - hy)}L${r1(mx + hx)} ${r1(my + hy)}`;
       }).join('') + '"/>';
-  } else if (it.style === 'dots') svg += `<g fill="${PAL.dots}">` + L.mark.at.map(([x, y]) => `<circle cx="${r1(x)}" cy="${r1(y)}" r="${r1(L.mark.r)}"/>`).join('') + '</g>';
+  } else if (it.style === 'dots') svg += `<g fill="${pal.dots}">` + L.mark.at.map(([x, y]) => `<circle cx="${r1(x)}" cy="${r1(y)}" r="${r1(L.mark.r)}"/>`).join('') + '</g>';
   return svg + `</g>${ring}</g>`;
 }
 // a def shared by every letter in one copy (kept in `fills.shared`, written once into its defs):
 // the face's gradient, a stripe pattern, a star or a teardrop. Returns its id
 function shared(fills, kind, ...args) {
+  const pal = fills.palette;
   const id = `${fills.id}-${kind}${args.map(v => '_' + String(r1(v)).replace(/[.-]/g, m => m === '.' ? 'p' : 'm')).join('')}`;
   if (fills.shared.has(id)) return id;
   let def;
   if (kind === 'grad')
-    def = `<linearGradient id="${id}" x2="0" y2="1"><stop offset="0" stop-color="${PAL.face}"/><stop offset="1" stop-color="${PAL.face2}"/></linearGradient>`;
+    def = `<linearGradient id="${id}" x2="0" y2="1"><stop offset="0" stop-color="${pal.face}"/><stop offset="1" stop-color="${pal.face2}"/></linearGradient>`;
   else if (kind === 'stripes') {
     // across the face (0°: level), turned with the letter
     const [size, turn] = args, w = r1(FACE.stripeWidth * size), step = r1(w + FACE.stripeGap * size);
     def = `<pattern id="${id}" patternUnits="userSpaceOnUse" width="${step}" height="${step}" patternTransform="rotate(${r1(FACE.stripeAngle + turn)})">`
-      + `<rect width="${step}" height="${w}" fill="${PAL.stripes}"/></pattern>`;
+      + `<rect width="${step}" height="${w}" fill="${pal.stripes}"/></pattern>`;
   } else if (kind === 'star') {
     // pointing up, its inner corners at two-fifths of its reach
     const [r] = args, k = FACE.starPoints;
@@ -1139,18 +1183,28 @@ const label = () => words().toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCas
 // a page; `animated` adds the pen strokes the draw-in follows. The finish: pale grain over the
 // letters and nowhere else, then everything wobbled by a pixel or two
 function lettering(parts, id) {
-  const { fills, defs } = wallFills(id);
+  const paints = letterPaints(id);
   // every letter's block first, then every face on top, so a block never covers a face, whichever
   // way the blocks run
-  const svgs = parts.map((L, n) => letterSvg(L, id, n, fills, null));
+  const svgs = parts.map((L, n) => letterSvg(L, id, n, paints.forLetter(L), null));
   const blockOf = s => s.includes('<g class="block"') ? s.slice(s.indexOf('<g class="block"'), s.indexOf('<g class="face"')) : '';
   const body = svgs.map(blockOf).join('') + svgs.map(s => s.replace(blockOf(s), '')).join('');
   const box = bounds(parts), { x0, y0, w, h } = box;
   // the drop shadow: the whole lettering again, under it, as its shadow
-  const art = DROP ? `<use href="#${id}-art" filter="url(#${id}-drop)"/><g id="${id}-art" ` : '<g ';
+  const shadowGroups = new Map();
+  parts.forEach((L, n) => { const color = letterColours(L.it).drop; if (!shadowGroups.has(color)) shadowGroups.set(color, []); shadowGroups.get(color).push(L); });
+  const customDrops = DROP && [...shadowGroups.keys()].some(c => c !== PAL.drop);
+  let shadowDefs = '', shadows = '';
+  if (customDrops) [...shadowGroups].forEach(([color, letters], i) => {
+    const key = `${id}-shadow${i}`;
+    shadowDefs += drop(key, box, { drop: color });
+    const silhouettes = letters.map(L => `<g fill="white">${L.it.flat ? '' : `<path d="${L.d}" transform="translate(${r1(EX[0])} ${r1(EX[1])})"/>${wallsOf(L).map(w => `<path d="${w.d()}"/>`).join('')}`}<path d="${L.d}"${OUTLINE ? ` stroke="white" stroke-width="${r1(OUTLINE)}" stroke-linejoin="round"` : ''}/></g>`).join('');
+    shadows += `<g filter="url(#${key}-drop)"><g filter="url(#${id}-finish)">${silhouettes}</g></g>`;
+  });
+  const art = DROP && !customDrops ? `<use href="#${id}-art" filter="url(#${id}-drop)"/><g id="${id}-art" ` : '<g ';
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${x0} ${y0} ${w} ${h}" `
     + `width="${w}" height="${h}" role="img" aria-label="${label()}"><title>${label()}</title>`
-    + `<defs>${finish(id)}${drop(id, box)}${defs}${[...fills.shared.values()].join('')}</defs>${art}filter="url(#${id}-finish)">${body}</g></svg>`;
+    + `<defs>${finish(id)}${drop(id, box)}${paints.defs()}${shadowDefs}</defs>${shadows}${art}filter="url(#${id}-finish)">${body}</g></svg>`;
 }
 // the whole lettering's box, with room for the blocks, the drop shadow and the wobble
 function bounds(parts, pad = 24) {
@@ -1165,8 +1219,8 @@ function bounds(parts, pad = 24) {
 }
 // the drop shadow, if any: what it is given, in the shadow's colour, blurred and moved (over the
 // whole lettering's box, so every layer of the animated copy can use the one filter)
-const drop = (id, { x0, y0, w, h }) => DROP ? `<filter id="${id}-drop" filterUnits="userSpaceOnUse" x="${x0}" y="${y0}" width="${w}" height="${h}">`
-  + `<feFlood flood-color="${PAL.drop}"${DROP.opacity < 1 ? ` flood-opacity="${Math.round(DROP.opacity * 100) / 100}"` : ''}/><feComposite in2="SourceAlpha" operator="in"/>`
+const drop = (id, { x0, y0, w, h }, pal = PAL) => DROP ? `<filter id="${id}-drop" filterUnits="userSpaceOnUse" x="${x0}" y="${y0}" width="${w}" height="${h}">`
+  + `<feFlood flood-color="${pal.drop}"${DROP.opacity < 1 ? ` flood-opacity="${Math.round(DROP.opacity * 100) / 100}"` : ''}/><feComposite in2="SourceAlpha" operator="in"/>`
   + `<feGaussianBlur stdDeviation="${r1(DROP.soft)}"/><feOffset dx="${r1(DROP.dx)}" dy="${r1(DROP.dy)}"/></filter>` : '';
 // the finish: pale grain over the letters and nowhere else, then everything wobbled by a pixel or two
 const finish = id => `<filter id="${id}-finish" x="-5%" y="-5%" width="110%" height="110%">`
@@ -1186,7 +1240,7 @@ const finish = id => `<filter id="${id}-finish" x="-5%" y="-5%" width="110%" hei
 // while it is being drawn. All of them share one coordinate system, so the grain, the wobble and
 // the hatching line up across layers as in the single SVG
 function layered(parts, id) {
-  const { fills, defs } = wallFills(id);
+  const paints = letterPaints(id), shadowDefs = [];
   const { x0, y0, w, h } = bounds(parts);
   const pct = v => r1(v * 1000) / 1000 + '%';
   // an SVG layer showing the box (bx, by, bw, bh) of the lettering, placed where that box is
@@ -1195,7 +1249,9 @@ function layered(parts, id) {
     + `left:${pct((bx - x0) / w * 100)};top:${pct((by - y0) / h * 100)};width:${pct(bw / w * 100)};height:${pct(bh / h * 100)};`
     + `overflow:visible;will-change:transform${extra}" aria-hidden="true">${inner}</svg>`;
   const body = parts.map((L, n) => {
-    const masks = [];
+    const masks = [], fills = paints.forLetter(L);
+    const dropId = DROP && fills.palette.drop !== PAL.drop ? `${id}-ld${n}` : id;
+    if (dropId !== id) shadowDefs.push(drop(dropId, { x0, y0, w, h }, fills.palette));
     const svg = letterSvg(L, id, n, fills, masks);
     const xs = L.rings.flat().map(p => p[0]), ys = L.rings.flat().map(p => p[1]), m = 8;
     const bx = Math.min(...xs) - m, by = Math.min(...ys) - m, bw = Math.max(...xs) - bx + m, bh = Math.max(...ys) - by + m;
@@ -1217,7 +1273,7 @@ function layered(parts, id) {
     if (DROP) {
       const sx = kx + Math.min(0, DROP.dx) - 2 * DROP.soft, sy = ky + Math.min(0, DROP.dy) - 2 * DROP.soft;
       out += layer('shadow', sx, sy, kw + Math.abs(DROP.dx) + 4 * DROP.soft, kh + Math.abs(DROP.dy) + 4 * DROP.soft,
-        `<g filter="url(#${id}-drop)">${L.it.flat ? '' : `<use href="#${id}-k${n}"/>`}<use href="#${id}-f${n}"/></g>`, ';z-index:-1');
+        `<g filter="url(#${dropId}-drop)">${L.it.flat ? '' : `<use href="#${id}-k${n}"/>`}<use href="#${id}-f${n}"/></g>`, ';z-index:-1');
     }
     // the face and its decoration twice: drawn in along the pen, crisp (the grain and wobble
     // filter is costly to redo every frame, so this layer has none), hidden until the animation
@@ -1233,8 +1289,8 @@ function layered(parts, id) {
   }).join('');
   // (a drop shadow's layers sit below the blocks but within the lettering: isolation)
   return `<div class="atypix" role="img" aria-label="${label()}" style="position:relative;${DROP ? 'isolation:isolate;' : ''}aspect-ratio:${w} / ${h}">`
-    + `<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>${finish(id)}${drop(id, { x0, y0, w, h })}${defs}`
-    + `${[...fills.shared.values()].join('')}</defs></svg>`
+    + `<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>${finish(id)}${drop(id, { x0, y0, w, h })}${paints.defs()}${shadowDefs.join('')}`
+    + `</defs></svg>`
     + body + '</div>';
 }
 
@@ -1315,10 +1371,10 @@ const FINISH = [
     ['width', 'the line round each letter (0: none; its colour is in Color)', look, 'outline', 0, 12, 0.5, '']]]];
 // each style's measures, shown only while some letter has one of the styles that use them
 const DETAIL = [
-  ['Border', STYLES.filter(s => s !== 'flat' && s !== 'plain'), [
-    ['inset', 'the border inside each face, as a share of the size', FACE, 'inset', 0, 0.1, 0.001, '']]],
-  ['Inline', ['inline', 'outline'], [
-    ['inline', 'the inline’s width (and the open outline’s edge)', FACE, 'line', 0.002, 0.06, 0.001, '']]],
+  ['Decoration spacing', STYLES.filter(s => s !== 'flat' && s !== 'plain'), [
+    ['edge inset', 'distance between the decoration and the letter’s edge, as a share of its size', FACE, 'inset', 0, 0.1, 0.001, '']]],
+  ['Inner stroke', ['inline', 'outline'], [
+    ['thickness', 'thickness of the inner line (also used by the open outline)', FACE, 'line', 0.002, 0.06, 0.001, '']]],
   ['Dots', ['dots'], [
     ['dot size', 'the dots’ radius', FACE, 'dotR', 0.004, 0.05, 0.001, ''],
     ['dot spacing', 'from one dot to the next', FACE, 'dotStep', 0.02, 0.2, 0.001, '']]],
@@ -1415,8 +1471,8 @@ function fillFont() {
     p.append(set);
   });
   p.append(box('Line layout',
-    el('p', { className: 'note', textContent: 'Line gap controls the space between rows of lettering. Add line creates another row.' }),
-    field('line gap', 'from a line’s blocks (or baseline) to the tops of the next', ...slider(design, 'spacing', -150, 300, 1, '')),
+    el('p', { className: 'note', textContent: 'Leading controls the space between rows of lettering. Add line creates another row.' }),
+    field('leading', 'from a line’s blocks (or baseline) to the tops of the next', ...slider(design, 'spacing', -150, 300, 1, '')),
     el('div', { className: 'buttons' }, button('Add line', () => { design.lines.push(newLine()); buildAll(); draw(); }))));
 }
 // Style: each line's cycle of face styles, a menu for each step, × to take a step out (while there
@@ -1479,25 +1535,40 @@ function fillLetter() {
     field('left/right', 'in SVG units', ...slider(v, 'dx', -300, 300, 1, '')),
     field('up/down', 'in SVG units', ...slider(v, 'dy', -300, 300, 1, '')),
     field('face', 'its face style (flat: no block)', style),
-    el('div', { className: 'buttons' }, button('Reset letter', () => { Object.assign(v, NO_CHANGE); fillLetter(); rebuild(); settled(); })));
+    el('div', { className: 'buttons' }, button('Reset letter', () => { delete v.colours; Object.assign(v, NO_CHANGE); fillLetter(); rebuild(); settled(); })));
+  const effective = letterColours({ ...v, line: chosen[0], index: chosen[1] });
+  const colors = el('fieldset', { className: 'colours' }, el('legend', { textContent: 'Letter colors' }),
+    el('p', { className: 'note', textContent: 'Changes apply to this letter only. Unchanged colors follow the Color tab’s palette.' }));
+  const swatches = el('div', { className: 'two', style: `grid-template-rows: repeat(${Math.ceil(COLOURS.length / 2)}, auto)` });
+  for (const [label, hint, key] of COLOURS) {
+    const pick = el('input', { type: 'color', value: effective[key] });
+    pick.addEventListener('input', () => { v.colours = cleanLetterColours({ ...v.colours, [key]: pick.value }); rebuild(); });
+    pick.addEventListener('change', settled);
+    swatches.append(el('label', { title: hint }, label, pick));
+  }
+  colors.append(swatches, el('div', { className: 'buttons' }, button('Use palette colors', () => {
+    delete v.colours; fillLetter(); rebuild(); settled();
+  })));
+  panel('letter').append(colors);
 }
 // Color: a palette to start from, and every colour, in two columns
-const paletteOf = () => Object.keys(PALETTES).find(n => COLOURS.every(([, , k]) => PALETTES[n][k] === PAL[k])) || '';
+const paletteOf = () => design.colourMode === 'rainbow' ? 'Rainbow letters' : Object.keys(PALETTES).find(n => COLOURS.every(([, , k]) => PALETTES[n][k] === PAL[k])) || '';
 function fillColours() {
-  const palette = menu([...Object.keys(PALETTES).map(n => [n, n]), ['', 'Custom']], paletteOf());
+  const palette = menu([...Object.keys(PALETTES).map(n => [n, n]), ['Rainbow letters', 'Rainbow letters'], ['', 'Custom']], paletteOf());
   palette.addEventListener('change', () => {
     if (!palette.value) return;
-    Object.assign(PAL, PALETTES[palette.value]);
-    fillColours(); rebuild(); settled();
+    design.colourMode = palette.value === 'Rainbow letters' ? 'rainbow' : 'solid';
+    if (design.colourMode === 'solid') Object.assign(PAL, PALETTES[palette.value]);
+    fillColours(); fillLetter(); rebuild(); settled();
   });
   const swatch = ([label, hint, key]) => {
     const pick = el('input', { type: 'color', value: PAL[key] });
-    pick.addEventListener('input', () => { PAL[key] = pick.value; rebuild(); });
-    pick.addEventListener('change', () => { palette.value = paletteOf(); settled(); });
+    pick.addEventListener('input', () => { design.colourMode = 'solid'; PAL[key] = pick.value; palette.value = paletteOf(); rebuild(); });
+    pick.addEventListener('change', () => { palette.value = paletteOf(); fillLetter(); settled(); });
     return el('label', { title: hint }, label, pick);
   };
   panel('colour').replaceChildren(
-    box('Palette', field('palette', 'start from one of these: every colour changes', palette, el('span'))),
+    box('Palette', field('palette', 'the design’s colors; per-letter overrides are kept', palette, el('span')), el('p', { className: 'note', textContent: 'Per-letter color overrides are kept. Use palette colors on the Letter tab to clear an override. Editing a global color replaces Rainbow mode.' })),
     // (down the first column, then the second)
     el('fieldset', { className: 'colours' }, el('legend', { textContent: 'Colors' }),
       el('div', { className: 'two', style: `grid-template-rows: repeat(${Math.ceil(COLOURS.length / 2)}, auto)` }, ...COLOURS.map(swatch))));
@@ -1542,6 +1613,8 @@ still.addEventListener('click', e => {
 // stage, handed to the animation script (off the stage, nothing plays; showing it plays it)
 let timeline = null;
 function play() {
+  measuring++;
+  document.getElementById('fps').hidden = true;
   timeline?.kill();
   timeline = null;
   if (document.getElementById('moving').hidden) return moving.replaceChildren();
@@ -1554,22 +1627,49 @@ function play() {
   const tl = timeline = animateLettering(root, motion);
   tl.eventCallback('onStart', () => { if (timeline === tl) measure(); });
 }
-// how smoothly the last play ran, in this browser: frames a second, and the slowest frame
+// Sample only a visible, uninterrupted playback. This is a practical 60fps target,
+// not a hardware benchmark: red below 50fps or if over 10% of frames take >25ms.
 let measuring = 0;
+function performanceState(summary, level = 'measuring', fps = null, detail = '') {
+  const root = document.getElementById('fps'), meter = document.getElementById('performance-meter');
+  root.hidden = false; root.dataset.level = level; root.title = detail;
+  document.getElementById('performance-summary').textContent = summary;
+  meter.setAttribute('role', fps === null ? 'progressbar' : 'meter');
+  if (fps === null) { meter.removeAttribute('aria-valuenow'); meter.setAttribute('aria-valuetext', summary); }
+  else {
+    meter.setAttribute('aria-valuenow', Math.min(60, fps));
+    meter.setAttribute('aria-valuetext', detail);
+    document.getElementById('performance-fill').style.width = Math.min(100, fps / 60 * 100) + '%';
+  }
+}
+function performanceResult(times) {
+  if (!times.length) return;
+  const fps = Math.round(1000 * times.length / times.reduce((a, b) => a + b, 0));
+  const slow = times.filter(t => t > 25).length, ratio = slow / times.length;
+  const low = fps < 50 || ratio > .1;
+  performanceState(`${low ? 'May stutter' : 'Smooth'} · ${fps} fps`, low ? 'low' : 'good', fps,
+    `Last playback: ${fps} frames per second; ${Math.round(ratio * 100)}% of frames took over 25 ms. Target: at least 50 fps and no more than 10% slow frames. Measured on this device.`);
+}
 function measure() {
-  const run = ++measuring, times = [], length = timeline ? timeline.duration() / timeline.timeScale() : 0;
-  const t0 = performance.now();
-  let last = t0;
+  const run = ++measuring, times = [];
+  const length = timeline ? timeline.duration() / timeline.timeScale() : 0;
+  let start = null, last = null;
+  performanceState('Measuring…');
+  document.getElementById('performance-fill').style.width = '';
   const tick = now => {
     if (run !== measuring) return;
-    times.push(now - last); last = now;
-    if (now - t0 < length * 1000) return requestAnimationFrame(tick);
-    const slow = times.filter(t => t > 25).length, worst = Math.max(...times);
-    document.getElementById('fps').textContent = `Last play, in this browser: ${Math.round(times.length / ((now - t0) / 1000))} frames a second; `
-      + `slowest frame ${Math.round(worst)} ms; ${slow} of ${times.length} frames slower than 25 ms (a smooth frame is 17 ms at 60 a second)`;
+    if (document.hidden) { performanceState('Replay to measure', 'unavailable'); return; }
+    if (start === null) start = now;
+    if (last !== null) times.push(now - last);
+    last = now;
+    if (now - start < length * 1000) return requestAnimationFrame(tick);
+    performanceResult(times);
   };
-  requestAnimationFrame(now => { last = now; requestAnimationFrame(tick); });
+  requestAnimationFrame(tick);
 }
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { measuring++; if (!document.getElementById('fps').hidden) performanceState('Replay to measure', 'unavailable'); }
+});
 
 // ---------- the animation's controls ----------
 // Animation: every setting animateLettering takes, as sliders and menus (times up to 10 s; hover a
@@ -1700,12 +1800,13 @@ function restore(p) {
     if (!FONTS[ln.font]) { unknown.push(ln.font); ln.font = 'Anton'; }
     ln.styles = (Array.isArray(ln.styles) ? ln.styles : []).filter(s => STYLES.includes(s));
     if (!ln.styles.length) ln.styles = [...CYCLE];
-    ln.letters = (Array.isArray(ln.letters) ? ln.letters : []).map(v => v && { ...NO_CHANGE, ...v, style: STYLES.includes(v.style) ? v.style : '' });
+    ln.letters = (Array.isArray(ln.letters) ? ln.letters : []).map(v => v && { ...NO_CHANGE, ...v, style: STYLES.includes(v.style) ? v.style : '', ...(v.colours ? { colours: cleanLetterColours(v.colours) } : {}) });
     // (a preset from before flat was a style: a flat line's letters all flat, as they were)
     if (ln.treatment === 'flat') { ln.styles = ['flat']; ln.letters = ln.letters.map(v => v && { ...v, style: '' }); }
     delete ln.treatment;
     return ln;
   });
+  design.colourMode = p.design.colourMode === 'rainbow' ? 'rainbow' : 'solid';
   design.spacing = Number.isFinite(p.design.spacing) ? p.design.spacing : 26;
   Object.assign(look, LOOK_DEFAULTS, p.look);
   if (!GRAIN_PRESETS[look.grainPreset]) look.grainPreset = 'Original';
@@ -1987,7 +2088,7 @@ function setPreview(mode) {
   document.getElementById('preview-still').setAttribute('aria-pressed', !animated);
   document.getElementById('preview-animate').setAttribute('aria-pressed', animated);
   measuring++;  // stop the previous playback's performance readout
-  document.getElementById('fps').textContent = '';
+  document.getElementById('fps').hidden = true;
   play();       // also kills and clears a playback when returning to Still
   try { localStorage.setItem('atypix-preview', mode); } catch {}
 }
@@ -2041,6 +2142,7 @@ panels.addEventListener('transitionend', e => {
   if (open) panels.style.height = '';
 });
 function showTab(name, again = false, slide = true) {
+  if (name === 'letter' && previewMode !== 'still') setPreview('still');
   if (again && name === tab) open = !open; else { tab = name; open = true; }
   const from = panels.getBoundingClientRect().height;
   for (const [n] of TABS) {
