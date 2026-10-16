@@ -909,9 +909,10 @@ function letterColours(it) {
     if (it.line > 0) base = Object.fromEntries(Object.keys(PAL).map(k => [k, '#111111']));
     else {
       const index = [...design.lines[it.line].text].slice(0, it.index).filter(c => c.trim()).length;
-      const face = index % 2 ? '#00cde2' : '#ff2468', accent = index % 2 ? '#ff2468' : '#00cde2';
-      base = { face, face2: face, light: mix(face, '#ffffff', .3), dots: accent, stripes: accent,
-        side: '#7d2467', under: '#252035', outline: '#7d2467', drop: '#252035' };
+      const side = index % 2 ? '#00cde2' : '#ff2468', accent = index % 2 ? '#ff2468' : '#00cde2';
+      const face = mix(side, '#ffffff', .55);
+      base = { face, face2: face, light: mix(side, '#ffffff', .8), dots: accent, stripes: accent,
+        side, under: '#252035', outline: side, drop: '#252035' };
     }
   }
   return { ...base, ...it.colours };
@@ -1240,7 +1241,7 @@ const drop = (id, { x0, y0, w, h }, pal = PAL) => DROP ? `<filter id="${id}-drop
   + `<feGaussianBlur stdDeviation="${r1(DROP.soft)}"/><feOffset dx="${r1(DROP.dx)}" dy="${r1(DROP.dy)}"/></filter>` : '';
 // the finish: pale grain over the letters and nowhere else, then everything wobbled by a pixel or two
 const finish = id => `<filter id="${id}-finish" x="-5%" y="-5%" width="110%" height="110%">`
-  + `<feTurbulence type="fractalNoise" baseFrequency="${(GRAIN_PRESETS[look.grainPreset] || GRAIN_PRESETS.Original).frequency}" numOctaves="${(GRAIN_PRESETS[look.grainPreset] || GRAIN_PRESETS.Original).octaves}" seed="${(GRAIN_PRESETS[look.grainPreset] || GRAIN_PRESETS.Original).seed}" result="noise"/>`
+  + `<feTurbulence type="fractalNoise" baseFrequency="${(GRAIN_PRESETS[look.grainPreset] || GRAIN_PRESETS.Speck).frequency}" numOctaves="${(GRAIN_PRESETS[look.grainPreset] || GRAIN_PRESETS.Speck).octaves}" seed="${(GRAIN_PRESETS[look.grainPreset] || GRAIN_PRESETS.Speck).seed}" result="noise"/>`
   + `<feColorMatrix in="noise" values="0 0 0 0 1  0 0 0 0 .98  0 0 0 0 .92  ${r1(26 * TEXTURE) / 10} 0 0 0 ${-r1(16.2 * TEXTURE) / 10}" result="specks"/>`
   + `<feComposite in="specks" in2="SourceAlpha" operator="in" result="grain"/>`
   + `<feMerge result="grained"><feMergeNode in="SourceGraphic"/><feMergeNode in="grain"/></feMerge>`
@@ -1352,7 +1353,7 @@ async function draw() {
 // glyph is worked out again); letting go of a slider, or picking a colour, also replays the
 // animation. Rows: label, hover text, target, key, min, max, step, unit
 const LOOK_DEFAULTS = { length: 1, direction: Math.round(Math.atan2(EX_BASE[1], EX_BASE[0]) * 180 / Math.PI), shadow: SHADOW,
-  texture: TEXTURE, grainPreset: 'Original', wobbleFrequency: 0.05, wobbleJitter: 0, hatching: HATCH.amount, hatchAngle: HATCH.angle, wobble: WOBBLE,
+  texture: TEXTURE, grainPreset: 'Speck', wobbleFrequency: 0.05, wobbleJitter: 0, hatching: HATCH.amount, hatchAngle: HATCH.angle, wobble: WOBBLE,
   dropDistance: 0, dropDirection: 45, dropSoftness: 6, dropOpacity: 1, outline: OUTLINE };
 const look = { ...LOOK_DEFAULTS };
 const COLOURS = [
@@ -1595,7 +1596,7 @@ function fillColours() {
 }
 const fillSolid = () => panel('3d').replaceChildren(...sets(SOLID));
 const GRAIN_PRESETS = {
-  'Original': { frequency: 1.1, octaves: 1, seed: 3 },
+  'Speck': { frequency: 1.1, octaves: 1, seed: 3 },
   'Fine dust': { frequency: 1.8, octaves: 2, seed: 7 },
   'Coarse paper': { frequency: 0.35, octaves: 3, seed: 11 },
 };
@@ -1829,7 +1830,8 @@ function restore(p) {
   design.colourMode = ['rainbow', 'risograph'].includes(p.design.colourMode) ? p.design.colourMode : 'solid';
   design.spacing = Number.isFinite(p.design.spacing) ? p.design.spacing : 26;
   Object.assign(look, LOOK_DEFAULTS, p.look);
-  if (!GRAIN_PRESETS[look.grainPreset]) look.grainPreset = 'Original';
+  if (look.grainPreset === 'Original') look.grainPreset = 'Speck';
+  if (!GRAIN_PRESETS[look.grainPreset]) look.grainPreset = 'Speck';
   for (const [key, min, max] of [['wobbleFrequency', 0.008, 0.18], ['wobbleJitter', 0, 1]])
     look[key] = Number.isFinite(look[key]) ? Math.min(max, Math.max(min, look[key])) : LOOK_DEFAULTS[key];
   Object.assign(FACE, FACE_DEFAULTS, p.face);
