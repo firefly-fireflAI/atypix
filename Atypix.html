@@ -524,7 +524,7 @@ const PAL_DEFAULTS = { ...PAL };
 // palettes to start from, each setting every colour (the colour tab's menu)
 const PALETTES = {
   'Tangerine': PAL_DEFAULTS,
-  'Midnight bloom': { face: '#ffd052', face2: '#f5bb35', light: '#fff0a2', side: '#c32b73', under: '#122e40', dots: '#f181af', stripes: '#fff0a2', drop: '#102b3c', outline: '#9c225b' },
+  'Candy': { face: '#ffd052', face2: '#f5bb35', light: '#fff0a2', side: '#c32b73', under: '#122e40', dots: '#f181af', stripes: '#fff0a2', drop: '#102b3c', outline: '#9c225b' },
   'Sea glass': { face: '#8ccbb5', face2: '#5eaf9c', light: '#fff5da', side: '#21746c', under: '#163b47', dots: '#ed8b79', stripes: '#fff5da', drop: '#163b47', outline: '#21746c' },
   'Cobalt club': { face: '#446cf2', face2: '#2450cd', light: '#fff3d1', side: '#f5a83b', under: '#17264f', dots: '#f9cb61', stripes: '#fff3d1', drop: '#17264f', outline: '#f5a83b' },
   'Cherry cola': { face: '#d85770', face2: '#a6314e', light: '#ffe8cd', side: '#742c41', under: '#2b2038', dots: '#f8bb81', stripes: '#ffe8cd', drop: '#2b2038', outline: '#742c41' },
@@ -903,6 +903,15 @@ function letterColours(it) {
     const face = RAINBOW[index % RAINBOW.length];
     base = { ...PAL, face, face2: face, light: '#fff4dc', stripes: '#fff4dc', dots: '#fff4dc',
       side: mix(face, '#20263e', .28), under: mix(face, '#20263e', .65), outline: mix(face, '#20263e', .28) };
+  }
+  if (design.colourMode === 'risograph') {
+    if (it.line > 0) base = Object.fromEntries(Object.keys(PAL).map(k => [k, '#111111']));
+    else {
+      const index = [...design.lines[it.line].text].slice(0, it.index).filter(c => c.trim()).length;
+      const face = index % 2 ? '#00cde2' : '#ff2468', accent = index % 2 ? '#ff2468' : '#00cde2';
+      base = { face, face2: face, light: mix(face, '#ffffff', .3), dots: accent, stripes: accent,
+        side: '#7d2467', under: '#252035', outline: '#7d2467', drop: '#252035' };
+    }
   }
   return { ...base, ...it.colours };
 }
@@ -1552,12 +1561,12 @@ function fillLetter() {
   panel('letter').append(colors);
 }
 // Color: a palette to start from, and every colour, in two columns
-const paletteOf = () => design.colourMode === 'rainbow' ? 'Rainbow letters' : Object.keys(PALETTES).find(n => COLOURS.every(([, , k]) => PALETTES[n][k] === PAL[k])) || '';
+const paletteOf = () => design.colourMode === 'rainbow' ? 'Rainbow' : design.colourMode === 'risograph' ? 'Risograph' : Object.keys(PALETTES).find(n => COLOURS.every(([, , k]) => PALETTES[n][k] === PAL[k])) || '';
 function fillColours() {
-  const palette = menu([...Object.keys(PALETTES).map(n => [n, n]), ['Rainbow letters', 'Rainbow letters'], ['', 'Custom']], paletteOf());
+  const palette = menu([...Object.keys(PALETTES).map(n => [n, n]), ['Rainbow', 'Rainbow'], ['Risograph', 'Risograph'], ['', 'Custom']], paletteOf());
   palette.addEventListener('change', () => {
     if (!palette.value) return;
-    design.colourMode = palette.value === 'Rainbow letters' ? 'rainbow' : 'solid';
+    design.colourMode = palette.value === 'Rainbow' ? 'rainbow' : palette.value === 'Risograph' ? 'risograph' : 'solid';
     if (design.colourMode === 'solid') Object.assign(PAL, PALETTES[palette.value]);
     fillColours(); fillLetter(); rebuild(); settled();
   });
@@ -1568,7 +1577,7 @@ function fillColours() {
     return el('label', { title: hint }, label, pick);
   };
   panel('colour').replaceChildren(
-    box('Palette', field('palette', 'the design’s colors; per-letter overrides are kept', palette, el('span')), el('p', { className: 'note', textContent: 'Per-letter color overrides are kept. Use palette colors on the Letter tab to clear an override. Editing a global color replaces Rainbow mode.' })),
+    box('Palette', field('palette', 'the design’s colors; per-letter overrides are kept', palette, el('span')), el('p', { className: 'note', textContent: 'Per-letter color overrides are kept. Use palette colors on the Letter tab to clear an override. Editing a global color replaces Rainbow or Risograph mode.' })),
     // (down the first column, then the second)
     el('fieldset', { className: 'colours' }, el('legend', { textContent: 'Colors' }),
       el('div', { className: 'two', style: `grid-template-rows: repeat(${Math.ceil(COLOURS.length / 2)}, auto)` }, ...COLOURS.map(swatch))));
@@ -1806,7 +1815,7 @@ function restore(p) {
     delete ln.treatment;
     return ln;
   });
-  design.colourMode = p.design.colourMode === 'rainbow' ? 'rainbow' : 'solid';
+  design.colourMode = ['rainbow', 'risograph'].includes(p.design.colourMode) ? p.design.colourMode : 'solid';
   design.spacing = Number.isFinite(p.design.spacing) ? p.design.spacing : 26;
   Object.assign(look, LOOK_DEFAULTS, p.look);
   if (!GRAIN_PRESETS[look.grainPreset]) look.grainPreset = 'Original';
