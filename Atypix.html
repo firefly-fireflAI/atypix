@@ -213,6 +213,9 @@
   .color-row > span { text-align: left; }
   .color-row.is-active { background: rgba(62,82,105,.12); box-shadow: inset 0 0 0 1px #889ba9; }
   .panel .color-row input[type=color] { height: 28px; }
+  .color-action-row { display:flex; flex-wrap:wrap; align-items:center; gap:8px; width:100%; }
+  .color-action-divider { width:1px; height:24px; background:#9aadb9; margin:0 4px; }
+  @media(max-width:600px) { .color-action-divider { display:none; } }
   .color-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
   .color-feedback { font-size: 11px; color: var(--muted); }
   #tab-style .style-presets { column-span: all; }
@@ -299,6 +302,7 @@ const LETTERING_DEFAULTS = {
                                                          //   (s), and their order: random, leftToRight, rightToLeft, centreOut
   face: { entrance: 'draw', ease: 'out', strength: 0.5, duration: 1 },             // the face coming in: draw, drop, pop or fade
   deco: { entrance: 'draw', ease: 'out', strength: 0.5, duration: 1, delay: 0.3 }, // after the face starts (s)
+  outline: { entrance: 'finish', ease: 'linear', strength: 0.5, duration: 0.3, delay: 0 },
   extrude: { ease: 'elastic', strength: 0.5, duration: 1.1, delay: -0.2 },         // after the face is in (s)
 };
 // an ease by name, at a strength from 0 (gentle) to 1 (strong)
@@ -365,6 +369,7 @@ function animateLettering(root, options = {}) {
   const svg = { getElementById: id => root.querySelector('#' + CSS.escape(id)) };
   const D = LETTERING_DEFAULTS, o = { ...D, ...options };
   const face = { ...D.face, ...options.face }, deco = { ...D.deco, ...options.deco }, ex = { ...D.extrude, ...options.extrude };
+  const outline = { ...D.outline, ...options.outline };
   let seed = o.seed * 7919;
   const random = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
   const tag = Math.random().toString(36).slice(2, 7);
@@ -468,6 +473,18 @@ function animateLettering(root, options = {}) {
     tl.set(drawing, { visibility: 'visible' }, start)
       .fromTo(finished, { opacity: WAITING }, { opacity: 1, duration: 0.3, ease: 'none', immediateRender: true }, drawn)
       .set(drawing, { visibility: 'hidden' }, drawn + 0.3);
+    const ring = letter.querySelector('.letter-outline');
+    if (ring) {
+      const at = Math.max(0, (outline.entrance === 'finish' ? drawn : start) + outline.delay);
+      const ease = letteringEase(outline.ease, outline.strength);
+      if (outline.entrance === 'draw') {
+        const path = ring.querySelector('path'), length = path.getTotalLength();
+        tl.set(path, { attr: { 'stroke-dasharray': `${length} ${length}` } }, 0)
+          .fromTo(path, { attr: { 'stroke-dashoffset': length } },
+            { attr: { 'stroke-dashoffset': 0 }, duration: outline.duration, ease, immediateRender: true }, at)
+          .set(path, { attr: { 'stroke-dasharray': 'none' } }, at + outline.duration);
+      } else wholeIn(ring, outline.entrance === 'finish' ? 'fade' : outline.entrance, at, outline.duration, ease);
+    }
     // a drop shadow, if the letter has one, fades in once the letter has settled
     const shade = letter.querySelector('.shadow');
     const shadeIn = at => shade && tl.fromTo(shade, { opacity: WAITING }, { opacity: 1, duration: 0.3, ease: 'none', immediateRender: true }, at);
@@ -1120,7 +1137,7 @@ function letterSvg(L, id, n, fills, masks) {
     : `<g class="face"><path fill="${color}" d="${d}"/></g>`;
   // the line round the face, if any (in the finished letter only: it comes in with the finish)
   const outlineColor = pal.outline2 === pal.outline ? pal.outline : `url(#${shared(fills, 'outlinegrad')})`;
-  const ring = outline && !masks ? `<path fill="none" stroke="${outlineColor}" stroke-width="${r1(outline)}" stroke-linejoin="round" d="${d}"/>` : '';
+  const ring = outline && !masks ? `<path class="outline-ring" fill="none" stroke="${outlineColor}" stroke-width="${r1(outline)}" stroke-linejoin="round" d="${d}"/>` : '';
   if (it.flat) return `<g class="letter flat">${faceOf(pal.side)}${ring}</g>`;
   let svg = `<g class="letter"><g class="block"><path fill="${pal.under}" transform="translate(${r1(EX[0])} ${r1(EX[1])})" d="${d}"/>`;
   for (let i = 0; i < walls.length;) {
@@ -1329,10 +1346,12 @@ function layered(parts, id) {
     // letter is drawn. That one never changes, so it is painted once. Without the script, only
     // the finished one shows
     const done = letterSvg(L, `${id}f`, n, fills, null);
-    const doneFace = done.slice(done.indexOf('<g class="face"'), done.lastIndexOf('</g>'));
+    const outlineRing = done.match(/<path class="outline-ring"[^>]*\/>/)?.[0] || '';
+    const doneFace = done.slice(done.indexOf('<g class="face"'), done.lastIndexOf('</g>')).replace(outlineRing, '');
     // (faces above every block: z-index 1, the blocks staying at 0)
     out += layer('faces', bx, by, bw, bh, `<defs>${masks.join('')}</defs><g>${face}</g>`, ';visibility:hidden;z-index:1');
     out += layer('finished', bx, by, bw, bh, `<g${tag('f')} filter="url(#${id}-finish)">${doneFace}</g>`, ';z-index:1');
+    if (outlineRing) out += layer('letter-outline', bx, by, bw, bh, outlineRing, ';z-index:2');
     return out + '</div>';
   }).join('');
   // (a drop shadow's layers sit below the blocks but within the lettering: isolation)
@@ -1599,7 +1618,7 @@ function colorEditor(read, write, after) {
     refresh(); after(); message.textContent = 'Pasted the complete swatch set';
   });
   select(selected);
-  return [grid, el('div', { className: 'color-actions' }, copy, paste, allSwatches, copySwatches, pasteSwatches, all, message),
+  return [grid, el('div', { className: 'color-actions' }, el('div', { className: 'color-action-row' }, copy, paste, el('span', { className: 'color-action-divider', 'aria-hidden': 'true' }), copySwatches, pasteSwatches), el('div', { className: 'color-action-row' }, allSwatches, all), message),
     el('p', { className: 'note', textContent: 'Select a swatch to copy or paste one color. Copy to All Swatches fills this set with the selected color. Copy/Paste Swatches transfers the complete set within Atypix. Copy to All Letters applies this set to every letter.' })];
 }
 // Style presets can choose an animation independently of the current preview mode.
@@ -1882,6 +1901,12 @@ const controlRows = () => [
     ['duration', 'how long the decoration takes to come in', motion.deco, 'duration', 0.1, 10, 0.05, 's'],
     ['strength', 'how strong the ease is', motion.deco, 'strength', 0, 1, 0.05, ''],
     ['delay', 'after its face starts drawing', motion.deco, 'delay', 0, 10, 0.05, 's']]],
+  ['Outline', [
+    ['comes in', 'Finish fade keeps the original timing. Other entrances start with each letter, plus the delay.', motion.outline, 'entrance', [['finish', 'finish fade'], ...ENTRANCES]],
+    ['ease', null, motion.outline, 'ease'],
+    ['duration', 'how long the outline takes to appear', motion.outline, 'duration', 0.1, 10, 0.05, 's'],
+    ['strength', 'how strong the ease is', motion.outline, 'strength', 0, 1, 0.05, ''],
+    ['delay', 'after each letter starts; finish fade measures from its finished face', motion.outline, 'delay', 0, 10, 0.05, 's']]],
   ['Extrusion', [
     ['ease', null, motion.extrude, 'ease'],
     ['duration', 'how long it takes to spring out', motion.extrude, 'duration', 0.1, 10, 0.05, 's'],
@@ -2046,6 +2071,7 @@ const CUSTOM_ANIMATION_PRESETS = {
 function animationPreset(name) {
   if (CUSTOM_ANIMATION_PRESETS[name]) {
     const saved = structuredClone(CUSTOM_ANIMATION_PRESETS[name]);
+    saved.outline = structuredClone(LETTERING_DEFAULTS.outline);
     const timings = saved.lines;
     saved.lines = design.lines.map((_, i) => ({ ...(timings[i] || timings[timings.length - 1]),
       start: timings[i]?.start ?? timings[0].start + i * .2 }));
@@ -2061,6 +2087,7 @@ function applyAnimationPreset(name) {
   play();
 }
 function fillControls() {
+  motion.outline ||= structuredClone(LETTERING_DEFAULTS.outline);
   const p = panel('animation');
   p.replaceChildren(box('Animation presets',
     el('div', { className: 'buttons' }, ...['Draw in', 'Paint', 'Pop', 'Drop', 'Soft fade'].map(name =>
