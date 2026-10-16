@@ -561,7 +561,7 @@ for (const palette of Object.values(PALETTES)) palette.outline2 ??= palette.outl
 // plain (the block and the face, with no decoration); or flat (the face alone in the extrusion
 // colour, with no block)
 const STYLES = ['inline', 'light', 'dots', 'risograph', 'stripes', 'stars', 'teardrops', 'rope', 'outline', 'plain', 'flat'];
-const styleLabel = style => ({ light: 'fill', flat: 'none' }[style] || style);
+const styleLabel = style => ({ light: 'fill', flat: 'none', outline: 'Glass' }[style] || style);
 const CYCLE = ['inline', 'light', 'dots'];   // the cycle a new line's letters take
 const SIZE = 300;                          // the reference font size, in SVG units
 const EX_BASE = [0.085 * SIZE, 0.072 * SIZE];   // the block's reach, right and down
@@ -1392,7 +1392,7 @@ const COLOURS = [
   ['face bottom', 'the bottom of the face: a gradient from the face colour (the same colour: none)', 'face2'],
   ['outline top', 'outline color at the top of the letter (width is in Style)', 'outline'],
   ['outline bottom', 'outline color at the bottom; match the top for a solid outline', 'outline2'],
-  ['decoration', 'the inline, the light middle and the open outline’s inside', 'light'],
+  ['decoration', 'the inline, fill and Glass decoration', 'light'],
   ['stripes', 'the stripes', 'stripes'],
   ['dots', 'the dots, stars, teardrops and rope', 'dots'],
   ['extrusion', 'the block, where it faces away from the shadow, and flat letters', 'side'],
@@ -1422,7 +1422,7 @@ const DETAIL = [
   ['Decoration spacing', STYLES.filter(s => s !== 'flat' && s !== 'plain'), [
     ['edge inset', 'distance between the decoration and the letter’s edge, as a share of its size', FACE, 'inset', 0, 0.1, 0.001, '']]],
   ['Inner stroke', ['inline', 'outline'], [
-    ['thickness', 'thickness of the inner line (also used by the open outline)', FACE, 'line', 0.002, 0.06, 0.001, '']]],
+    ['thickness', 'thickness of the inner line (also used by Glass)', FACE, 'line', 0.002, 0.06, 0.001, '']]],
   ['Dots', ['dots'], [
     ['dot size', 'the dots’ radius', FACE, 'dotR', 0.004, 0.05, 0.001, ''],
     ['dot spacing', 'from one dot to the next', FACE, 'dotStep', 0.02, 0.2, 0.001, '']]],
@@ -1587,7 +1587,20 @@ function colorEditor(read, write, after) {
   return [grid, el('div', { className: 'color-actions' }, copy, paste, all, message),
     el('p', { className: 'note', textContent: 'Select a color row to copy or paste one color. Copy to all applies this complete color set to every letter.' })];
 }
+// Style presets can choose an animation independently of the current preview mode.
+const STYLE_ANIMATIONS = {
+  'Handletter': 'Draw in', 'RISO': 'Drop', 'MARQUEE': 'Paint',
+  'Candy pop': 'Pop', 'Monochrome': 'Soft fade', 'Jellybeans': 'Paint',
+};
+// Complete saved example supplied by the user; cloned before each application.
+const JELLYBEANS_PRESET = {"atypix":2,"design":{"lines":[{"text":"ATYPIX","font":"Anton","size":300,"track":-0.012,"align":"centre","styles":["outline"],"letters":[null,{"scale":1,"rot":0,"dx":-6,"dy":0,"style":""},{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"face":"#aec1ef","light":"#ccf0ff","side":"#4767b3","under":"#162850","face2":"#aec1ef","outline":"#4768b3","outline2":"#4768b3"}},{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"face":"#ffcb70","light":"#ffec8f","side":"#fa9e00","under":"#d17f33","face2":"#ffcc70","outline":"#ffab1a","outline2":"#ffcb70"}},{"scale":1,"rot":0,"dx":5,"dy":0,"style":"","colours":{"face":"#ea81ed","side":"#910094","under":"#370038","face2":"#ea81ee","outline":"#900094","outline2":"#900094"}},{"scale":1,"rot":0,"dx":7,"dy":0,"style":""}]},{"text":"TYPE","font":"Fjalla One","size":150,"track":0.12,"align":"centre","styles":["flat"],"letters":[{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"face":"#ffffff","light":"#ffffff","side":"#ffffff","under":"#ffffff","face2":"#ffffff","outline":"#ffffff","outline2":"#ffffff"}},{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"face":"#ffffff","light":"#ffffff","side":"#ffffff","under":"#ffffff","dots":"#ffffff","face2":"#ffffff","stripes":"#ffffff","drop":"#ffffff","outline":"#ffffff","outline2":"#ffffff"}},{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"face":"#ffffff","light":"#ffffff","side":"#ffffff","under":"#ffffff","dots":"#ffffff","face2":"#ffffff","stripes":"#ffffff","drop":"#ffffff","outline":"#ffffff","outline2":"#ffffff"}},{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"face":"#ffffff","light":"#ffffff","side":"#ffffff","under":"#ffffff","dots":"#ffffff","face2":"#ffffff","stripes":"#ffffff","drop":"#ffffff","outline":"#ffffff","outline2":"#ffffff"}},{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"face":"#ffffff","light":"#ffffff","side":"#ffffff","under":"#ffffff","dots":"#ffffff","face2":"#ffffff","stripes":"#ffffff","drop":"#ffffff","outline":"#ffffff","outline2":"#ffffff"}}]}],"spacing":26,"colourMode":"risograph"},"look":{"length":0.45,"direction":40,"shadow":90,"texture":1,"grainPreset":"Speck","wobbleFrequency":0.008,"wobbleJitter":0,"hatching":1,"hatchAngle":30,"wobble":0,"dropDistance":0,"dropDirection":45,"dropSoftness":6,"dropOpacity":1,"outline":3},"colours":{"face":"#f0955a","light":"#f9eec4","side":"#d8461b","under":"#261a57","dots":"#f7c52e","face2":"#f0955a","stripes":"#f9eec4","drop":"#261a57","outline":"#d8461b","outline2":"#d8461b"},"face":{"inset":0.012,"line":0.016,"dotR":0.02,"dotStep":0.07,"risoR":0.005,"risoStep":0.024,"risoOpacity":1,"stripeAngle":0,"stripeWidth":0.02,"stripeGap":0.02,"starR":0.026,"starPoints":5,"starStep":0.085,"dropR":0.016,"dropStep":0.075,"ropeAngle":35,"ropeStep":0.045,"ropeWidth":0.014},"motion":{"speed":1,"seed":1,"loop":false,"hold":2,"whenVisible":false,"lines":[{"start":0,"spread":0.9,"order":"leftToRight"},{"start":0.2,"spread":0.9,"order":"leftToRight"}],"face":{"entrance":"draw","ease":"out","strength":0.5,"duration":0.7},"deco":{"entrance":"draw","ease":"out","strength":0.5,"duration":0.65,"delay":0.3},"extrude":{"ease":"back","strength":0.85,"duration":1.75,"delay":-0.45}}};
 function applyStylePreset(name) {
+  if (name === 'Jellybeans') {
+    const saved = structuredClone(JELLYBEANS_PRESET);
+    saved.motion = structuredClone(CUSTOM_ANIMATION_PRESETS.Paint);
+    restore(saved);
+    return;
+  }
   const riso = name === 'RISO', marquee = name === 'MARQUEE', candy = name === 'Candy pop';
   design.colourMode = riso ? 'risograph' : 'solid';
   if (!riso) Object.assign(PAL, PALETTES[name === 'Candy pop' ? 'Candy' : name === 'Monochrome' ? 'Monochrome' : 'Tangerine']);
@@ -1606,6 +1619,8 @@ function applyStylePreset(name) {
     ln.letters.forEach(v => { if (v) { v.style = ''; delete v.colours; delete v.outline; } });
   });
   if (riso) Object.assign(FACE, { risoR: FACE_DEFAULTS.risoR, risoStep: FACE_DEFAULTS.risoStep, risoOpacity: 1 });
+  Object.assign(motion, animationPreset(STYLE_ANIMATIONS[name] || 'Draw in'));
+  fillControls();
   fillStyles(); fillColours(); fillLetter(); fillSolid(); fillFinish(); rebuild(); settled();
 }
 
@@ -1613,8 +1628,8 @@ function applyStylePreset(name) {
 // are two or more), + to add one
 function fillStyles() {
   const p = panel('style');
-  const presets = box('Style presets', el('div', { className: 'buttons' }, ...['Handletter', 'RISO', 'MARQUEE', 'Candy pop', 'Monochrome'].map(name => button(name, () => applyStylePreset(name)))),
-    el('p', { className: 'note', textContent: 'Changes styles and colors, clearing letter face/color/outline overrides. MARQUEE and Candy pop also set depth and finish. Keeps your words, fonts and letter placement. Undo restores the previous design.' }));
+  const presets = box('Style presets', el('div', { className: 'buttons' }, ...['Handletter', 'RISO', 'MARQUEE', 'Candy pop', 'Monochrome', 'Jellybeans'].map(name => button(name, () => applyStylePreset(name), { title: `Includes ${STYLE_ANIMATIONS[name]} animation${name === 'Jellybeans' ? '; loads the complete saved example' : ''}` }))),
+    el('p', { className: 'note', textContent: 'Each style includes an animation and replaces face/color/outline overrides. Most keep your words, fonts and placement; Jellybeans loads the complete saved example. MARQUEE and Candy pop also set depth and finish. Undo brings your design back.' }));
   presets.classList.add('style-presets');
   p.replaceChildren(presets);
   design.lines.forEach((ln, li) => {
@@ -1935,6 +1950,82 @@ const CUSTOM_ANIMATION_PRESETS = {
       "duration": 0.5,
       "delay": -0.1
     }
+  },
+  "Soft fade": {
+    "speed": 1,
+    "seed": 1,
+    "loop": false,
+    "hold": 2,
+    "whenVisible": false,
+    "lines": [
+      {
+        "start": 0,
+        "spread": 0.5,
+        "order": "leftToRight"
+      },
+      {
+        "start": 0.2,
+        "spread": 0.5,
+        "order": "leftToRight"
+      }
+    ],
+    "face": {
+      "entrance": "fade",
+      "ease": "inOut",
+      "strength": 0.5,
+      "duration": 1.2
+    },
+    "deco": {
+      "entrance": "fade",
+      "ease": "inOut",
+      "strength": 0.5,
+      "duration": 1,
+      "delay": 0.15
+    },
+    "extrude": {
+      "ease": "linear",
+      "strength": 0.75,
+      "duration": 0.65,
+      "delay": -0.05
+    }
+  },
+  "Paint": {
+    "speed": 1,
+    "seed": 1,
+    "loop": false,
+    "hold": 2,
+    "whenVisible": false,
+    "lines": [
+      {
+        "start": 0,
+        "spread": 0.9,
+        "order": "leftToRight"
+      },
+      {
+        "start": 0.2,
+        "spread": 0.9,
+        "order": "leftToRight"
+      }
+    ],
+    "face": {
+      "entrance": "draw",
+      "ease": "out",
+      "strength": 0.5,
+      "duration": 0.7
+    },
+    "deco": {
+      "entrance": "draw",
+      "ease": "out",
+      "strength": 0.5,
+      "duration": 0.65,
+      "delay": 0.3
+    },
+    "extrude": {
+      "ease": "back",
+      "strength": 0.85,
+      "duration": 1.75,
+      "delay": -0.45
+    }
   }
 };
 function animationPreset(name) {
@@ -1946,19 +2037,7 @@ function animationPreset(name) {
     return saved;
   }
   const m = structuredClone(LETTERING_DEFAULTS);
-  m.lines = design.lines.map((_, i) => ({ ...LETTERING_DEFAULTS.lines[0], start: i * 0.2 }));
-  if (name === 'Cascade') {
-    m.lines.forEach(l => { l.order = 'leftToRight'; l.spread = 0.9; });
-    m.face.duration = 0.7; m.deco.duration = 0.65; m.extrude.ease = 'out'; m.extrude.duration = 0.6;
-  } else if (name === 'Soft fade') {
-    m.lines.forEach(l => { l.order = 'leftToRight'; l.spread = 0.5; });
-    Object.assign(m.face, { entrance: 'fade', ease: 'inOut', duration: 1.2 });
-    Object.assign(m.deco, { entrance: 'fade', ease: 'inOut', duration: 1, delay: 0.15 });
-    Object.assign(m.extrude, { ease: 'inOut', duration: 0.9, delay: -0.4 });
-  } else {
-    // Draw in is the original animation, with all lines starting together.
-    m.lines.forEach(l => { l.start = 0; });
-  }
+  m.lines = design.lines.map(() => ({ ...LETTERING_DEFAULTS.lines[0], start: 0 }));
   return m;
 }
 function applyAnimationPreset(name) {
@@ -1969,7 +2048,7 @@ function applyAnimationPreset(name) {
 function fillControls() {
   const p = panel('animation');
   p.replaceChildren(box('Animation presets',
-    el('div', { className: 'buttons' }, ...['Draw in', 'Cascade', 'Pop', 'Drop', 'Soft fade'].map(name =>
+    el('div', { className: 'buttons' }, ...['Draw in', 'Paint', 'Pop', 'Drop', 'Soft fade'].map(name =>
       button(name, () => applyAnimationPreset(name)))),
     el('p', { className: 'note', textContent: 'Changes animation only. Choose Animate to preview; fine-tune below.' })));
   p.firstElementChild.classList.add('animation-presets');
