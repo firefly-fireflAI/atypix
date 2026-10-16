@@ -204,16 +204,20 @@
   .performance[data-level=low] #performance-fill { background: #bd352d; }
   .performance[data-level=unavailable] #performance-fill { width: 0 !important; background: #3e5269; }
   .performance[data-level=measuring] #performance-fill { width: 30%; background: #3e5269; }
-  .panel .color-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 6px 18px; }
-  .color-row { display: grid; grid-template-columns: minmax(76px,1fr) 36px 90px; gap: 6px; align-items: center; padding: 4px; border-radius: 7px; }
+  .panel .color-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; }
+  .color-column { background: rgba(62,82,105,.075); border-radius: 10px; padding: 10px; }
+  .color-row { display: grid; grid-template-columns: 100px 42px; gap: 8px; align-items: center; padding: 5px; border-radius: 7px; }
+  .color-row > span { text-align: right; }
   .color-row.is-active { background: rgba(62,82,105,.12); box-shadow: inset 0 0 0 1px #889ba9; }
   .panel .color-row input[type=color] { height: 28px; }
-  .panel .color-row input[type=text] { font: 12px/1 ui-monospace,Menlo,monospace; padding: 0 5px; }
-  .panel .color-row [aria-invalid=true] { outline: 2px solid #a3260b; }
   .color-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
   .color-feedback { font-size: 11px; color: var(--muted); }
   #tab-style .style-presets { column-span: all; }
-  @media(max-width:600px) { .panel .color-grid { grid-template-columns: minmax(0,1fr); } }
+  @media(max-width:600px) {
+    .panel .color-grid { grid-template-columns: minmax(0,1fr); gap: 0; background: rgba(62,82,105,.075); border-radius: 10px; padding: 8px; }
+    .color-column { background: transparent; padding: 0; }
+    .color-row { grid-template-columns: 92px 42px; }
+  }
 </style>
 <!-- the tabs' lettering (the page's own; nothing exported uses it) -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@700&display=swap">
@@ -1072,9 +1076,10 @@ function simplify(pts, eps) {
 // the face and one for the decoration, so each can be drawn in at its own time. The face and the
 // decoration are only tied to their masks by the animation, so without the script the letter
 // shows whole
+const letterOutline = it => Number.isFinite(it.outline) ? Math.min(12, Math.max(0, it.outline)) : OUTLINE;
 function letterSvg(L, id, n, fills, masks) {
   const { it, d } = L;
-  const pal = fills.palette;
+  const pal = fills.palette, outline = letterOutline(it);
   const walls = it.flat ? [] : wallsOf(L);
   if (masks) {
     const xs = L.rings.flat().map(p => p[0]), ys = L.rings.flat().map(p => p[1]), m = L.pen.width;
@@ -1102,7 +1107,7 @@ function letterSvg(L, id, n, fills, masks) {
       + `<path class="whole" fill="${color}" opacity="0.0015" d="${d}"/></g>`
     : `<g class="face"><path fill="${color}" d="${d}"/></g>`;
   // the line round the face, if any (in the finished letter only: it comes in with the finish)
-  const ring = OUTLINE && !masks ? `<path fill="none" stroke="${pal.outline}" stroke-width="${r1(OUTLINE)}" stroke-linejoin="round" d="${d}"/>` : '';
+  const ring = outline && !masks ? `<path fill="none" stroke="${pal.outline}" stroke-width="${r1(outline)}" stroke-linejoin="round" d="${d}"/>` : '';
   if (it.flat) return `<g class="letter flat">${faceOf(pal.side)}${ring}</g>`;
   let svg = `<g class="letter"><g class="block"><path fill="${pal.under}" transform="translate(${r1(EX[0])} ${r1(EX[1])})" d="${d}"/>`;
   for (let i = 0; i < walls.length;) {
@@ -1225,7 +1230,7 @@ function lettering(parts, id) {
   if (customDrops) [...shadowGroups].forEach(([color, letters], i) => {
     const key = `${id}-shadow${i}`;
     shadowDefs += drop(key, box, { drop: color });
-    const silhouettes = letters.map(L => `<g fill="white">${L.it.flat ? '' : `<path d="${L.d}" transform="translate(${r1(EX[0])} ${r1(EX[1])})"/>${wallsOf(L).map(w => `<path d="${w.d()}"/>`).join('')}`}<path d="${L.d}"${OUTLINE ? ` stroke="white" stroke-width="${r1(OUTLINE)}" stroke-linejoin="round"` : ''}/></g>`).join('');
+    const silhouettes = letters.map(L => `<g fill="white">${L.it.flat ? '' : `<path d="${L.d}" transform="translate(${r1(EX[0])} ${r1(EX[1])})"/>${wallsOf(L).map(w => `<path d="${w.d()}"/>`).join('')}`}<path d="${L.d}"${letterOutline(L.it) ? ` stroke="white" stroke-width="${r1(letterOutline(L.it))}" stroke-linejoin="round"` : ''}/></g>`).join('');
     shadows += `<g filter="url(#${key}-drop)"><g filter="url(#${id}-finish)">${silhouettes}</g></g>`;
   });
   const art = DROP && !customDrops ? `<use href="#${id}-art" filter="url(#${id}-drop)"/><g id="${id}-art" ` : '<g ';
@@ -1250,15 +1255,18 @@ const drop = (id, { x0, y0, w, h }, pal = PAL) => DROP ? `<filter id="${id}-drop
   + `<feFlood flood-color="${pal.drop}"${DROP.opacity < 1 ? ` flood-opacity="${Math.round(DROP.opacity * 100) / 100}"` : ''}/><feComposite in2="SourceAlpha" operator="in"/>`
   + `<feGaussianBlur stdDeviation="${r1(DROP.soft)}"/><feOffset dx="${r1(DROP.dx)}" dy="${r1(DROP.dy)}"/></filter>` : '';
 // the finish: pale grain over the letters and nowhere else, then everything wobbled by a pixel or two
-const finish = id => `<filter id="${id}-finish" x="-5%" y="-5%" width="110%" height="110%">`
-  + `<feTurbulence type="fractalNoise" baseFrequency="${(GRAIN_PRESETS[look.grainPreset] || GRAIN_PRESETS.Speck).frequency}" numOctaves="${(GRAIN_PRESETS[look.grainPreset] || GRAIN_PRESETS.Speck).octaves}" seed="${(GRAIN_PRESETS[look.grainPreset] || GRAIN_PRESETS.Speck).seed}" result="noise"/>`
+const finish = id => {
+  const grain = look.grainPreset !== 'None' && TEXTURE > 0;
+  return `<filter id="${id}-finish" x="-5%" y="-5%" width="110%" height="110%">`
+  + (grain ? `<feTurbulence type="fractalNoise" baseFrequency="${(GRAIN_PRESETS[look.grainPreset] || GRAIN_PRESETS.Speck).frequency}" numOctaves="${(GRAIN_PRESETS[look.grainPreset] || GRAIN_PRESETS.Speck).octaves}" seed="${(GRAIN_PRESETS[look.grainPreset] || GRAIN_PRESETS.Speck).seed}" result="noise"/>`
   + `<feColorMatrix in="noise" values="0 0 0 0 1  0 0 0 0 .98  0 0 0 0 .92  ${r1(26 * TEXTURE) / 10} 0 0 0 ${-r1(16.2 * TEXTURE) / 10}" result="specks"/>`
   + `<feComposite in="specks" in2="SourceAlpha" operator="in" result="grain"/>`
-  + `<feMerge result="grained"><feMergeNode in="SourceGraphic"/><feMergeNode in="grain"/></feMerge>`
+  + `<feMerge result="grained"><feMergeNode in="SourceGraphic"/><feMergeNode in="grain"/></feMerge>` : '')
   + `<feTurbulence type="fractalNoise" baseFrequency="${look.wobbleFrequency}" numOctaves="2" seed="4" result="edgeBase"/>`
   + `<feTurbulence type="fractalNoise" baseFrequency="${look.wobbleFrequency * 2.6}" numOctaves="3" seed="19" result="edgeDetail"/>`
   + `<feComposite in="edgeBase" in2="edgeDetail" operator="arithmetic" k2="${1 - look.wobbleJitter}" k3="${look.wobbleJitter}" result="wobble"/>`
-  + `<feDisplacementMap in="grained" in2="wobble" scale="${r1(WOBBLE)}" xChannelSelector="R" yChannelSelector="G"/></filter>`;
+  + `<feDisplacementMap in="${grain ? 'grained' : 'SourceGraphic'}" in2="wobble" scale="${r1(WOBBLE)}" xChannelSelector="R" yChannelSelector="G"/></filter>`;
+};
 
 // the animated copy: the same lettering as a stack of small SVGs in a box, two to a letter, so
 // the browser can move each part on its own instead of repainting one big picture every frame.
@@ -1530,27 +1538,20 @@ function colorEditor(read, write, after) {
     for (const [k, row] of rows) row.root.classList.toggle('is-active', k === key);
     message.textContent = `Selected: ${COLOURS.find(c => c[2] === key)[0]}`;
   };
-  const refresh = () => { for (const [key, row] of rows) { row.pick.value = read(key); row.hex.value = read(key); row.hex.removeAttribute('aria-invalid'); } };
+  const refresh = () => { for (const [key, row] of rows) row.pick.value = read(key); };
+  const columns = [el('div', { className: 'color-column' }), el('div', { className: 'color-column' })];
+  grid.append(...columns);
   for (const [label, hint, key] of COLOURS) {
     const pick = el('input', { type: 'color', value: read(key) });
     pick.setAttribute('aria-label', `${label} color`);
-    const hex = el('input', { type: 'text', value: read(key), maxLength: 7, spellcheck: false, autocomplete: 'off' });
-    hex.setAttribute('aria-label', `${label} HEX`);
-    const root = el('div', { className: 'color-row', title: hint }, el('span', { textContent: label }), pick, hex);
-    rows.set(key, { root, pick, hex });
+    const name = el('span', { textContent: label });
+    const root = el('div', { className: 'color-row', title: hint }, name, pick);
+    rows.set(key, { root, pick });
     root.addEventListener('focusin', () => select(key)); root.addEventListener('click', () => select(key));
-    pick.addEventListener('input', () => { hex.value = pick.value; hex.removeAttribute('aria-invalid'); write(key, pick.value); });
+    name.addEventListener('click', () => { pick.focus(); if (pick.showPicker) { try { pick.showPicker(); } catch {} } else pick.click(); });
+    pick.addEventListener('input', () => write(key, pick.value));
     pick.addEventListener('change', after);
-    hex.addEventListener('input', () => {
-      const color = parseHex(hex.value); hex.setAttribute('aria-invalid', !color);
-      if (color) { pick.value = color; write(key, color); }
-    });
-    hex.addEventListener('change', () => {
-      const color = parseHex(hex.value);
-      if (!color) { message.textContent = 'Enter HEX as #RRGGBB or #RGB.'; return; }
-      hex.value = color; hex.removeAttribute('aria-invalid'); after();
-    });
-    grid.append(root);
+    columns[COLOURS.findIndex(c => c[2] === key) < Math.ceil(COLOURS.length / 2) ? 0 : 1].append(root);
   }
   const copy = button('Copy color', async () => {
     copiedColor = read(selected);
@@ -1561,7 +1562,7 @@ function colorEditor(read, write, after) {
     let text;
     try { text = await navigator.clipboard.readText(); } catch { text = copiedColor; }
     const color = text && parseHex(text);
-    if (!color) { message.textContent = 'Copy a HEX color first, or paste it into the HEX field.'; return; }
+    if (!color) { message.textContent = 'Copy a HEX color first, then select a color row and paste.'; return; }
     write(selected, color); refresh(); after(); commitEdit(); message.textContent = `Pasted ${color}`;
   });
   const all = button('Copy to all', () => { const color = read(selected); colorToAll(selected, color); refresh(); after(); message.textContent = `Applied ${color} to every letter’s ${COLOURS.find(c => c[2] === selected)[0]}`; });
@@ -1570,23 +1571,29 @@ function colorEditor(read, write, after) {
     el('p', { className: 'note', textContent: 'Select a color row to copy or paste. Copy to all applies that color slot to every letter.' })];
 }
 function applyStylePreset(name) {
-  const riso = name === 'RISO';
+  const riso = name === 'RISO', marquee = name === 'MARQUEE';
   design.colourMode = riso ? 'risograph' : 'solid';
   if (!riso) Object.assign(PAL, PALETTES[name === 'Candy pop' ? 'Candy' : name === 'Monochrome' ? 'Monochrome' : 'Tangerine']);
+  if (marquee) {
+    // Colors, outline and grain recovered from the user's exported Mar Type snippet.
+    Object.assign(PAL, { face: '#ffd052', face2: '#ffa200', light: '#ffdc7a', dots: '#fdd591', stripes: '#ffdc7a', side: '#2e1800', under: '#122e40', outline: '#ffdc7a', drop: '#122e40' });
+    Object.assign(look, { length: .45, direction: 40, shadow: 90, hatching: 1, hatchAngle: 30, texture: 1, grainPreset: 'Speck', wobble: 0, wobbleFrequency: .008, wobbleJitter: 0, outline: 3, dropDistance: 0 });
+    Object.assign(FACE, { inset: FACE_DEFAULTS.inset, dotR: .02, dotStep: .07 });
+  }
   design.lines.forEach((ln, i) => {
-    ln.styles = i ? ['flat'] : riso ? ['risograph'] : name === 'Monochrome' ? ['plain'] : name === 'Candy pop' ? ['inline', 'dots', 'light'] : [...CYCLE];
-    ln.letters.forEach(v => { if (v) { v.style = ''; delete v.colours; } });
+    ln.styles = i ? ['flat'] : marquee ? ['dots'] : riso ? ['risograph'] : name === 'Monochrome' ? ['plain'] : name === 'Candy pop' ? ['inline', 'dots', 'light'] : [...CYCLE];
+    ln.letters.forEach(v => { if (v) { v.style = ''; delete v.colours; delete v.outline; } });
   });
   if (riso) Object.assign(FACE, { risoR: FACE_DEFAULTS.risoR, risoStep: FACE_DEFAULTS.risoStep, risoOpacity: 1 });
-  fillStyles(); fillColours(); fillLetter(); rebuild(); settled();
+  fillStyles(); fillColours(); fillLetter(); fillSolid(); fillFinish(); rebuild(); settled();
 }
 
 // Style: each line's cycle of face styles, a menu for each step, × to take a step out (while there
 // are two or more), + to add one
 function fillStyles() {
   const p = panel('style');
-  const presets = box('Style presets', el('div', { className: 'buttons' }, ...['Handletter', 'RISO', 'Candy pop', 'Monochrome'].map(name => button(name, () => applyStylePreset(name)))),
-    el('p', { className: 'note', textContent: 'Changes styles and colors, including letter face/color overrides. Keeps your words, fonts and letter placement. Undo restores the previous design.' }));
+  const presets = box('Style presets', el('div', { className: 'buttons' }, ...['Handletter', 'RISO', 'MARQUEE', 'Candy pop', 'Monochrome'].map(name => button(name, () => applyStylePreset(name)))),
+    el('p', { className: 'note', textContent: 'Changes styles and colors, clearing letter face/color/outline overrides. MARQUEE also sets depth and finish. Keeps your words, fonts and letter placement. Undo restores the previous design.' }));
   presets.classList.add('style-presets');
   p.replaceChildren(presets);
   design.lines.forEach((ln, li) => {
@@ -1644,7 +1651,22 @@ function fillLetter() {
     field('left/right', 'in SVG units', ...slider(v, 'dx', -300, 300, 1, '')),
     field('up/down', 'in SVG units', ...slider(v, 'dy', -300, 300, 1, '')),
     field('face', 'its face style (flat: no block)', style),
-    el('div', { className: 'buttons' }, button('Reset letter', () => { delete v.colours; Object.assign(v, NO_CHANGE); fillLetter(); rebuild(); settled(); })));
+    el('div', { className: 'buttons' }, button('Reset letter', () => { delete v.outline; delete v.colours; Object.assign(v, NO_CHANGE); fillLetter(); rebuild(); settled(); })));
+  const inheritOutline = el('input', { type: 'checkbox', checked: !Number.isFinite(v.outline) });
+  const outlineWidth = el('input', { type: 'range', min: 0, max: 12, step: 0.5, value: letterOutline(v) });
+  const outlineValue = el('output', { textContent: outlineWidth.value });
+  outlineWidth.addEventListener('input', () => {
+    v.outline = +outlineWidth.value; inheritOutline.checked = false; outlineValue.textContent = outlineWidth.value; rebuild();
+  });
+  outlineWidth.addEventListener('change', settled);
+  inheritOutline.addEventListener('change', () => {
+    if (inheritOutline.checked) delete v.outline; else v.outline = +outlineWidth.value;
+    outlineWidth.value = letterOutline(v); outlineValue.textContent = outlineWidth.value; rebuild(); settled();
+  });
+  panel('letter').append(box('Letter outline',
+    el('p', { className: 'note', textContent: 'Finish sets the outline for all letters. Override its width here; 0 removes it. Set its color in Letter colors.' }),
+    field('use global', 'inherit the outline width from Finish', inheritOutline),
+    field('width', 'outline width for this letter only', outlineWidth, outlineValue)));
   const colors = el('fieldset', { className: 'colours' }, el('legend', { textContent: 'Letter colors' }),
     el('p', { className: 'note', textContent: 'Changes apply to this letter only. Unchanged colors follow the Color tab’s palette.' }),
     ...colorEditor(key => letterColours({ ...v, line: chosen[0], index: chosen[1] })[key], (key, color) => {
@@ -1674,15 +1696,18 @@ function fillColours() {
 }
 const fillSolid = () => panel('3d').replaceChildren(...sets(SOLID));
 const GRAIN_PRESETS = {
+  'None': { frequency: 1.1, octaves: 1, seed: 3 },
   'Speck': { frequency: 1.1, octaves: 1, seed: 3 },
   'Fine dust': { frequency: 1.8, octaves: 2, seed: 7 },
   'Coarse paper': { frequency: 0.35, octaves: 3, seed: 11 },
 };
 function fillFinish() {
   const grain = menu(Object.keys(GRAIN_PRESETS).map(n => [n, n]), look.grainPreset);
-  grain.addEventListener('change', () => { look.grainPreset = grain.value; rebuild(); settled(); });
-  panel('finish').replaceChildren(box('Texture', field('grain type', 'the pattern of the grain', grain),
-    field('grain', 'grain strength: 0 none, 1 as designed, 2 twice as strong', ...slider(look, 'texture', 0, 2, 0.05, '×'))), ...sets(FINISH));
+  const [amount, amountValue] = slider(look, 'texture', 0, 2, 0.05, '×');
+  amount.disabled = look.grainPreset === 'None';
+  grain.addEventListener('change', () => { look.grainPreset = grain.value; amount.disabled = grain.value === 'None'; rebuild(); settled(); });
+  panel('finish').replaceChildren(box('Texture', field('grain type', 'the pattern of the grain, or None to remove it', grain),
+    field('grain', 'grain strength: 0 none, 1 as designed, 2 twice as strong', amount, amountValue)), ...sets(FINISH));
 }
 // every panel that shows the design's state, written again (after a preset, or a line added or taken away)
 function buildAll() { fillFont(); fillStyles(); fillLetter(); fillColours(); fillSolid(); fillFinish(); fillControls(); fillDetail(true); }
@@ -1900,6 +1925,9 @@ function restore(p) {
     ln.styles = (Array.isArray(ln.styles) ? ln.styles : []).filter(s => STYLES.includes(s));
     if (!ln.styles.length) ln.styles = [...CYCLE];
     ln.letters = (Array.isArray(ln.letters) ? ln.letters : []).map(v => v && { ...NO_CHANGE, ...v, style: STYLES.includes(v.style) ? v.style : '', ...(v.colours ? { colours: cleanLetterColours(v.colours) } : {}) });
+    for (const v of ln.letters) if (v && 'outline' in v) {
+      if (Number.isFinite(v.outline)) v.outline = Math.min(12, Math.max(0, v.outline)); else delete v.outline;
+    }
     // (a preset from before flat was a style: a flat line's letters all flat, as they were)
     if (ln.treatment === 'flat') { ln.styles = ['flat']; ln.letters = ln.letters.map(v => v && { ...v, style: '' }); }
     delete ln.treatment;
@@ -2242,7 +2270,7 @@ panels.addEventListener('transitionend', e => {
   if (open) panels.style.height = '';
 });
 function showTab(name, again = false, slide = true) {
-  if (name === 'letter' && previewMode !== 'still') setPreview('still');
+  if (name === 'letter') { if (previewMode !== 'still') setPreview('still'); fillLetter(); }
   if (name === 'animation' && previewMode !== 'animate') setPreview('animate');
   if (again && name === tab) open = !open; else { tab = name; open = true; }
   const from = panels.getBoundingClientRect().height;
