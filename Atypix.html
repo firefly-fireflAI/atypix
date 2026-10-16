@@ -204,6 +204,16 @@
   .performance[data-level=low] #performance-fill { background: #bd352d; }
   .performance[data-level=unavailable] #performance-fill { width: 0 !important; background: #3e5269; }
   .performance[data-level=measuring] #performance-fill { width: 30%; background: #3e5269; }
+  .panel .color-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 6px 18px; }
+  .color-row { display: grid; grid-template-columns: minmax(76px,1fr) 36px 90px; gap: 6px; align-items: center; padding: 4px; border-radius: 7px; }
+  .color-row.is-active { background: rgba(62,82,105,.12); box-shadow: inset 0 0 0 1px #889ba9; }
+  .panel .color-row input[type=color] { height: 28px; }
+  .panel .color-row input[type=text] { font: 12px/1 ui-monospace,Menlo,monospace; padding: 0 5px; }
+  .panel .color-row [aria-invalid=true] { outline: 2px solid #a3260b; }
+  .color-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+  .color-feedback { font-size: 11px; color: var(--muted); }
+  #tab-style .style-presets { column-span: all; }
+  @media(max-width:600px) { .panel .color-grid { grid-template-columns: minmax(0,1fr); } }
 </style>
 <!-- the tabs' lettering (the page's own; nothing exported uses it) -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@700&display=swap">
@@ -909,10 +919,10 @@ function letterColours(it) {
     if (it.line > 0) base = Object.fromEntries(Object.keys(PAL).map(k => [k, '#111111']));
     else {
       const index = [...design.lines[it.line].text].slice(0, it.index).filter(c => c.trim()).length;
-      const side = index % 2 ? '#00cde2' : '#ff2468', accent = index % 2 ? '#ff2468' : '#00cde2';
-      const face = mix(side, '#ffffff', .55);
-      base = { face, face2: face, light: mix(side, '#ffffff', .8), dots: accent, stripes: accent,
-        side, under: '#252035', outline: side, drop: '#252035' };
+      const blue = index % 2;
+      const face = blue ? '#91eaf2' : '#ff427b', side = blue ? '#00bcd1' : '#d60068';
+      const under = blue ? '#006370' : '#500228', dots = blue ? '#ffffff' : '#ffb8cd';
+      base = { face, face2: face, light: dots, dots, stripes: dots, side, under, outline: side, drop: under };
     }
   }
   return { ...base, ...it.colours };
@@ -1496,11 +1506,89 @@ function fillFont() {
     field('leading', 'from a line’s blocks (or baseline) to the tops of the next', ...slider(design, 'spacing', -150, 300, 1, '')),
     el('div', { className: 'buttons' }, button('Add line', () => { design.lines.push(newLine()); buildAll(); draw(); }))));
 }
+// Color tools use HEX as the editable representation. Native swatches remain available.
+let copiedColor = null;
+function parseHex(text) {
+  const value = String(text).trim().replace(/^#/, '');
+  if (/^[0-9a-f]{3}$/i.test(value)) return '#' + [...value].map(c => c + c).join('').toLowerCase();
+  return /^[0-9a-f]{6}$/i.test(value) ? '#' + value.toLowerCase() : null;
+}
+function colorToAll(key, color) {
+  for (const ln of design.lines) [...ln.text].forEach((ch, i) => {
+    if (!ch.trim()) return;
+    const v = ln.letters[i] ||= { ...NO_CHANGE };
+    v.colours = cleanLetterColours({ ...v.colours, [key]: color });
+  });
+  rebuild();
+}
+function colorEditor(read, write, after) {
+  const grid = el('div', { className: 'color-grid' }), rows = new Map();
+  let selected = 'face';
+  const message = el('span', { className: 'color-feedback', role: 'status' });
+  const select = key => {
+    selected = key;
+    for (const [k, row] of rows) row.root.classList.toggle('is-active', k === key);
+    message.textContent = `Selected: ${COLOURS.find(c => c[2] === key)[0]}`;
+  };
+  const refresh = () => { for (const [key, row] of rows) { row.pick.value = read(key); row.hex.value = read(key); row.hex.removeAttribute('aria-invalid'); } };
+  for (const [label, hint, key] of COLOURS) {
+    const pick = el('input', { type: 'color', value: read(key) });
+    pick.setAttribute('aria-label', `${label} color`);
+    const hex = el('input', { type: 'text', value: read(key), maxLength: 7, spellcheck: false, autocomplete: 'off' });
+    hex.setAttribute('aria-label', `${label} HEX`);
+    const root = el('div', { className: 'color-row', title: hint }, el('span', { textContent: label }), pick, hex);
+    rows.set(key, { root, pick, hex });
+    root.addEventListener('focusin', () => select(key)); root.addEventListener('click', () => select(key));
+    pick.addEventListener('input', () => { hex.value = pick.value; hex.removeAttribute('aria-invalid'); write(key, pick.value); });
+    pick.addEventListener('change', after);
+    hex.addEventListener('input', () => {
+      const color = parseHex(hex.value); hex.setAttribute('aria-invalid', !color);
+      if (color) { pick.value = color; write(key, color); }
+    });
+    hex.addEventListener('change', () => {
+      const color = parseHex(hex.value);
+      if (!color) { message.textContent = 'Enter HEX as #RRGGBB or #RGB.'; return; }
+      hex.value = color; hex.removeAttribute('aria-invalid'); after();
+    });
+    grid.append(root);
+  }
+  const copy = button('Copy color', async () => {
+    copiedColor = read(selected);
+    try { await navigator.clipboard.writeText(copiedColor); message.textContent = `Copied ${copiedColor}`; }
+    catch { message.textContent = `Copied ${copiedColor} within Atypix`; }
+  });
+  const paste = button('Paste color', async () => {
+    let text;
+    try { text = await navigator.clipboard.readText(); } catch { text = copiedColor; }
+    const color = text && parseHex(text);
+    if (!color) { message.textContent = 'Copy a HEX color first, or paste it into the HEX field.'; return; }
+    write(selected, color); refresh(); after(); commitEdit(); message.textContent = `Pasted ${color}`;
+  });
+  const all = button('Copy to all', () => { const color = read(selected); colorToAll(selected, color); refresh(); after(); message.textContent = `Applied ${color} to every letter’s ${COLOURS.find(c => c[2] === selected)[0]}`; });
+  select(selected);
+  return [grid, el('div', { className: 'color-actions' }, copy, paste, all, message),
+    el('p', { className: 'note', textContent: 'Select a color row to copy or paste. Copy to all applies that color slot to every letter.' })];
+}
+function applyStylePreset(name) {
+  const riso = name === 'RISO';
+  design.colourMode = riso ? 'risograph' : 'solid';
+  if (!riso) Object.assign(PAL, PALETTES[name === 'Candy pop' ? 'Candy' : name === 'Monochrome' ? 'Monochrome' : 'Tangerine']);
+  design.lines.forEach((ln, i) => {
+    ln.styles = i ? ['flat'] : riso ? ['risograph'] : name === 'Monochrome' ? ['plain'] : name === 'Candy pop' ? ['inline', 'dots', 'light'] : [...CYCLE];
+    ln.letters.forEach(v => { if (v) { v.style = ''; delete v.colours; } });
+  });
+  if (riso) Object.assign(FACE, { risoR: FACE_DEFAULTS.risoR, risoStep: FACE_DEFAULTS.risoStep, risoOpacity: 1 });
+  fillStyles(); fillColours(); fillLetter(); rebuild(); settled();
+}
+
 // Style: each line's cycle of face styles, a menu for each step, × to take a step out (while there
 // are two or more), + to add one
 function fillStyles() {
   const p = panel('style');
-  p.replaceChildren();
+  const presets = box('Style presets', el('div', { className: 'buttons' }, ...['Classic', 'RISO', 'Candy pop', 'Monochrome'].map(name => button(name, () => applyStylePreset(name)))),
+    el('p', { className: 'note', textContent: 'Changes styles and colors, including letter face/color overrides. Keeps your words, fonts and letter placement. Undo restores the previous design.' }));
+  presets.classList.add('style-presets');
+  p.replaceChildren(presets);
   design.lines.forEach((ln, li) => {
     const styles = el('div', { className: 'cycle' });
     const fillCycle = () => {
@@ -1557,19 +1645,12 @@ function fillLetter() {
     field('up/down', 'in SVG units', ...slider(v, 'dy', -300, 300, 1, '')),
     field('face', 'its face style (flat: no block)', style),
     el('div', { className: 'buttons' }, button('Reset letter', () => { delete v.colours; Object.assign(v, NO_CHANGE); fillLetter(); rebuild(); settled(); })));
-  const effective = letterColours({ ...v, line: chosen[0], index: chosen[1] });
   const colors = el('fieldset', { className: 'colours' }, el('legend', { textContent: 'Letter colors' }),
-    el('p', { className: 'note', textContent: 'Changes apply to this letter only. Unchanged colors follow the Color tab’s palette.' }));
-  const swatches = el('div', { className: 'two', style: `grid-template-rows: repeat(${Math.ceil(COLOURS.length / 2)}, auto)` });
-  for (const [label, hint, key] of COLOURS) {
-    const pick = el('input', { type: 'color', value: effective[key] });
-    pick.addEventListener('input', () => { v.colours = cleanLetterColours({ ...v.colours, [key]: pick.value }); rebuild(); });
-    pick.addEventListener('change', settled);
-    swatches.append(el('label', { title: hint }, label, pick));
-  }
-  colors.append(swatches, el('div', { className: 'buttons' }, button('Use palette colors', () => {
-    delete v.colours; fillLetter(); rebuild(); settled();
-  })));
+    el('p', { className: 'note', textContent: 'Changes apply to this letter only. Unchanged colors follow the Color tab’s palette.' }),
+    ...colorEditor(key => letterColours({ ...v, line: chosen[0], index: chosen[1] })[key], (key, color) => {
+      v.colours = cleanLetterColours({ ...v.colours, [key]: color }); rebuild();
+    }, settled),
+    el('div', { className: 'buttons' }, button('Use palette colors', () => { delete v.colours; fillLetter(); rebuild(); settled(); })));
   panel('letter').append(colors);
 }
 // Color: a palette to start from, and every colour, in two columns
@@ -1582,17 +1663,14 @@ function fillColours() {
     if (design.colourMode === 'solid') Object.assign(PAL, PALETTES[palette.value]);
     fillColours(); fillLetter(); rebuild(); settled();
   });
-  const swatch = ([label, hint, key]) => {
-    const pick = el('input', { type: 'color', value: PAL[key] });
-    pick.addEventListener('input', () => { design.colourMode = 'solid'; PAL[key] = pick.value; palette.value = paletteOf(); rebuild(); });
-    pick.addEventListener('change', () => { palette.value = paletteOf(); fillLetter(); settled(); });
-    return el('label', { title: hint }, label, pick);
-  };
+  const displayedPalette = () => design.colourMode !== 'solid' && design.lines.length ? letterColours({ line: 0, index: 0 }) : PAL;
   panel('colour').replaceChildren(
-    box('Palette', field('palette', 'the design’s colors; per-letter overrides are kept', palette, el('span')), el('p', { className: 'note', textContent: 'Per-letter color overrides are kept. Use palette colors on the Letter tab to clear an override. Editing a global color replaces Rainbow or Risograph mode.' })),
-    // (down the first column, then the second)
-    el('fieldset', { className: 'colours' }, el('legend', { textContent: 'Colors' }),
-      el('div', { className: 'two', style: `grid-template-rows: repeat(${Math.ceil(COLOURS.length / 2)}, auto)` }, ...COLOURS.map(swatch))));
+    box('Palette', field('palette', 'the design’s colors; per-letter overrides are kept', palette, el('span')), el('p', { className: 'note', textContent: 'Per-letter color overrides are kept. Use palette colors on the Letter tab to clear an override. Rainbow/Risograph swatches show the first letter’s palette. Editing a global color replaces that mode.' })),
+    el('fieldset', { className: 'colours' }, el('legend', { textContent: 'Colors' }), ...colorEditor(key => displayedPalette()[key], (key, color) => {
+      if (design.colourMode !== 'solid') Object.assign(PAL, displayedPalette());
+      design.colourMode = 'solid'; PAL[key] = color; palette.value = paletteOf(); rebuild();
+    }, () => { palette.value = paletteOf(); fillLetter(); settled(); })));
+
 }
 const fillSolid = () => panel('3d').replaceChildren(...sets(SOLID));
 const GRAIN_PRESETS = {
