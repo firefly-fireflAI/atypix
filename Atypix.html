@@ -156,9 +156,45 @@
   #draft-status { font-size: 11px; color: var(--muted); }
   #tab-animation .animation-presets { column-span: all; margin-bottom: 14px; }
   #tab-animation .animation-presets .buttons { flex-wrap: wrap; }
+  #draft-status { transition: opacity .3s; }
+  #draft-status.faded { opacity: 0; }
+  #mobile-settings, #panel-scroll-hint { display: none; }
+  .panel [hidden] { display: none; }
+  #tab-save .flow { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  #tab-save .flow > * { margin-bottom: 0; }
+  #tab-save .save-design { grid-column: 1 / -1; }
+  .save-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+  .save-columns > div + div { border-left: 1px solid var(--rule); padding-left: 20px; }
+  .save-columns h3 { font-size: 13px; margin: 6px 0; }
+  #tab-save .save-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+  #tab-save .save-row :is(input,select) { flex: 1; min-width: 90px; width: auto; }
+  #tab-save .save-row button { flex: none; }
+  #tab-save .format-options { margin: 8px 0; }
+  #tab-save [aria-pressed=false] { background: transparent; color: #3e5269; box-shadow: inset 0 0 0 1px #889ba9; }
+  #tab-save details { margin-top: 14px; font-size: 12px; }
+  #tab-save summary { cursor: pointer; }
+  #preview-tools { z-index: 1; }
+  @media (max-width: 770px) {
+    #tab-save .flow, .save-columns { display: block; }
+    #tab-save .flow > * { margin-bottom: 12px; }
+    .save-columns > div + div { border-left: 0; border-top: 1px solid var(--rule); padding: 12px 0 0; margin-top: 12px; }
+  }
   @media (max-width: 600px) {
-    header { padding-right: 16px; gap: 4px 14px; }
-    #preview-tools { position: static; flex-basis: 100%; padding-top: 5px; }
+    header { padding-right: 176px; gap: 4px 14px; min-height: 48px; }
+    #preview-tools { position: absolute; right: 16px; top: 10px; }
+    #tabs { display: none; }
+    #mobile-settings { display: flex; align-items: end; gap: 12px; padding: 10px 16px 0; }
+    .section-tab { position: relative; flex: 1; min-width: 0; z-index: 0; }
+    .section-tab::before, .section-tab::after { content: ''; position: absolute; inset: 0; background: #3e5269; z-index: -1; }
+    .section-tab::before { border-radius: 12px 0 0 0; }
+    .section-tab::after { left: auto; right: -8px; width: 22px; border-radius: 0 7px 0 0; transform: skewX(24deg); }
+    #section-picker { appearance: none; width: 100%; min-width: 0; padding: 13px 28px 12px 12px; border: 0; border-radius: 12px 0 0 0;
+      background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0h10L5 6z' fill='white'/%3E%3C/svg%3E") no-repeat right 8px center;
+      color: white; font: 700 12px/1 Lato, ui-sans-serif, system-ui, sans-serif; text-transform: uppercase; letter-spacing: .04em; cursor: pointer; }
+    #section-picker option { background: #3e5269; color: white; }
+    #section-picker:focus-visible { outline: 2px solid #261a57; outline-offset: 2px; }
+    #toggle-controls { border: 0; border-radius: 8px; padding: 10px; background: #3e5269; color: white; font: 700 11px/1 Lato,ui-sans-serif,system-ui,sans-serif; text-transform: uppercase; cursor: pointer; margin-bottom: 4px; }
+    #panel-scroll-hint:not([hidden]) { display: block; background: #3e5269; color: white; font-size: 11px; text-align: center; padding: 4px; }
   }
 </style>
 <!-- the tabs' lettering (the page's own; nothing exported uses it) -->
@@ -178,7 +214,7 @@
   </div>
 </header>
 <main id="stage">
-  <figure id="still"><div class="art"></div><figcaption>Static SVG · click a letter to adjust it</figcaption></figure>
+  <figure id="still"><div class="art"></div></figure>
   <figure id="moving" hidden><div class="art"></div><figcaption><button id="replay" type="button">Replay</button>
     <span id="fps"></span></figcaption></figure>
 </main>
@@ -192,6 +228,10 @@
     </div>
   </div>
   <div id="tabs" role="tablist"></div>
+  <div id="mobile-settings">
+    <div class="section-tab"><select id="section-picker" aria-label="Settings section"></select></div>
+    <button id="toggle-controls" type="button" aria-expanded="true" aria-controls="panels">Hide controls</button>
+  </div>
   <div id="panels">
     <section class="panel" id="tab-font" role="tabpanel"></section>
     <section class="panel" id="tab-style" role="tabpanel"></section>
@@ -202,8 +242,8 @@
     <section class="panel" id="tab-finish" role="tabpanel"></section>
     <section class="panel" id="tab-animation" role="tabpanel"></section>
     <section class="panel" id="tab-save" role="tabpanel"></section>
-    <section class="panel" id="tab-export" role="tabpanel"></section>
   </div>
+  <div id="panel-scroll-hint" hidden>Scroll for more settings ↓</div>
 </nav>
 <script id="runtime">
 // The animation, on its own: everything a site would need besides the SVG and GSAP. Each letter's
@@ -471,17 +511,12 @@ const PAL = { face: '#f0955a', light: '#f9eec4', side: '#d8461b', under: '#261a5
 const PAL_DEFAULTS = { ...PAL };
 // palettes to start from, each setting every colour (the colour tab's menu)
 const PALETTES = {
-  'Wood and ember': PAL_DEFAULTS,
-  'Circus': { face: '#d7263d', face2: '#a3172b', light: '#fbf1d3', side: '#1b3a6b', under: '#0e1c36', dots: '#f4c430',
-    stripes: '#fbf1d3', drop: '#0e1c36', outline: '#1b3a6b' },
-  'Night fair': { face: '#f2c14e', face2: '#e08a2c', light: '#fff6dc', side: '#5b2a86', under: '#1a1033', dots: '#ff5d8f',
-    stripes: '#fff6dc', drop: '#1a1033', outline: '#5b2a86' },
-  'Mint and cocoa': { face: '#7cc6a4', face2: '#7cc6a4', light: '#f4f1e1', side: '#6b3e26', under: '#2d1a10', dots: '#f2b5c4',
-    stripes: '#f4f1e1', drop: '#2d1a10', outline: '#6b3e26' },
-  'Seaside': { face: '#4fb3d9', face2: '#4fb3d9', light: '#ffffff', side: '#e94f37', under: '#2b2d42', dots: '#ffd23f',
-    stripes: '#ffffff', drop: '#2b2d42', outline: '#e94f37' },
-  'Ink': { face: '#f5f0e6', face2: '#f5f0e6', light: '#1c1c1c', side: '#3a3a3a', under: '#111111', dots: '#c8102e',
-    stripes: '#1c1c1c', drop: '#111111', outline: '#3a3a3a' },
+  'Tangerine': PAL_DEFAULTS,
+  'Midnight bloom': { face: '#aa8bfa', face2: '#8053c7', light: '#f7e8ff', side: '#512771', under: '#201c47', dots: '#ffc45d', stripes: '#f7e8ff', drop: '#201c47', outline: '#512771' },
+  'Sea glass': { face: '#8ccbb5', face2: '#5eaf9c', light: '#fff5da', side: '#21746c', under: '#163b47', dots: '#ed8b79', stripes: '#fff5da', drop: '#163b47', outline: '#21746c' },
+  'Cobalt club': { face: '#446cf2', face2: '#2450cd', light: '#fff3d1', side: '#f5a83b', under: '#17264f', dots: '#f9cb61', stripes: '#fff3d1', drop: '#17264f', outline: '#f5a83b' },
+  'Cherry cola': { face: '#d85770', face2: '#a6314e', light: '#ffe8cd', side: '#742c41', under: '#2b2038', dots: '#f8bb81', stripes: '#ffe8cd', drop: '#2b2038', outline: '#742c41' },
+  'Paper & ink': { face: '#f2ead6', face2: '#e1d4b7', light: '#262b35', side: '#6e7b80', under: '#20272f', dots: '#d85738', stripes: '#262b35', drop: '#20272f', outline: '#6e7b80' },
 };
 // the faces' styles: an inline; a light middle; dots, stars or teardrops down the middle of each
 // stroke; stripes across the face; a rope of slanted dashes down the middle; an open outline;
@@ -1135,11 +1170,13 @@ const drop = (id, { x0, y0, w, h }) => DROP ? `<filter id="${id}-drop" filterUni
   + `<feGaussianBlur stdDeviation="${r1(DROP.soft)}"/><feOffset dx="${r1(DROP.dx)}" dy="${r1(DROP.dy)}"/></filter>` : '';
 // the finish: pale grain over the letters and nowhere else, then everything wobbled by a pixel or two
 const finish = id => `<filter id="${id}-finish" x="-5%" y="-5%" width="110%" height="110%">`
-  + `<feTurbulence type="fractalNoise" baseFrequency="1.1" numOctaves="1" seed="3" result="noise"/>`
+  + `<feTurbulence type="fractalNoise" baseFrequency="${(GRAIN_PRESETS[look.grainPreset] || GRAIN_PRESETS.Original).frequency}" numOctaves="${(GRAIN_PRESETS[look.grainPreset] || GRAIN_PRESETS.Original).octaves}" seed="${(GRAIN_PRESETS[look.grainPreset] || GRAIN_PRESETS.Original).seed}" result="noise"/>`
   + `<feColorMatrix in="noise" values="0 0 0 0 1  0 0 0 0 .98  0 0 0 0 .92  ${r1(26 * TEXTURE) / 10} 0 0 0 ${-r1(16.2 * TEXTURE) / 10}" result="specks"/>`
   + `<feComposite in="specks" in2="SourceAlpha" operator="in" result="grain"/>`
   + `<feMerge result="grained"><feMergeNode in="SourceGraphic"/><feMergeNode in="grain"/></feMerge>`
-  + `<feTurbulence type="fractalNoise" baseFrequency=".05" numOctaves="2" seed="4" result="wobble"/>`
+  + `<feTurbulence type="fractalNoise" baseFrequency="${look.wobbleFrequency}" numOctaves="2" seed="4" result="edgeBase"/>`
+  + `<feTurbulence type="fractalNoise" baseFrequency="${look.wobbleFrequency * 2.6}" numOctaves="3" seed="19" result="edgeDetail"/>`
+  + `<feComposite in="edgeBase" in2="edgeDetail" operator="arithmetic" k2="${1 - look.wobbleJitter}" k3="${look.wobbleJitter}" result="wobble"/>`
   + `<feDisplacementMap in="grained" in2="wobble" scale="${r1(WOBBLE)}" xChannelSelector="R" yChannelSelector="G"/></filter>`;
 
 // the animated copy: the same lettering as a stack of small SVGs in a box, two to a letter, so
@@ -1243,7 +1280,7 @@ async function draw() {
 // glyph is worked out again); letting go of a slider, or picking a colour, also replays the
 // animation. Rows: label, hover text, target, key, min, max, step, unit
 const LOOK_DEFAULTS = { length: 1, direction: Math.round(Math.atan2(EX_BASE[1], EX_BASE[0]) * 180 / Math.PI), shadow: SHADOW,
-  texture: TEXTURE, hatching: HATCH.amount, hatchAngle: HATCH.angle, wobble: WOBBLE,
+  texture: TEXTURE, grainPreset: 'Original', wobbleFrequency: 0.05, wobbleJitter: 0, hatching: HATCH.amount, hatchAngle: HATCH.angle, wobble: WOBBLE,
   dropDistance: 0, dropDirection: 45, dropSoftness: 6, dropOpacity: 1, outline: OUTLINE };
 const look = { ...LOOK_DEFAULTS };
 const COLOURS = [
@@ -1258,16 +1295,17 @@ const COLOURS = [
   ['drop shadow', 'the shadow behind the whole lettering (its distance is in Finish)', 'drop']];
 const SOLID = [
   ['Extrusion', [
-    ['length', 'how far the block reaches back behind the letters', look, 'length', 0, 3, 0.05, '×'],
+    ['depth', 'how far the block reaches back behind the letters', look, 'length', 0, 3, 0.05, '×'],
     ['direction', 'which way the block runs back (0: right, 90: down)', look, 'direction', 0, 359, 1, '°']]],
   ['Shadow', [
     ['shadow', 'which way the walls in shadow face (90: down; 0: right)', look, 'shadow', 0, 359, 1, '°'],
     ['hatching', 'the scratches on the walls in shadow: 0 none, 1 as designed, 2 twice as strong', look, 'hatching', 0, 2, 0.05, '×'],
     ['hatch angle', 'the way the scratches slant, in degrees up from level', look, 'hatchAngle', -90, 90, 1, '°']]]];
 const FINISH = [
-  ['Texture', [
-    ['grain', 'the pale grain over the letters: 0 none, 1 as designed, 2 twice as strong', look, 'texture', 0, 2, 0.05, '×'],
-    ['wobble', 'how far the hand-drawn wobble moves an edge (0: none)', look, 'wobble', 0, 12, 0.5, '']]],
+  ['Edge character', [
+    ['amount', 'how far the hand-drawn edge moves (0: none)', look, 'wobble', 0, 12, 0.5, ''],
+    ['frequency', 'low: broad waves; high: fine, spiky edges', look, 'wobbleFrequency', 0.008, 0.18, 0.002, ''],
+    ['jitter', 'adds finer irregular detail to the edge (0: smooth, 1: rough)', look, 'wobbleJitter', 0, 1, 0.05, '']]],
   ['Drop shadow', [
     ['distance', 'how far the drop shadow falls from the lettering (0: none)', look, 'dropDistance', 0, 80, 1, ''],
     ['direction', 'which way it falls (0: right, 90: down)', look, 'dropDirection', 0, 359, 1, '°'],
@@ -1376,8 +1414,9 @@ function fillFont() {
     })));
     p.append(set);
   });
-  p.append(box('Lines',
-    field('leading', 'from a line’s blocks (or baseline) to the tops of the next', ...slider(design, 'spacing', -150, 300, 1, '')),
+  p.append(box('Line layout',
+    el('p', { className: 'note', textContent: 'Line gap controls the space between rows of lettering. Add line creates another row.' }),
+    field('line gap', 'from a line’s blocks (or baseline) to the tops of the next', ...slider(design, 'spacing', -150, 300, 1, '')),
     el('div', { className: 'buttons' }, button('Add line', () => { design.lines.push(newLine()); buildAll(); draw(); }))));
 }
 // Style: each line's cycle of face styles, a menu for each step, × to take a step out (while there
@@ -1420,9 +1459,9 @@ function fillDetail(force = false) {
 // Letter: the chosen letter's own size, turn, move and face style (a turn about its middle; its
 // block is still made after, so it runs the design's way)
 function fillLetter() {
-  const set = box('Letter');
+  const set = box('Letter', el('p', { className: 'note', textContent: 'Click a letter to adjust it, or select one below.' }));
   panel('letter').replaceChildren(set);
-  const choices = [['', 'none (or click one)']];
+  const choices = [['', 'Select']];
   design.lines.forEach((ln, li) => [...ln.text].forEach((ch, i) => { if (ch.trim()) choices.push([`${li}:${i}`, `line ${li + 1}: ${ch} (${i + 1})`]); }));
   if (chosen && !choices.some(([v]) => v === chosen.join(':'))) chosen = null;
   const which = menu(choices, chosen ? chosen.join(':') : '');
@@ -1445,7 +1484,7 @@ function fillLetter() {
 // Color: a palette to start from, and every colour, in two columns
 const paletteOf = () => Object.keys(PALETTES).find(n => COLOURS.every(([, , k]) => PALETTES[n][k] === PAL[k])) || '';
 function fillColours() {
-  const palette = menu([...Object.keys(PALETTES).map(n => [n, n]), ['', 'your own']], paletteOf());
+  const palette = menu([...Object.keys(PALETTES).map(n => [n, n]), ['', 'Custom']], paletteOf());
   palette.addEventListener('change', () => {
     if (!palette.value) return;
     Object.assign(PAL, PALETTES[palette.value]);
@@ -1464,7 +1503,17 @@ function fillColours() {
       el('div', { className: 'two', style: `grid-template-rows: repeat(${Math.ceil(COLOURS.length / 2)}, auto)` }, ...COLOURS.map(swatch))));
 }
 const fillSolid = () => panel('3d').replaceChildren(...sets(SOLID));
-const fillFinish = () => panel('finish').replaceChildren(...sets(FINISH));
+const GRAIN_PRESETS = {
+  'Original': { frequency: 1.1, octaves: 1, seed: 3 },
+  'Fine dust': { frequency: 1.8, octaves: 2, seed: 7 },
+  'Coarse paper': { frequency: 0.35, octaves: 3, seed: 11 },
+};
+function fillFinish() {
+  const grain = menu(Object.keys(GRAIN_PRESETS).map(n => [n, n]), look.grainPreset);
+  grain.addEventListener('change', () => { look.grainPreset = grain.value; rebuild(); settled(); });
+  panel('finish').replaceChildren(box('Texture', field('grain type', 'the pattern of the grain', grain),
+    field('grain', 'grain strength: 0 none, 1 as designed, 2 twice as strong', ...slider(look, 'texture', 0, 2, 0.05, '×'))), ...sets(FINISH));
+}
 // every panel that shows the design's state, written again (after a preset, or a line added or taken away)
 function buildAll() { fillFont(); fillStyles(); fillLetter(); fillColours(); fillSolid(); fillFinish(); fillControls(); fillDetail(true); }
 
@@ -1525,7 +1574,7 @@ function measure() {
 // ---------- the animation's controls ----------
 // Animation: every setting animateLettering takes, as sliders and menus (times up to 10 s; hover a
 // row for what it does), with a timing for each line; a change replays it (on letting go of a
-// slider), in the same random order until "New order". Export shows the options to pass to
+// slider), in the same random order until "Randomize". Save & export shows the options to pass to
 // animateLettering on a site
 const motion = structuredClone(LETTERING_DEFAULTS);
 const EASES = [['linear', 'linear'], ['in', 'ease in'], ['out', 'ease out'], ['inOut', 'ease in-out'],
@@ -1627,7 +1676,7 @@ function fillControls() {
     p.append(set);
   }
   p.append(box('Order', el('p', { className: 'note', textContent: 'The random order the letters come in.' }),
-    el('div', { className: 'buttons' }, button('New order', () => { motion.seed = 1 + Math.floor(Math.random() * 9999); refreshCode(); play(); }))));
+    el('div', { className: 'buttons' }, button('Randomize', () => { motion.seed = 1 + Math.floor(Math.random() * 9999); refreshCode(); play(); }))));
   refreshCode();
 }
 
@@ -1659,6 +1708,9 @@ function restore(p) {
   });
   design.spacing = Number.isFinite(p.design.spacing) ? p.design.spacing : 26;
   Object.assign(look, LOOK_DEFAULTS, p.look);
+  if (!GRAIN_PRESETS[look.grainPreset]) look.grainPreset = 'Original';
+  for (const [key, min, max] of [['wobbleFrequency', 0.008, 0.18], ['wobbleJitter', 0, 1]])
+    look[key] = Number.isFinite(look[key]) ? Math.min(max, Math.max(min, look[key])) : LOOK_DEFAULTS[key];
   Object.assign(FACE, FACE_DEFAULTS, p.face);
   // (a preset from before the gradient and stripe colours: no gradient, stripes in the decoration colour)
   Object.assign(PAL, PAL_DEFAULTS, { face2: p.colours?.face, stripes: p.colours?.light }, p.colours);
@@ -1686,6 +1738,13 @@ const DRAFT_KEY = 'atypix-draft-v1';
 const HISTORY_LIMIT = 100;
 let history = [], historyIndex = -1, historyTimer = null, draftTimer = null;
 const draftStatus = document.getElementById('draft-status');
+let draftStatusTimer;
+function draftMessage(text, transient = false) {
+  clearTimeout(draftStatusTimer);
+  draftStatus.classList.remove('faded');
+  draftStatus.textContent = text;
+  if (transient) draftStatusTimer = setTimeout(() => draftStatus.classList.add('faded'), 2000);
+}
 function historyButtons() {
   document.getElementById('undo').disabled = historyIndex <= 0;
   document.getElementById('redo').disabled = historyIndex >= history.length - 1;
@@ -1694,8 +1753,8 @@ function saveDraft() {
   clearTimeout(draftTimer);
   try {
     localStorage.setItem(DRAFT_KEY, JSON.stringify(snapshot()));
-    draftStatus.textContent = 'Draft saved in this browser';
-  } catch { draftStatus.textContent = 'Draft could not be saved · download JSON to keep your work'; }
+    draftMessage('Draft saved in this browser', true);
+  } catch { draftMessage('Draft could not be saved · download JSON to keep your work'); }
 }
 function commitEdit() {
   clearTimeout(historyTimer);
@@ -1725,10 +1784,10 @@ document.getElementById('reset').addEventListener('click', () => {
   restore(initialDesign);
   commitEdit(); // reset is undoable; named presets and the preview choice are kept
 });
-const editableDesignControl = target => target.closest('#panels') && !target.closest('#tab-save, #tab-export');
+const editableDesignControl = target => target.closest('#panels') && !target.closest('#tab-save');
 document.addEventListener('input', e => {
   if (!editableDesignControl(e.target)) return;
-  draftStatus.textContent = 'Saving draft…';
+  draftMessage('Saving draft…');
   clearTimeout(draftTimer);
   draftTimer = setTimeout(saveDraft, 200);
   if (e.target.matches('input[type=text]')) {
@@ -1737,8 +1796,8 @@ document.addEventListener('input', e => {
   }
 });
 document.addEventListener('change', e => {
-  // Include JSON imports and design menus, but not the preset picker or export width.
-  if (editableDesignControl(e.target) || e.target.matches('#tab-export input[type=file]')) setTimeout(commitEdit, 0);
+  // Track design menus; JSON imports commit after the file has been read.
+  if (editableDesignControl(e.target)) setTimeout(commitEdit, 0);
 }, true);
 document.addEventListener('click', e => {
   // A button can add/remove lines, reset a letter, change the random order, or load a preset.
@@ -1820,76 +1879,94 @@ async function downloadPicture(type) {
   } catch (e) { say(`Could not make the picture: ${e.message || e}`); }
 }
 
-// Save: the downloads, with their sizes; a picture at a chosen width; and presets kept in this
-// browser. Written once: nothing in it shows the design's state but the sizes and the preset list
-let presetName = null;
+// Save & export: editable design first, then finished artwork and embedding.
+let presetName = null, code = null;
+const refreshCode = () => { if (code) code.textContent = `animateLettering(root, ${JSON.stringify(motion, null, 1).replace(/\n\s*/g, ' ')});`; };
+async function copyExport(b, text, fallback) {
+  const original = b.textContent;
+  try { await navigator.clipboard.writeText(text); b.textContent = 'Copied'; }
+  catch {
+    fallback.textContent = text;
+    fallback.hidden = false;
+    getSelection().selectAllChildren(fallback);
+    b.textContent = 'Select and copy below';
+  }
+  setTimeout(() => { b.textContent = original; }, 2000);
+}
 function fillSave() {
-  widthInput = el('input', { type: 'number', min: 16, max: 8000, step: 1, value: 2000 });
-  presetName = el('input', { type: 'text', placeholder: 'preset name', spellcheck: false });
-  const saved = el('select');
+  const row = (...children) => el('div', { className: 'save-row' }, ...children);
+  const note = text => el('p', { className: 'note', textContent: text });
+  presetName = el('input', { type: 'text', placeholder: 'design name', spellcheck: false });
+  presetName.setAttribute('aria-label', 'Design name');
+  const saved = el('select'); saved.setAttribute('aria-label', 'Saved designs in this browser');
   const list = (current = saved.value) => {
-    saved.replaceChildren(new Option('saved presets', ''));
+    saved.replaceChildren(new Option('Choose a browser save…', ''));
     for (const n of Object.keys(stored()).sort()) saved.append(new Option(n, n, false, n === current));
   };
-  panel('save').replaceChildren(
-    box('Download',
-      el('p', { className: 'note', textContent: 'SVG, PNG and WebP display your finished artwork. Animated HTML displays the animation. No design JSON is needed to display either.' }),
-      el('div', { className: 'buttons' }, button('Download SVG', download),
-        button('Download animated', downloadAnimated, { title: 'the animated copy as one snippet to paste into a page: the lettering, GSAP and the animation, with the Animation tab’s settings' })),
-      el('p', { className: 'note', id: 'size' }), el('p', { className: 'note', id: 'moving-size' })),
-    box('Picture',
-      field('width', 'the static design as a picture this many pixels wide', widthInput, el('span', { textContent: 'px' })),
-      el('div', { className: 'buttons' }, button('PNG', () => downloadPicture('image/png')), button('WebP', () => downloadPicture('image/webp')))),
-    box('Presets',
-      el('p', { className: 'note', textContent: 'Your latest draft saves automatically. Save a named design below to keep another version; Load opens a named save from this browser.' }),
-      el('p', { className: 'note', textContent: 'Browser saves normally survive closing a tab or quitting the browser. Clearing site data can erase them; clearing browsing history alone generally does not. Keep a downloaded JSON backup for designs you want to keep (Export tab).' }),
-      field('name', 'what to call it (the words, if left empty)', presetName, el('span')),
-      el('div', { className: 'buttons' }, button('Save', () => {
-        const n = presetName.value.trim() || words() || 'untitled', all = stored();
-        all[n] = snapshot();
-        say(store(all) ? '' : 'This browser would not keep the preset: download it as JSON (Export) instead');
-        list(n);
-      })),
-      field('saved', 'presets kept in this browser', saved, el('span')),
-      el('div', { className: 'buttons' },
-        button('Load', () => {
-          const p = stored()[saved.value];
-          if (!p) return;
-          presetName.value = saved.value;
-          try { restore(p); } catch (e) { say(`Could not load ${saved.value}: ${e.message}`); }
-        }),
-        button('Delete', () => { const all = stored(); delete all[saved.value]; store(all); list(''); }))));
-  list();
-}
-// Export: the preset as a JSON file, and loading one; the animation's settings, to copy or to read
-let code = null;
-const refreshCode = () => { if (code) code.textContent = `animateLettering(root, ${JSON.stringify(motion, null, 1).replace(/\n\s*/g, ' ')});`; };
-function fillExport() {
   const file = el('input', { type: 'file', accept: '.json,application/json', hidden: true });
+  file.setAttribute('aria-label', 'Open design JSON');
   file.addEventListener('change', async () => {
-    try { restore(JSON.parse(await file.files[0].text())); commitEdit(); say(''); }
-    catch (e) { say(`Could not load ${file.files[0].name}: ${e.message}`); }
+    const selected = file.files[0];
+    if (!selected) return;
+    try { restore(JSON.parse(await selected.text())); commitEdit(); say(''); }
+    catch (e) { say(`Could not load ${selected.name}: ${e.message}`); }
     file.value = '';
   });
+  const browser = el('div', {}, el('h3', { textContent: 'In this browser' }),
+    row(presetName, button('Save in browser', () => {
+      const n = presetName.value.trim() || words() || 'untitled', all = stored();
+      all[n] = snapshot();
+      say(store(all) ? '' : 'This browser could not save the design. Download design JSON instead.');
+      list(n);
+    })),
+    row(saved, button('Load saved', () => {
+      const p = stored()[saved.value]; if (!p) return;
+      presetName.value = saved.value;
+      try { restore(p); } catch (e) { say(`Could not load ${saved.value}: ${e.message}`); }
+    }), button('Delete', () => { const all = stored(); delete all[saved.value]; store(all); list(''); })),
+    note('Your draft saves automatically. Named saves normally survive closing tabs or quitting the browser. Clearing site data can erase them; clearing history alone generally does not.'));
+  const backup = el('div', {}, el('h3', { textContent: 'On your device · recommended backup' }),
+    note('JSON keeps every editable setting, including animation. Open it here to edit again, in this or another browser.'),
+    row(button('Download design JSON', () => save(new Blob([JSON.stringify(snapshot(), null, 1)], { type: 'application/json' }),
+      `${slug(presetName.value.trim() || words())}.json`)), button('Open design JSON', () => file.click()), file),
+    note('Browser saves are convenient; a downloaded JSON file is the safer backup. No HTML is needed to reopen a design.'));
+  const designBox = box('Save / load design', el('div', { className: 'save-columns' }, browser, backup));
+  designBox.classList.add('save-design');
+
+  widthInput = el('input', { type: 'number', min: 16, max: 8000, step: 1, value: 2000 });
+  const widthRow = field('width', 'the image width in pixels', widthInput, el('span', { textContent: 'px' }));
+  widthRow.hidden = true;
+  let format = 'svg';
+  const formatHelp = note('Scalable vector artwork · transparent background.');
+  const artworkDownload = button('Download SVG', () => format === 'svg' ? download() : downloadPicture('image/' + format));
+  const formats = el('div', { className: 'buttons format-options', role: 'group' });
+  formats.setAttribute('aria-label', 'Artwork format');
+  for (const kind of ['svg', 'png', 'webp']) {
+    const b = button(kind.toUpperCase(), () => {
+      format = kind; widthRow.hidden = kind === 'svg';
+      for (const btn of formats.children) btn.setAttribute('aria-pressed', btn === b);
+      artworkDownload.textContent = 'Download ' + kind.toUpperCase();
+      formatHelp.textContent = kind === 'svg' ? 'Scalable vector artwork · transparent background.' : 'Static image · transparent background · choose a width in pixels.';
+    });
+    b.setAttribute('aria-pressed', kind === format); formats.append(b);
+  }
+  const artwork = box('Download artwork', note('Finished artwork for a design, document, or website. No design JSON required.'),
+    formats, widthRow, formatHelp, row(artworkDownload), el('p', { className: 'note', id: 'size' }));
+
   code = el('code', { hidden: true });
-  const copy = button('Copy settings', async () => {
-    try { await navigator.clipboard.writeText(code.textContent); copy.textContent = 'Copied'; }
-    catch { code.hidden = false; show.textContent = 'Hide code'; getSelection().selectAllChildren(code); copy.textContent = 'Selected: press ⌘C'; }
-    setTimeout(() => { copy.textContent = 'Copy settings'; }, 1500);
-  });
+  const copySettings = button('Copy settings', () => copyExport(copySettings, code.textContent, code));
   const show = button('Show code', () => { code.hidden = !code.hidden; show.textContent = code.hidden ? 'Show code' : 'Hide code'; });
-  panel('export').replaceChildren(
-    box('Preset file',
-      el('p', { className: 'note', textContent: 'Download JSON backs up your whole editable design, including animation, to a file on your device. Load JSON reopens that file in Atypix, including in another browser.' }),
-      el('div', { className: 'buttons' },
-        button('Download JSON', () => save(new Blob([JSON.stringify(snapshot(), null, 1)], { type: 'application/json' }),
-          `${slug(presetName.value.trim() || words())}.json`)),
-        button('Load JSON', () => file.click()), file),
-      el('p', { className: 'note', textContent: 'You do not need both HTML and JSON: use JSON to edit the design again; use exported artwork or animated HTML to display it. Browser saves are convenient, but a downloaded JSON file is the safer backup.' })),
-    box('Animation settings',
-      el('p', { className: 'note', textContent: 'The options to pass to animateLettering(root, options) on a site.' }),
-      el('div', { className: 'buttons' }, copy, show), code));
-  refreshCode();
+  const snippetFallback = el('code', { hidden: true });
+  const copySnippet = button('Copy snippet', () => { if (parts.length) copyExport(copySnippet, snippet(), snippetFallback); });
+  const advanced = el('details', {}, el('summary', { textContent: 'Advanced animation settings' }),
+    note('Settings only: for a site that already has the lettering, GSAP, and animateLettering. The complete snippet includes these settings.'),
+    row(copySettings, show), code);
+  const embed = box('Embed animation', note('Paste this snippet into your site. No design JSON required.'),
+    note('The complete snippet includes the artwork and animation code, and loads GSAP from a CDN.'),
+    row(button('Download animated HTML', downloadAnimated), copySnippet), snippetFallback, advanced,
+    el('p', { className: 'note', id: 'moving-size' }));
+  panel('save').replaceChildren(designBox, artwork, embed);
+  list(); refreshCode();
 }
 
 // ---------- the tabs ----------
@@ -1898,7 +1975,7 @@ function fillExport() {
 // panel's height). Preview mode is controlled separately;
 // the stage takes whatever room the panel leaves. Which tab was open is remembered in this browser
 const TABS = [['font', 'Font'], ['style', 'Style'], ['detail', 'Detail'], ['letter', 'Letter'], ['colour', 'Color'],
-  ['3d', '3D'], ['finish', 'Finish'], ['animation', 'Animation'], ['save', 'Save'], ['export', 'Export']];
+  ['3d', '3D'], ['finish', 'Finish'], ['animation', 'Animation'], ['save', 'Save & export']];
 // Preview is independent of the settings drawer and remembered separately from the design.
 let previewMode = 'still';
 try { if (localStorage.getItem('atypix-preview') === 'animate') previewMode = 'animate'; } catch {}
@@ -1919,6 +1996,18 @@ document.getElementById('preview-animate').addEventListener('click', () => setPr
 const TAB_KEY = 'atypix-tab';
 let tab = 'font', open = true;
 const tabs = document.getElementById('tabs'), panels = document.getElementById('panels');
+const sectionPicker = document.getElementById('section-picker'), controlsToggle = document.getElementById('toggle-controls');
+for (const [name, text] of TABS) sectionPicker.append(new Option(text, name));
+sectionPicker.addEventListener('change', () => showTab(sectionPicker.value));
+controlsToggle.addEventListener('click', () => showTab(tab, true));
+const scrollHint = document.getElementById('panel-scroll-hint');
+function updateScrollHint() {
+  const card = document.getElementById('tab-' + tab);
+  scrollHint.hidden = !open || card.scrollHeight - card.clientHeight - card.scrollTop < 4;
+}
+for (const card of panels.children) card.addEventListener('scroll', updateScrollHint, { passive: true });
+new ResizeObserver(updateScrollHint).observe(panels);
+new MutationObserver(() => requestAnimationFrame(updateScrollHint)).observe(panels, { childList: true, subtree: true });
 tabs.append(...TABS.map(([name, text], i) => {
   const b = button(text, () => showTab(name, true), { role: 'tab', id: 'tab-button-' + name });
   b.append(el('span', { className: 'caret', ariaHidden: 'true' }));   // the open or closed triangle, shown on the chosen tab
@@ -1971,6 +2060,10 @@ function showTab(name, again = false, slide = true) {
     panels.style.height = to + 'px';
   }
   panels.classList.toggle('shut', !open);
+  sectionPicker.value = tab;
+  controlsToggle.textContent = open ? 'Hide controls' : 'Show controls';
+  controlsToggle.setAttribute('aria-expanded', open);
+  requestAnimationFrame(updateScrollHint);
   centreTab(slide);
   mark();                                   // the chosen letter's outline shows on the Letter tab only
   // Changing tabs leaves the user's preview mode and playback alone.
@@ -1979,10 +2072,10 @@ function showTab(name, again = false, slide = true) {
 
 document.getElementById('replay').addEventListener('click', play);
 fillSave();
-fillExport();
 buildAll();
 try {
   const last = JSON.parse(localStorage.getItem(TAB_KEY));
+  if (last?.tab === 'export') last.tab = 'save';
   if (TABS.some(([n]) => n === last?.tab)) { tab = last.tab; open = last.open !== false; }
 } catch {}
 showTab(tab, false, false);
@@ -1995,12 +2088,12 @@ try {
 } catch {
   // Restore can reject an invalid draft; keep the normal starting design usable.
   restore(initialDesign);
-  draftStatus.textContent = 'Saved draft could not be restored';
+  draftMessage('Saved draft could not be restored');
 }
 history = [JSON.stringify(snapshot())];
 historyIndex = 0;
 historyButtons();
-if (recovered) draftStatus.textContent = 'Draft restored from this browser';
+if (recovered) draftMessage('Draft restored from this browser', true);
 if (!recovered) draw();
 </script>
 </body>
