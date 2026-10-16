@@ -1585,7 +1585,7 @@ function applyStylePreset(name) {
 // are two or more), + to add one
 function fillStyles() {
   const p = panel('style');
-  const presets = box('Style presets', el('div', { className: 'buttons' }, ...['Classic', 'RISO', 'Candy pop', 'Monochrome'].map(name => button(name, () => applyStylePreset(name)))),
+  const presets = box('Style presets', el('div', { className: 'buttons' }, ...['Handletter', 'RISO', 'Candy pop', 'Monochrome'].map(name => button(name, () => applyStylePreset(name)))),
     el('p', { className: 'note', textContent: 'Changes styles and colors, including letter face/color overrides. Keeps your words, fonts and letter placement. Undo restores the previous design.' }));
   presets.classList.add('style-presets');
   p.replaceChildren(presets);
