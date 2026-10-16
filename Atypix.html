@@ -1,0 +1,1831 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Atypix</title>
+<style>
+  /* the hero's sky blue, painted in any theme, since the lettering sits on it */
+  :root {
+    color-scheme: light;
+    --sky: #bccfd6; --ink: #261a57; --muted: rgba(38, 26, 87, .7); --rule: rgba(38, 26, 87, .2); --dock: #d6e3eb;
+  }
+  html, body { margin: 0; height: 100%; background: var(--sky); color: var(--ink); }
+  /* one screen: the lettering as large as fits, over the dock of tabs pinned to the bottom */
+  body { font: 14px/1.45 ui-sans-serif, system-ui, sans-serif; display: flex; flex-direction: column;
+    height: 100vh; height: 100dvh; overflow: hidden; }
+  header { flex: none; display: flex; flex-wrap: wrap; gap: 2px 14px; align-items: baseline; padding: 10px 16px 0; }
+  h1 { margin: 0; font-size: 18px; letter-spacing: .02em; }
+  header p { margin: 0; color: var(--muted); font-size: 12px; }
+  #status { color: #a3260b; font-size: 12px; }
+  select, button, input { font: inherit; }
+  button { padding: 3px 10px; }
+  /* the panels' buttons and Replay, dressed like the chosen tab: navy, rounded, its bold capitals */
+  .panel button, #replay { border: 0; border-radius: 8px; padding: 7px 12px 6px; cursor: pointer;
+    background: #3e5269; color: #fff; font: 700 12px/1 Lato, ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: .04em; text-transform: uppercase; transition: background-color .2s; }
+  .panel button:hover, #replay:hover { background: #4f6683; }
+  .panel button:focus-visible, #replay:focus-visible { outline: 2px solid #59abb1; outline-offset: 2px; }
+  .panel button:disabled { opacity: .45; cursor: default; }
+  /* the stage: the static SVG (for the first seven tabs) or the animated copy, fitted to the room */
+  #stage { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 8px 16px; }
+  #stage figure { flex: 1; min-height: 0; margin: 0; display: flex; flex-direction: column; }
+  #stage figure[hidden] { display: none; }
+  #stage .art { flex: 1; min-height: 0; }
+  #still .art { cursor: pointer; }
+  /* the lettering grows with the window up to --art-max wide (the size it showed at in the
+     operator's browser pane, 2026-10-16), and shrinks below that as it must */
+  #stage { --art-max: 752px; }
+  #still svg { display: block; width: 100%; max-width: var(--art-max); height: 100%; margin: 0 auto; overflow: visible; }
+  #moving .art { container-type: size; display: flex; align-items: center; justify-content: center; }
+  #moving .atypix { flex: none; width: min(100cqw, calc(100cqh * var(--ar, 2)), var(--art-max)); }
+  figcaption { flex: none; margin-top: 6px; color: var(--muted); font-size: 12px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .loading #stage { opacity: .5; }
+  /* the dock: a drawer at the bottom, its row of tabs on top and the open tab's panel sliding
+     up beneath them (and back down when closed). The drawer is the chosen tab's navy, laid over
+     the tabs so their shadows don't darken its top, its top corners rounded like the card; the
+     panel is a rounded card inside it, a lighter, slightly bluer grey, with an even 18px band of
+     navy all round it. The drawer stays still and the card scrolls inside it, so the navy band and
+     the card's rounded top stay put however far its content scrolls. The tabs sit on the lettering's sky */
+  #dock { flex: none; --tab: #3e5269; }
+  #panels { position: relative; z-index: 20; box-sizing: border-box; background: var(--tab); overflow: hidden;
+    border-radius: 12px 12px 0 0; transition: height .42s cubic-bezier(.65, 0, .35, 1); }
+  /* the sliders, ticks and menus in the chosen tab's navy */
+  :root { accent-color: #3e5269; }
+  @media (prefers-reduced-motion: reduce) { #panels { transition: none; } }
+  .panel[hidden] { display: none; }
+  /* the card's scrollbar in navy (scrollbar-color for Chrome and Firefox; the -webkit- rules for Safari) */
+  .panel::-webkit-scrollbar { width: 10px; }
+  .panel::-webkit-scrollbar-track { background: transparent; }
+  .panel::-webkit-scrollbar-thumb { background: var(--tab); border-radius: 5px; border: 2px solid var(--dock); }
+  /* the card scrolls; while more lies below, a soft navy shade sits along its bottom edge (a shade
+     fixed to the card, under a cover that scrolls with the content and hides it at the end) */
+  .panel { margin: 18px; max-height: calc(45vh - 36px); overflow: auto; overscroll-behavior: contain; box-sizing: border-box;
+    scrollbar-color: var(--tab) transparent; border-radius: 12px; padding: 12px 14px 2px;
+    background: linear-gradient(rgba(214, 227, 235, 0), var(--dock) 60%) 0 100% / 100% 36px no-repeat local,
+      linear-gradient(rgba(62, 82, 105, 0), rgba(62, 82, 105, .22)) 0 100% / 100% 22px no-repeat scroll, var(--dock); }
+  /* the groups flow down columns, each kept whole, so a short one leaves no gap beside a tall one */
+  .panel .flow { columns: 280px; column-gap: 12px; }
+  .panel .flow > * { break-inside: avoid; margin: 0 0 12px; }
+  /* a group: a faint navy fill and no border; its heading in the tabs' bold capitals (a floated
+     legend, so it sits inside the fill rather than across its edge) */
+  .panel fieldset { padding: 10px 12px 10px; border: 0; border-radius: 10px; min-width: 0; background: rgba(62, 82, 105, .07); }
+  .panel legend { float: left; width: 100%; padding: 0; margin: 0 0 4px; color: #3e5269;
+    font: 700 12px/1.2 Lato, ui-sans-serif, system-ui, sans-serif; letter-spacing: .04em; text-transform: uppercase; }
+  .panel legend ~ * { clear: both; }
+  .panel label { display: grid; grid-template-columns: 76px 1fr 52px; gap: 8px; align-items: center; margin-top: 4px; }
+  .panel :is(input[type=range], input[type=text], input[type=number], select) { width: 100%; box-sizing: border-box; min-width: 0; }
+  /* menus and text fields like the buttons: rounded, edged in navy, a navy arrow on the menus */
+  .panel :is(select, input[type=text], input[type=number]) { height: 28px; border: 1.5px solid #3e5269; border-radius: 8px;
+    background-color: #fff; color: var(--ink); padding: 0 9px; }
+  .panel select { appearance: none; -webkit-appearance: none; padding-right: 26px; cursor: pointer;
+    background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0h10L5 6z' fill='%233e5269'/%3E%3C/svg%3E") no-repeat right 9px center; }
+  .panel :is(select, input[type=text], input[type=number]):focus-visible { outline: 2px solid #59abb1; outline-offset: 1px; }
+  /* a slider's value in a small navy pill beside it */
+  .panel output { justify-self: end; padding: 3px 6px; border-radius: 6px; background: rgba(62, 82, 105, .12); color: #3e5269;
+    font: 11px/1 ui-monospace, Menlo, monospace; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .panel output:empty { visibility: hidden; }
+  .panel .buttons { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .panel .note { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
+  .panel code { display: block; margin-top: 8px; font: 11px/1.4 ui-monospace, Menlo, monospace; color: var(--muted);
+    overflow-wrap: anywhere; white-space: pre-wrap; }
+  .panel code[hidden] { display: none; }
+  /* a line's style cycle: a menu per step, wrapping */
+  .panel .styles { display: grid; grid-template-columns: 76px 1fr; gap: 8px; align-items: start; margin-top: 6px; }
+  .panel .cycle { display: flex; flex-wrap: wrap; gap: 4px 6px; }
+  .panel .cycle span { display: inline-flex; gap: 2px; }
+  .panel .cycle select { width: auto; }
+  .panel .cycle button { padding: 4px 7px; }
+  /* colours: two columns of a name and a swatch */
+  .panel .flow > .colours { column-span: all; }
+  .panel .two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-flow: column; gap: 0 18px; }
+  .panel .two label { grid-template-columns: 1fr 52px; }
+  .panel input[type=color] { width: 100%; height: 24px; padding: 0; border: 1px solid var(--rule); border-radius: 4px; background: none; }
+  /* the tabs, after the colour blocks of a numbered-steps sheet: teal (#59abb1, the operator's,
+     2026-10-16), the chosen one navy and
+     taller, a rounded left end and a slanted right one, a small bold label. Each tab after the
+     first reaches back under the one before it, and each casts a soft shadow on the next, so the
+     slants show though the colours are the same. The block is two layers of its own, a straight one
+     (::before) and a skewed one for the slant (::after), so the slant's top corner can be rounded
+     and the shadow isn't cut off as it would be by a clip-path. The chosen tab carries a triangle,
+     pointing down while its panel is open and turning to point up when it is closed; choosing the
+     tab again opens or closes it. Where the row is too wide for the window it scrolls (by touch,
+     trackpad or mouse wheel), its edges fading into the sky wherever more tabs lie beyond them,
+     and the chosen tab is scrolled to the middle; below 770px the tabs' padding tightens */
+  #tabs { position: relative; display: flex; overflow-x: auto; padding: 8px 12px 0; scrollbar-width: none; align-items: flex-end;
+    --fade-l: 0px; --fade-r: 0px; transition: --fade-l .2s, --fade-r .2s;
+    mask-image: linear-gradient(90deg, transparent, #000 var(--fade-l), #000 calc(100% - var(--fade-r)), transparent); }
+  #tabs::-webkit-scrollbar { display: none; }
+  #tabs.more-left { --fade-l: 36px; }
+  #tabs.more-right { --fade-r: 36px; }
+  #tabs [role=tab] { --c: #59abb1; position: relative; flex: none; border: 0; cursor: pointer; color: #fff; background: none;
+    display: flex; align-items: center; gap: 6px; padding: 10px 18px 9px 10px;
+    font: 700 12px/1 Lato, ui-sans-serif, system-ui, sans-serif; letter-spacing: .04em; text-transform: uppercase;
+    filter: drop-shadow(2px 0 1.5px rgba(30, 45, 65, .3)); transition: padding .2s; }
+  #tabs [role=tab]::before, #tabs [role=tab]::after { content: ''; position: absolute; top: 0; bottom: 0; z-index: -1;
+    background: var(--c); transition: background-color .2s; }
+  #tabs [role=tab]::before { left: 0; right: 20px; border-radius: 12px 0 0 0; }
+  #tabs [role=tab]::after { right: 0; width: 34px; border-radius: 0 7px 0 0; transform: skewX(24deg); transform-origin: 100% 100%; }
+  #tabs [role=tab] + [role=tab] { margin-left: -16px; padding-left: 25px; }
+  #tabs [role=tab]:hover { --c: #6db8be; }
+  #tabs [role=tab][aria-selected=true] { --c: #3e5269; padding-top: 14px; }
+  #tabs .caret { display: none; width: 8px; height: 5px; background: currentColor; clip-path: polygon(0 0, 100% 0, 50% 100%);
+    transition: transform .42s cubic-bezier(.65, 0, .35, 1); }
+  #tabs [aria-selected=true] .caret { display: block; }
+  #tabs [aria-selected=true][aria-expanded=false] .caret { transform: rotate(180deg); }
+  @media (prefers-reduced-motion: reduce) { #tabs .caret { transition: none; } }
+  @media (max-width: 770px) {
+    #tabs [role=tab] { padding-left: 8px; padding-right: 16px; }
+    #tabs [role=tab] + [role=tab] { padding-left: 21px; }
+  }
+  /* registered, so the fades can ease in and out rather than jump */
+  @property --fade-l { syntax: '<length>'; inherits: false; initial-value: 0px; }
+  @property --fade-r { syntax: '<length>'; inherits: false; initial-value: 0px; }
+</style>
+<!-- the tabs' lettering (the page's own; nothing exported uses it) -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@700&display=swap">
+<!-- opentype.js reads the font for the menu; the SVG it makes needs neither it nor the font -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/opentype.js/1.3.4/opentype.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
+</head>
+<body>
+<header>
+  <h1>Atypix</h1>
+  <p>Block lettering as SVG: no font, no library and no canvas to show it; GSAP to move it.</p>
+  <span id="status" role="status"></span>
+</header>
+<main id="stage">
+  <figure id="still"><div class="art"></div><figcaption>Static SVG · click a letter to adjust it</figcaption></figure>
+  <figure id="moving" hidden><div class="art"></div><figcaption><button id="replay" type="button">Replay</button>
+    <span id="fps"></span></figcaption></figure>
+</main>
+<nav id="dock" aria-label="Settings">
+  <div id="tabs" role="tablist"></div>
+  <div id="panels">
+    <section class="panel" id="tab-font" role="tabpanel"></section>
+    <section class="panel" id="tab-style" role="tabpanel"></section>
+    <section class="panel" id="tab-detail" role="tabpanel"></section>
+    <section class="panel" id="tab-letter" role="tabpanel"></section>
+    <section class="panel" id="tab-colour" role="tabpanel"></section>
+    <section class="panel" id="tab-3d" role="tabpanel"></section>
+    <section class="panel" id="tab-finish" role="tabpanel"></section>
+    <section class="panel" id="tab-animation" role="tabpanel"></section>
+    <section class="panel" id="tab-save" role="tabpanel"></section>
+    <section class="panel" id="tab-export" role="tabpanel"></section>
+  </div>
+</nav>
+<script id="runtime">
+// The animation, on its own: everything a site would need besides the SVG and GSAP. Each letter's
+// face comes in (drawn along its pen strokes, each branch starting as the pen reaches it; or
+// whole, dropped, popped or faded in), then its decoration the same way, then its block springs
+// out behind it. A line's letters start within its window, at random or in turn. It plays once or
+// over and over, at once or when scrolled into view. All of it is set by `options` (any left out
+// keep the defaults below). Returns the GSAP timeline, which starts itself.
+const LETTERING_DEFAULTS = {
+  speed: 1,                                  // the whole animation's pace: 2 is twice as fast
+  seed: 1,                                   // which random order the letters come in
+  loop: false,                               // play once, or over and over
+  hold: 2,                                   // looping: how long the finished lettering stays before it goes again (s)
+  whenVisible: false,                        // wait until it is scrolled into view (looping, pause while out of view)
+  lines: [{ start: 0, spread: 0.75, order: 'random' },   // each line (its letters' data-line): when its first letter
+          { start: 0, spread: 0.75, order: 'random' }],  //   can start, the window its letters' starts are spread across
+                                                         //   (s), and their order: random, leftToRight, rightToLeft, centreOut
+  face: { entrance: 'draw', ease: 'out', strength: 0.5, duration: 1 },             // the face coming in: draw, drop, pop or fade
+  deco: { entrance: 'draw', ease: 'out', strength: 0.5, duration: 1, delay: 0.3 }, // after the face starts (s)
+  extrude: { ease: 'elastic', strength: 0.5, duration: 1.1, delay: -0.2 },         // after the face is in (s)
+};
+// an ease by name, at a strength from 0 (gentle) to 1 (strong)
+function letteringEase(type, s) {
+  const power = 1 + Math.round(s * 3);
+  if (type === 'in' || type === 'out' || type === 'inOut') return `power${power}.${type}`;
+  if (type === 'back') return `back.out(${(0.5 + s * 3.5).toFixed(2)})`;
+  if (type === 'elastic') return `elastic.out(${(1 + s * 1.2).toFixed(2)}, ${(0.6 - s * 0.45).toFixed(2)})`;
+  if (type === 'bounce') {   // a smooth ease-out turning into a full bounce as the strength rises
+    const b = gsap.parseEase('bounce.out'), o = gsap.parseEase('power2.out');
+    return t => o(t) + (b(t) - o(t)) * s;
+  }
+  return 'none';
+}
+// A block's sliding copy, for the extrusion: built LETTERING_SPARE deeper than the block and
+// shifted back by as much, so it can slide out from behind the face, and spring past full depth
+// into that spare depth without a gap opening. Tucked back, its walls would poke out past the
+// face at corners, so it sits in a frame clipped to the block's own shape, which stays put while
+// the copy slides inside it. Made once, when the animation is set up
+// (`tag` makes its ids unique to one call of animateLettering, so two lettering snippets on one
+// page do not share a clip)
+const LETTERING_SPARE = 0.4;
+function springCopy(rest, tag, n) {
+  const ns = 'http://www.w3.org/2000/svg', f = 1 + LETTERING_SPARE;
+  const r = v => Math.round(v * 10) / 10;
+  const copy = rest.cloneNode(true);
+  // (the block's own ids stay the block's: a drop shadow refers to it)
+  for (const tagged of copy.querySelectorAll('[id]')) tagged.removeAttribute('id');
+  const [vx, vy, vw, vh] = rest.getAttribute('viewBox').split(' ').map(Number);
+  const back = copy.querySelector('path[transform]');
+  const [ex, ey] = back.getAttribute('transform').match(/[-\d.]+/g).map(Number);
+  back.setAttribute('transform', `translate(${r(ex * f)} ${r(ey * f)})`);
+  const walls = [...copy.querySelectorAll('.wall')];
+  for (const w of walls) w.setAttribute('d', w.getAttribute('d').replace(
+    /M([-\d.]+) ([-\d.]+)L([-\d.]+) ([-\d.]+)l[-\d.]+ [-\d.]+L[-\d.]+ [-\d.]+Z/g,
+    (m, ax, ay, bx, by) => `M${ax} ${ay}L${bx} ${by}l${r(ex * f)} ${r(ey * f)}L${r(+ax + ex * f)} ${r(+ay + ey * f)}Z`));
+  // the frame is the block's own shape, at its full depth and no further: clipped to the shape at
+  // full spare depth, slivers of the copy's walls showed where a letter curves in (inside a U,
+  // under a C's arm), which no block has, until the hand-back made them vanish. So a spring past
+  // full depth never shows deeper than the block; the copy still dips back and settles
+  const fit = `matrix(${1 / vw} 0 0 ${1 / vh} ${-vx / vw} ${-vy / vh})`;
+  const clip = document.createElementNS(ns, 'clipPath');
+  clip.id = `atypix-spring-${tag}${n}`;
+  clip.setAttribute('clipPathUnits', 'objectBoundingBox');
+  [rest.querySelector('path[transform]'), ...rest.querySelectorAll('.wall')].forEach((p, i) => {
+    if (!p.id) p.id = `${clip.id}-${i}`;
+    const use = document.createElementNS(ns, 'use');
+    use.setAttribute('href', '#' + p.id);
+    use.setAttribute('transform', fit);
+    clip.append(use);
+  });
+  const defs = document.createElementNS(ns, 'defs');
+  defs.append(clip);
+  copy.prepend(defs);
+  const frame = document.createElement('div');
+  frame.style.cssText = `position:absolute;left:${rest.style.left};top:${rest.style.top};width:${rest.style.width};`
+    + `height:${rest.style.height};clip-path:url(#${clip.id})`;
+  copy.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;overflow:visible;will-change:transform';
+  frame.append(copy);
+  rest.before(frame);
+  return { el: copy, frame, rx: ex / vw * 100, ry: ey / vh * 100 };
+}
+function animateLettering(root, options = {}) {
+  const svg = { getElementById: id => root.querySelector('#' + CSS.escape(id)) };
+  const D = LETTERING_DEFAULTS, o = { ...D, ...options };
+  const face = { ...D.face, ...options.face }, deco = { ...D.deco, ...options.deco }, ex = { ...D.extrude, ...options.extrude };
+  let seed = o.seed * 7919;
+  const random = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  const tag = Math.random().toString(36).slice(2, 7);
+  const tl = gsap.timeline({ paused: true });
+  // a part's pen strokes: in its mask (the decoration), or in the part itself (the face, drawn
+  // by its strokes directly)
+  // (each stroke's length measured once, though the face and its decoration both use it)
+  const lengths = new Map();
+  const pensOf = part => [...(part.dataset.mask ? svg.getElementById(part.dataset.mask) : part).querySelectorAll('.pen')].map(el => {
+    const ref = el.getAttribute('href').slice(1);
+    if (!lengths.has(ref)) {
+      const path = svg.getElementById(ref);
+      lengths.set(ref, { at: +path.dataset.at, len: path.getTotalLength() || 0.1 });
+    }
+    return { el, ...lengths.get(ref), k: -1 };
+  });
+  // a layer that will appear later is kept at a sliver of its opacity until then (too faint for a
+  // screen to show: under one step in 255), rather than
+  // hidden, so the browser paints it once now, while the animation is being set up; showing it is
+  // then only a fade, not a costly first paint in the middle of the movement (the finished faces
+  // and blocks carry the grain and wobble filter, which is slow to paint)
+  const WAITING = 0.0015;
+  // a part of a letter drawn in along the pen, from `start`, over `draw` seconds; each stroke only
+  // touched when what it shows changes
+  const drawIn = (part, pens, start, draw, ease) => {
+    const end = Math.max(1, ...pens.map(p => p.at + p.len));
+    const pen = { s: 0 };
+    // a stroke not yet reached is hidden; one being drawn is a dash run along it; one finished is a
+    // plain line (a dash is costly for the browser to redraw every frame, a plain line is not)
+    const paint = () => {
+      for (const p of pens) {
+        const k = Math.round(Math.min(1, Math.max(0, (pen.s - p.at) / p.len)) * 2000) / 2000;
+        if (k === p.k) continue;
+        if ((k > 0) !== (p.k > 0)) p.el.setAttribute('visibility', k > 0 ? 'visible' : 'hidden');
+        if (k === 1) p.el.setAttribute('stroke-dasharray', 'none');
+        else {
+          if (p.k === 1 || p.k < 0) p.el.setAttribute('stroke-dasharray', '1 1');
+          p.el.setAttribute('stroke-dashoffset', 1 - k);
+        }
+        p.k = k;
+      }
+    };
+    paint();
+    tl.to(pen, { s: end, duration: draw, ease, onUpdate: paint }, start);
+    // a masked part: the mask goes on from the start, and comes off once drawn, so nothing it
+    // missed stays hidden
+    if (part.dataset.mask) tl.set(part, { attr: { mask: `url(#${part.dataset.mask})` } }, 0)
+      .set(part, { attr: { mask: 'none' } }, start + draw);
+  };
+  // a part coming in whole, its strokes all drawn (and a decoration needing no mask): dropped from
+  // above (fading in as it starts to fall), popped up from its middle, or faded in
+  const wholeIn = (part, entrance, start, time, ease) => {
+    if (entrance === 'drop') {
+      const box = part.getBBox();
+      tl.fromTo(part, { y: -1.2 * box.height }, { y: 0, duration: time, ease, immediateRender: true }, start)
+        .fromTo(part, { opacity: 0 }, { opacity: 1, duration: Math.min(0.15, time * 0.25), ease: 'none', immediateRender: true }, start);
+    } else if (entrance === 'pop')
+      tl.fromTo(part, { scale: 0, transformOrigin: '50% 50%' }, { scale: 1, duration: time, ease, immediateRender: true }, start);
+    else tl.fromTo(part, { opacity: 0 }, { opacity: 1, duration: time, ease, immediateRender: true }, start);
+  };
+  const comeIn = (part, pens, how, start, time) => {
+    const ease = letteringEase(how.ease, how.strength);
+    if (['drop', 'pop', 'fade'].includes(how.entrance)) wholeIn(part, how.entrance, start, time, ease);
+    else drawIn(part, pens, start, time, ease);
+  };
+  // each line's letters, left to right, for an order other than random
+  const all = [...root.querySelectorAll('.letter')], count = {}, place = new Map();
+  for (const letter of all) place.set(letter, count[letter.dataset.line] = (count[letter.dataset.line] ?? -1) + 1);
+  const turn = (order, k, n) => n < 2 ? 0 : order === 'leftToRight' ? k / (n - 1) : order === 'rightToLeft' ? 1 - k / (n - 1)
+    : order === 'centreOut' ? Math.abs(k - (n - 1) / 2) / ((n - 1) / 2) : null;
+  for (const letter of all) {
+    const line = { ...D.lines[0], ...(o.lines[+letter.dataset.line] || o.lines[0]) };
+    // (a random number taken for every letter, whatever its line's order, so one line's order
+    // leaves the others' random starts as they were)
+    const r = random(), k = turn(line.order, place.get(letter), count[letter.dataset.line] + 1);
+    const start = line.start + (k ?? r) * line.spread;
+    // longer letters take a little longer to draw (and the same to come in whole)
+    const f = letter.querySelector('.faces .face'), fPens = pensOf(f);
+    const scale = Math.min(1.4, Math.max(0.7, Math.max(...fPens.map(p => p.at + p.len)) / 550));
+    const timeOf = how => how.duration * (['drop', 'pop', 'fade'].includes(how.entrance) ? 1 : scale);
+    const draw = timeOf(face);
+    comeIn(f, fPens, face, start, draw);
+    // the whole face, corners and all, once the pen has drawn it (or at once, coming in whole); and
+    // if the block springs out before the pen is done (a negative delay), already then, provided
+    // the pen has drawn nearly all of it by that moment, so the block never shows through a corner
+    const whole = f.querySelector('.whole');
+    if (whole) {
+      const faceEase = letteringEase(face.ease, face.strength), e = typeof faceEase === 'function' ? faceEase : gsap.parseEase(faceEase);
+      const early = start + draw + Math.min(0, ex.delay);
+      const at = ['drop', 'pop', 'fade'].includes(face.entrance) ? start
+        : early > start && e((early - start) / draw) >= 0.95 ? early : start + draw;
+      // (waiting, like the other later layers, so its one first paint is at setup)
+      tl.set(whole, { opacity: WAITING }, 0).set(whole, { opacity: 1 }, at);
+    }
+    const d = letter.querySelector('.faces .deco');
+    if (d) comeIn(d, pensOf(d), deco, start + deco.delay, timeOf(deco));
+    // the drawing layer shows when the letter starts; once face and decoration are in, the
+    // finished layer (with the grain and wobble) fades in over it, and the drawing layer goes
+    const drawing = letter.querySelector('.faces'), finished = letter.querySelector('.finished');
+    const drawn = Math.max(start + draw, d ? start + deco.delay + timeOf(deco) : 0);
+    tl.set(drawing, { visibility: 'visible' }, start)
+      .fromTo(finished, { opacity: WAITING }, { opacity: 1, duration: 0.3, ease: 'none', immediateRender: true }, drawn)
+      .set(drawing, { visibility: 'hidden' }, drawn + 0.3);
+    // a drop shadow, if the letter has one, fades in once the letter has settled
+    const shade = letter.querySelector('.shadow');
+    const shadeIn = at => shade && tl.fromTo(shade, { opacity: WAITING }, { opacity: 1, duration: 0.3, ease: 'none', immediateRender: true }, at);
+    // the extrusion: a sliding copy of the block springs out (a move the graphics card makes, with
+    // nothing repainted), then hands back to the block itself, exactly as designed
+    const rest = letter.querySelector('.block');
+    if (!rest) { shadeIn(drawn + 0.3); continue; }
+    const s = springCopy(rest, tag, all.indexOf(letter));
+    const out = Math.max(start, start + draw + ex.delay), settled = out + ex.duration;
+    // (an overshoot past full depth eases into the spare depth rather than stopping dead at its
+    // end, which held a deeper block still for a moment; and the copy is shown whole the moment it
+    // starts, tucked behind the face: faded in, an elastic ease had already sprung it out while it
+    // was still see-through)
+    const soft = (v, r) => { const room = r * LETTERING_SPARE, past = v + room;
+      return r && past * r > 0 ? -room + room * Math.tanh(past / room) : v; };
+    gsap.set(s.el, { opacity: WAITING });
+    tl.set(rest, { opacity: WAITING }, 0)
+      .set(s.el, { opacity: WAITING }, 0)
+      .fromTo(s.el, { x: 0, y: 0, xPercent: -s.rx * (1 + LETTERING_SPARE), yPercent: -s.ry * (1 + LETTERING_SPARE) },
+        { x: 0, y: 0, xPercent: -s.rx * LETTERING_SPARE, yPercent: -s.ry * LETTERING_SPARE, duration: ex.duration,
+          ease: letteringEase(ex.ease, ex.strength),
+          modifiers: { xPercent: v => soft(v, s.rx), yPercent: v => soft(v, s.ry) },
+          immediateRender: true }, out)
+      .set(s.el, { opacity: 1 }, out)
+      .set(rest, { opacity: 1 }, settled)
+      .set(s.frame, { visibility: 'hidden' }, settled);
+    shadeIn(Math.max(settled, drawn + 0.3));
+  }
+  // looping: the finished lettering stays for `hold` seconds, fades, and plays again (going back
+  // to the start puts every letter back as it was before it came in)
+  if (o.loop) tl.to(root, { opacity: 0, duration: 0.4, ease: 'none' }, tl.duration() + Math.max(0, o.hold)).repeat(-1);
+  // it starts itself two frames after this setup, so the one-off first paint of every layer is
+  // done before anything moves; and, `whenVisible`, not until a quarter of it is on screen (and,
+  // looping, it pauses while it is off screen). Once it has started, a pause by the caller is left
+  // alone
+  let ready = false, seen = !o.whenVisible, ours = true;
+  const go = () => { if (ready && seen && ours && root.isConnected) { ours = false; tl.play(); } };
+  requestAnimationFrame(() => requestAnimationFrame(() => { ready = true; go(); }));
+  if (o.whenVisible && window.IntersectionObserver) {
+    const watch = new IntersectionObserver(([e]) => {
+      if (!root.isConnected) return watch.disconnect();
+      seen = e.isIntersecting;
+      if (seen) go();
+      else if (!o.loop && tl.progress() > 0) watch.disconnect();
+      else if (o.loop && ready && !ours && !tl.paused()) { tl.pause(); ours = true; }
+    }, { threshold: 0.25 });
+    watch.observe(root);
+  } else seen = true;
+  return tl.timeScale(o.speed);
+}
+</script>
+<script>
+// Block lettering as SVG, from sketches/curious-lettering.html's version 3: any words, on any
+// number of lines. Each letter is built from its real outline: a front face, and behind it a block
+// running down and to the right, every wall coloured by which way it faces (right: the side colour;
+// down: the underside colour, hatched; curves between); or, on a flat line, the face alone. Faces
+// take an inline, a light middle, or dots down the middle of each stroke, in turn or as chosen per
+// letter. Grain and a hand-drawn wobble are SVG filters.
+const FONTS = {
+  'Anton': 'ofl/anton/Anton-Regular.ttf',
+  'Bebas Neue': 'ofl/bebasneue/BebasNeue-Regular.ttf',
+  'Fjalla One': 'ofl/fjallaone/FjallaOne-Regular.ttf',
+  'Alfa Slab One': 'ofl/alfaslabone/AlfaSlabOne-Regular.ttf',
+  'Archivo Black': 'ofl/archivoblack/ArchivoBlack-Regular.ttf',
+  'Bungee': 'ofl/bungee/Bungee-Regular.ttf',
+  'Passion One': 'ofl/passionone/PassionOne-Regular.ttf',
+  'Titan One': 'ofl/titanone/TitanOne-Regular.ttf',
+  'Luckiest Guy': 'apache/luckiestguy/LuckiestGuy-Regular.ttf',
+};
+const FONT_ROOT = 'https://cdn.jsdelivr.net/gh/google/fonts@main/';
+// the wood and ember palette, from the Curious Agent icon and the hero
+// (face2: the bottom of the face's gradient, none while it is the face colour; stripes: the
+// stripes; dots: the dots, stars, teardrops and rope; drop: the drop shadow; outline: the line
+// round each letter, in every palette the extrusion colour to start with)
+const PAL = { face: '#f0955a', light: '#f9eec4', side: '#d8461b', under: '#261a57', dots: '#f7c52e',
+  face2: '#f0955a', stripes: '#f9eec4', drop: '#261a57', outline: '#d8461b' };
+const PAL_DEFAULTS = { ...PAL };
+// palettes to start from, each setting every colour (the colour tab's menu)
+const PALETTES = {
+  'Wood and ember': PAL_DEFAULTS,
+  'Circus': { face: '#d7263d', face2: '#a3172b', light: '#fbf1d3', side: '#1b3a6b', under: '#0e1c36', dots: '#f4c430',
+    stripes: '#fbf1d3', drop: '#0e1c36', outline: '#1b3a6b' },
+  'Night fair': { face: '#f2c14e', face2: '#e08a2c', light: '#fff6dc', side: '#5b2a86', under: '#1a1033', dots: '#ff5d8f',
+    stripes: '#fff6dc', drop: '#1a1033', outline: '#5b2a86' },
+  'Mint and cocoa': { face: '#7cc6a4', face2: '#7cc6a4', light: '#f4f1e1', side: '#6b3e26', under: '#2d1a10', dots: '#f2b5c4',
+    stripes: '#f4f1e1', drop: '#2d1a10', outline: '#6b3e26' },
+  'Seaside': { face: '#4fb3d9', face2: '#4fb3d9', light: '#ffffff', side: '#e94f37', under: '#2b2d42', dots: '#ffd23f',
+    stripes: '#ffffff', drop: '#2b2d42', outline: '#e94f37' },
+  'Ink': { face: '#f5f0e6', face2: '#f5f0e6', light: '#1c1c1c', side: '#3a3a3a', under: '#111111', dots: '#c8102e',
+    stripes: '#1c1c1c', drop: '#111111', outline: '#3a3a3a' },
+};
+// the faces' styles: an inline; a light middle; dots, stars or teardrops down the middle of each
+// stroke; stripes across the face; a rope of slanted dashes down the middle; an open outline;
+// plain (the block and the face, with no decoration); or flat (the face alone in the extrusion
+// colour, with no block)
+const STYLES = ['inline', 'light', 'dots', 'stripes', 'stars', 'teardrops', 'rope', 'outline', 'plain', 'flat'];
+const CYCLE = ['inline', 'light', 'dots'];   // the cycle a new line's letters take
+const SIZE = 300;                          // the reference font size, in SVG units
+const EX_BASE = [0.085 * SIZE, 0.072 * SIZE];   // the block's reach, right and down
+let EX = [...EX_BASE];                           // ...as the length and direction sliders set it
+let SHADOW = 90;     // the way the walls in shadow face, in degrees (90: down)
+let TEXTURE = 1;     // the grain: 0 none, 1 as designed, 2 twice as strong
+let HATCH = { amount: 1, angle: 30 };   // the hatching on the walls in shadow: as strong, and the way it slants (degrees up)
+let WOBBLE = 3;      // how far the hand-drawn wobble moves an edge, in SVG units
+let DROP = null;     // the drop shadow behind the lettering: { dx, dy, soft, opacity }, or none
+let OUTLINE = 0;     // the line round each letter's face, its width in SVG units (0: none)
+const TRACK = -0.012;                      // letter spacing, as a share of the size
+// the face styles' measures, all as shares of the size except angles (degrees) and the stars'
+// points; set by the design panel
+const FACE = {
+  inset: 0.034, line: 0.016,               // the border inside each face, and the inline's width
+  dotR: 0.017, dotStep: 0.07,              // dot radius and spacing
+  stripeAngle: 0, stripeWidth: 0.02, stripeGap: 0.02,   // stripes: their slant (0: across), width, gap
+  starR: 0.026, starPoints: 5, starStep: 0.085,         // stars: radius, points, spacing
+  dropR: 0.016, dropStep: 0.075,           // teardrops: the round end's radius, and spacing
+  ropeAngle: 35, ropeStep: 0.045, ropeWidth: 0.014,     // rope: the dashes' slant, spacing, thickness
+};
+const FACE_DEFAULTS = { ...FACE };
+const SHADES = 8;                        // the walls' colours, from side to underside, in steps
+
+const tester = document.createElement('canvas').getContext('2d');
+const r1 = v => Math.round(v * 10) / 10;
+const hex = s => [1, 3, 5].map(i => parseInt(s.slice(i, i + 2), 16));
+const mix = (a, b, t) => '#' + hex(a).map((v, i) => Math.round(v + (hex(b)[i] - v) * t).toString(16).padStart(2, '0')).join('');
+const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+const capHeight = (font, size) => (font.tables.os2.sCapHeight || font.unitsPerEm * 0.72) * size / font.unitsPerEm;
+const advance = (font, ch, size) => font.charToGlyph(ch).advanceWidth * size / font.unitsPerEm;
+
+// ---------- the words ----------
+// the lines, top to bottom, each with its own font, size, letter spacing (a share of the size),
+// alignment, and the cycle of face styles its letters take in turn (a flat letter has no block).
+// `letters` holds any letter's own adjustments, by its place in the text: its size (a scale on the
+// line's), its turn in degrees about its own middle, how far it moves right and down, and its face
+// style ('' for the cycle's). `spacing` (the leading) is the gap from a line's blocks (or its
+// baseline, under an all-flat line) to the tops of the next. The default is version 3: ATYPIX,
+// with TYPE beneath it, flat, in the side red
+const newLine = (text = 'WORDS', more = {}) => ({ text, font: 'Anton', size: SIZE, track: TRACK,
+  align: 'centre', styles: [...CYCLE], letters: [], ...more });
+const design = {
+  lines: [newLine('ATYPIX'), newLine('TYPE', { font: 'Fjalla One', size: 150, track: 0.12, styles: ['flat'] })],
+  spacing: 26,
+};
+const NO_CHANGE = { scale: 1, rot: 0, dx: 0, dy: 0, style: '' };   // a letter as its line places it
+const words = () => design.lines.map(l => l.text.trim()).filter(Boolean).join(' ');
+
+// ---------- placing letters ----------
+// one line's letters, from x = 0 on the baseline: each its size times its own scale, so a bigger
+// letter pushes the ones after it along, as in the canvas version
+function line(font, ln, li) {
+  const text = [...ln.text];
+  let at = 0, k = 0;
+  return text.map((ch, i) => {
+    const v = { ...NO_CHANGE, ...ln.letters[i] }, size = ln.size * v.scale;
+    const glyph = font.charToGlyph(ch), blank = !glyph.path?.commands?.length;
+    const style = v.style || ln.styles[k % ln.styles.length] || CYCLE[0];
+    const item = { font, ch, x: at, y: 0, size: ln.size, ...v, line: li, index: i, blank, flat: style === 'flat', style };
+    if (!blank) k++;   // (a space takes no turn in the cycle)
+    const next = text[i + 1] ? font.charToGlyph(text[i + 1]) : null;
+    at += advance(font, ch, size) + ln.track * size
+      + (next ? font.getKerningValue(glyph, next) * size / font.unitsPerEm : 0);
+    return item;
+  });
+}
+const width = items => { const l = items[items.length - 1]; return l.x + advance(l.font, l.ch, l.size * l.scale) - items[0].x; };
+const shift = (items, dx, dy) => items.forEach(it => { it.x += dx; it.y += dy; });
+
+// every line placed: the first on y = 0, each next one's tops `spacing` under the line above (under
+// its blocks, if any letter has one running down), and each aligned within the widest (a line
+// whose font has not loaded is left out)
+function layout(fonts) {
+  const rows = design.lines.map((ln, li) => fonts[ln.font] && { ln, font: fonts[ln.font], items: line(fonts[ln.font], ln, li) })
+    .filter(r => r?.items.length);
+  const full = Math.max(0, ...rows.map(r => width(r.items)));
+  let y = 0;
+  rows.forEach((r, i) => {
+    if (i) y += (rows[i - 1].items.some(it => !it.blank && !it.flat) ? Math.max(0, EX[1]) : 0)
+      + design.spacing + capHeight(r.font, r.ln.size);
+    const room = full - width(r.items);
+    shift(r.items, r.ln.align === 'left' ? 0 : r.ln.align === 'right' ? room : room / 2, y);
+  });
+  return rows.flatMap(r => r.items).filter(it => !it.blank);
+}
+
+// ---------- outlines ----------
+const pathData = cmds => cmds.map(c =>
+  c.type === 'Z' ? 'Z' : c.type === 'Q' ? `Q${r1(c.x1)} ${r1(c.y1)} ${r1(c.x)} ${r1(c.y)}`
+  : c.type === 'C' ? `C${r1(c.x1)} ${r1(c.y1)} ${r1(c.x2)} ${r1(c.y2)} ${r1(c.x)} ${r1(c.y)}`
+  : `${c.type}${r1(c.x)} ${r1(c.y)}`).join('');
+// an outline as closed polylines, curves flattened
+function contours(cmds) {
+  const out = []; let cur = null, last = null;
+  for (const c of cmds) {
+    if (c.type === 'M') { cur = [[c.x, c.y]]; out.push(cur); last = [c.x, c.y]; }
+    else if (c.type === 'L') { cur.push([c.x, c.y]); last = [c.x, c.y]; }
+    else if (c.type === 'Q' || c.type === 'C') {
+      const [x0, y0] = last;
+      for (let i = 1; i <= 10; i++) {
+        const t = i / 10, u = 1 - t;
+        cur.push(c.type === 'Q'
+          ? [u * u * x0 + 2 * u * t * c.x1 + t * t * c.x, u * u * y0 + 2 * u * t * c.y1 + t * t * c.y]
+          : [u ** 3 * x0 + 3 * u * u * t * c.x1 + 3 * u * t * t * c.x2 + t ** 3 * c.x,
+             u ** 3 * y0 + 3 * u * u * t * c.y1 + 3 * u * t * t * c.y2 + t ** 3 * c.y]);
+      }
+      last = [c.x, c.y];
+    }
+  }
+  return out;
+}
+
+// the middle of each stroke: every point inside the letter, on a fine grid, with its distance to
+// the edge (found by widening a test stroke until it touches); the middle is where that distance
+// peaks across the stroke
+function depthMap(p2, rings, size) {
+  const xs = rings.flat().map(p => p[0]), ys = rings.flat().map(p => p[1]);
+  const bb = { x1: Math.min(...xs), x2: Math.max(...xs), y1: Math.min(...ys), y2: Math.max(...ys) };
+  const fine = 2;
+  const dist = (px, py) => {
+    let lo = 0, hi = size * 0.2;
+    for (let n = 0; n < 9; n++) {
+      const mid = (lo + hi) / 2;
+      tester.lineWidth = 2 * mid;
+      if (tester.isPointInStroke(p2, px, py)) hi = mid; else lo = mid;
+    }
+    return lo;
+  };
+  const depth = new Map(), key = (c, w) => c + ',' + w, cols = Math.ceil((bb.x2 - bb.x1) / fine);
+  for (let w = 0; bb.y1 + w * fine < bb.y2; w++)
+    for (let c = 0; c < cols; c++) {
+      const px = bb.x1 + c * fine, py = bb.y1 + w * fine;
+      if (tester.isPointInPath(p2, px, py)) depth.set(key(c, w), dist(px, py));
+    }
+  // the points where the depth peaks across the stroke (along a stroke it stays level, so that
+  // direction never counts), at least `min` from the edge
+  const ridge = min => {
+    const out = [];
+    const at = (c, w) => depth.get(key(c, w)) ?? 0;
+    const peak = (d, a, b) => d >= a && d >= b && d - Math.min(a, b) > fine * 0.5;
+    for (const [k, d] of depth) {
+      const [c, w] = k.split(',').map(Number);
+      if (d < min) continue;
+      if (peak(d, at(c - 1, w), at(c + 1, w)) || peak(d, at(c, w - 1), at(c, w + 1))
+        || peak(d, at(c - 1, w - 1), at(c + 1, w + 1)) || peak(d, at(c - 1, w + 1), at(c + 1, w - 1)))
+        out.push([bb.x1 + c * fine, bb.y1 + w * fine]);
+    }
+    return out;
+  };
+  // how far a point is from the edge (the nearest grid point's distance; 0 outside)
+  const depthAt = (x, y) => depth.get(key(Math.round((x - bb.x1) / fine), Math.round((y - bb.y1) / fine))) ?? 0;
+  return { ridge, depthAt, p2, deepest: Math.max(0, ...depth.values()) };
+}
+
+// places down the middle of each stroke, for the dots, stars, teardrops and rope: walked along the
+// pen's lines (the main stroke first, then its branches), smoothed, a place wherever the stroke is
+// at least `min` deep and it is a full `step` from every place so far; so they run evenly along
+// each stroke and round its curves, and where strokes meet they don't crowd. Each place is
+// [x, y, the way the pen is going there (radians), the stroke's depth there]
+function alongStrokes(map, pen, step, min) {
+  const keep = [];
+  for (const { pts } of pen.lines) {
+    const smooth = pts.map((_, i) => {
+      const near = pts.slice(Math.max(0, i - 2), i + 3);
+      return [near.reduce((s, p) => s + p[0], 0) / near.length, near.reduce((s, p) => s + p[1], 0) / near.length];
+    });
+    for (let i = 1; i < smooth.length; i++) {
+      const [ax, ay] = smooth[i - 1], [bx, by] = smooth[i], l = Math.hypot(bx - ax, by - ay);
+      // (the way the pen goes, over a few points either side, so a corner of the grid doesn't show)
+      const [px, py] = smooth[Math.max(0, i - 3)], [qx, qy] = smooth[Math.min(smooth.length - 1, i + 2)];
+      const way = Math.atan2(qy - py, qx - px);
+      for (let t = 0; t < l; t += 1.5) {
+        // each dot nudged to the deepest point near it, so it sits in the middle of its stroke
+        // even where the line turns off into a corner
+        let x = ax + (bx - ax) * t / l, y = ay + (by - ay) * t / l, best = map.depthAt(x, y);
+        const x0 = x, y0 = y;
+        for (let dx = -4; dx <= 4; dx += 2) for (let dy = -4; dy <= 4; dy += 2) {
+          const d = map.depthAt(x0 + dx, y0 + dy);
+          if (d > best + 0.5 && dx * dx + dy * dy <= 16) { best = d; x = x0 + dx; y = y0 + dy; }
+        }
+        if (best >= min && keep.every(([kx, ky]) => Math.hypot(x - kx, y - ky) >= step)) keep.push([x, y, way, best]);
+      }
+    }
+  }
+  return keep;
+}
+
+// the letter as a pen would draw it. The middle of its strokes, as a graph of points (each joined
+// to its neighbours, and pieces that nearly meet, as the strokes of an A do at its point, joined
+// across the gap); then its longest run, end to end, is the main stroke, started from whichever
+// end is higher (then further left): a U from its top left, round, to its top right; a C or an S
+// from its top end; but an A, an N or an M, as they are written, from the bottom left (an A up
+// one leg, over its point and down the other, then its crossbar). Everything else branches off what is already drawn: a short
+// branch (a serif, a corner) as the pen passes the place it grows from, so it grows out of the
+// stroke; a long one (a crossbar, an R's leg, the rest of an O) after the main stroke, as if the
+// pen were lifted and put down there. Each line carries `at`: how far along the pen had gone when
+// it began. Returns the lines, and a pen width that covers the thickest stroke
+const FROM_BOTTOM_LEFT = 'ANMnm';
+const SPUR = 1.5;   // a dead end shorter than this many half-strokes is a spur into a corner, not a stroke
+function penStrokes(map, ch) {
+  const cell = 5;
+  const cells = new Map();
+  for (const [x, y] of map.ridge(1.5)) {
+    const k = Math.floor(x / cell) + ',' + Math.floor(y / cell);
+    const c = cells.get(k) || cells.set(k, { x: 0, y: 0, n: 0, cx: Math.floor(x / cell), cy: Math.floor(y / cell) }).get(k);
+    c.x += x; c.y += y; c.n++;
+  }
+  const list = [...cells.values()], n = list.length;
+  if (!n) return { lines: [], width: 2 * map.deepest + 8 };
+  const nodes = list.map(c => [c.x / c.n, c.y / c.n]);
+  const index = new Map(list.map((c, i) => [c.cx + ',' + c.cy, i]));
+  const gap = (i, j) => Math.hypot(nodes[j][0] - nodes[i][0], nodes[j][1] - nodes[i][1]);
+  // neighbours: the points in the eight cells round each
+  const nbrs = list.map(c => {
+    const out = [];
+    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
+      const j = index.get((c.cx + dx) + ',' + (c.cy + dy));
+      if (j !== undefined && (dx || dy)) out.push(j);
+    }
+    return out;
+  });
+  // the pieces; then the two nearest pieces joined, while they are close enough (well within a
+  // stroke's width) that the gap is a sharp join the middle-finding missed, not a real break
+  const piece = new Int32Array(n).fill(-1);
+  let pieces = 0;
+  for (let s = 0; s < n; s++) {
+    if (piece[s] >= 0) continue;
+    const stack = [s]; piece[s] = pieces;
+    while (stack.length) for (const v of nbrs[stack.pop()]) if (piece[v] < 0) { piece[v] = pieces; stack.push(v); }
+    pieces++;
+  }
+  // (only along a line that stays inside the letter, so never across a counter)
+  const inside = (i, j) => [0.2, 0.4, 0.6, 0.8].every(t => tester.isPointInPath(map.p2,
+    nodes[i][0] + (nodes[j][0] - nodes[i][0]) * t, nodes[i][1] + (nodes[j][1] - nodes[i][1]) * t));
+  for (const reachable = Math.max(cell * 4, map.deepest * 4); pieces > 1;) {
+    let bi = -1, bj = -1, bg = Infinity;
+    for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++)
+      if (piece[i] !== piece[j] && gap(i, j) < bg && gap(i, j) <= reachable && inside(i, j)) { bg = gap(i, j); bi = i; bj = j; }
+    if (bi < 0) break;
+    nbrs[bi].push(bj); nbrs[bj].push(bi);
+    const from = piece[bj], to = piece[bi];
+    for (let i = 0; i < n; i++) if (piece[i] === from) piece[i] = to;
+    pieces--;
+  }
+  const sizes = new Map();
+  for (let i = 0; i < n; i++) sizes.set(piece[i], (sizes.get(piece[i]) || 0) + 1);
+  const biggest = [...sizes].sort((p, q) => q[1] - p[1])[0][0];
+  // shortest distances from `from` through the points `ok` allows, and the way back
+  const reach = (from, ok) => {
+    const dist = new Float64Array(n).fill(Infinity), prev = new Int32Array(n).fill(-1), done = new Uint8Array(n);
+    dist[from] = 0;
+    for (;;) {
+      let u = -1;
+      for (let i = 0; i < n; i++) if (!done[i] && ok(i) && dist[i] < Infinity && (u < 0 || dist[i] < dist[u])) u = i;
+      if (u < 0) break;
+      done[u] = 1;
+      for (const v of nbrs[u]) if (ok(v) && dist[u] + gap(u, v) < dist[v]) { dist[v] = dist[u] + gap(u, v); prev[v] = u; }
+    }
+    return { dist, prev };
+  };
+  const farthest = dist => { let f = -1; for (let i = 0; i < n; i++) if (dist[i] < Infinity && (f < 0 || dist[i] > dist[f])) f = i; return f; };
+  const pathTo = (prev, to) => { const p = []; for (let v = to; v >= 0; v = prev[v]) p.unshift(v); return p; };
+  const drawnAt = new Float64Array(n).fill(-1);   // how far the pen had gone when it reached each point
+  const lines = [];
+  const lay = (path, start) => {
+    let s = start;
+    path.forEach((v, i) => { if (i) s += gap(path[i - 1], v); drawnAt[v] = s; });
+  };
+  // the main stroke: the longest run in the biggest piece (one sweep finds one end, a second the
+  // other), oriented to start high and left (or, for an N or M, low and left)
+  const rank = FROM_BOTTOM_LEFT.includes(ch) ? i => nodes[i][0] - 0.25 * nodes[i][1] : i => nodes[i][1] + 0.25 * nodes[i][0];
+  const free = i => drawnAt[i] < 0;
+  const a = farthest(reach(piece.indexOf(biggest), free).dist);
+  const b = farthest(reach(a, free).dist);
+  // from the better-placed end, walk as a pen goes: on in the straightest direction, never back
+  // over itself, and not up a short dead end (a serif's or a corner's spur) while a longer way
+  // goes on; so an A goes up one leg, over its point and down the other, leaving the crossbar,
+  // and an N zigzags
+  const runFrom = (c, seen) => {          // how far the way through c goes on, up to `enough`
+    const enough = SPUR * map.deepest, dist = new Map([[c, 0]]), queue = [c];
+    let far = 0;
+    while (queue.length) {
+      const u = queue.shift();
+      for (const v of nbrs[u]) if (!seen.has(v) && free(v) && !dist.has(v)) {
+        const d = dist.get(u) + gap(u, v);
+        dist.set(v, d); far = Math.max(far, d);
+        if (far >= enough) return far;
+        queue.push(v);
+      }
+    }
+    return far;
+  };
+  const walk = start => {
+    const path = [start], seen = new Set([start]);
+    let dir = nbrs[start].length > 2 ? [-1, 0] : null;   // round a loop: anticlockwise from its top
+    for (let cur = start; ;) {
+      const cand = nbrs[cur].filter(v => !seen.has(v) && free(v));
+      if (!cand.length) break;
+      const runs = cand.map(v => runFrom(v, new Set([...seen, cur])));
+      const longest = Math.max(...runs);
+      let best = -1, cost = Infinity;
+      cand.forEach((v, k) => {
+        if (runs[k] < SPUR * map.deepest && longest >= SPUR * map.deepest) return;   // a spur: not now
+        const dx = nodes[v][0] - nodes[cur][0], dy = nodes[v][1] - nodes[cur][1], d = Math.hypot(dx, dy) || 1;
+        const c = dir ? 1 - (dx * dir[0] + dy * dir[1]) / d : d / 100;
+        if (c < cost) { cost = c; best = v; }
+      });
+      const dx = nodes[best][0] - nodes[cur][0], dy = nodes[best][1] - nodes[cur][1], d = Math.hypot(dx, dy) || 1;
+      const nx = dir ? dir[0] * 0.5 + dx / d * 0.5 : dx / d, ny = dir ? dir[1] * 0.5 + dy / d * 0.5 : dy / d, l = Math.hypot(nx, ny) || 1;
+      dir = [nx / l, ny / l];
+      seen.add(best); path.push(best); cur = best;
+    }
+    return path;
+  };
+  const main = walk(rank(b) < rank(a) ? b : a);
+  lay(main, 0);
+  const closed = main.length > 4 && gap(main[0], main.at(-1)) < cell * 3;   // a loop: closed
+  lines.push({ pts: [...main, ...(closed ? [main[0]] : [])].map(v => nodes[v]), at: 0 });
+  let penDown = drawnAt[main.at(-1)];               // where the pen is, after everything so far
+  const long = map.deepest * 2.5;                   // a branch this long is a stroke of its own
+  // the branches: the undrawn point nearest what is drawn (of near-equal ones, the one the pen
+  // reached last, so a loop carries on round), and from it the longest run through undrawn points
+  for (;;) {
+    let best = -1, from = -1, bestGap = Infinity;
+    for (let u = 0; u < n; u++) {
+      if (!free(u)) continue;
+      for (let v = 0; v < n; v++) {
+        if (free(v)) continue;
+        const g = gap(u, v);
+        if (g < bestGap - 2 || (g < bestGap + 2 && drawnAt[v] > drawnAt[from])) { best = u; from = v; bestGap = Math.min(bestGap, g); }
+      }
+    }
+    if (best < 0) break;
+    const r = reach(best, free), path = pathTo(r.prev, farthest(r.dist));
+    const length = gap(from, best) + r.dist[path.at(-1)];
+    const at = length > long ? penDown : drawnAt[from];
+    lay(path, at + gap(from, best));
+    penDown = Math.max(penDown, at + length);
+    lines.push({ pts: [nodes[from], ...path.map(v => nodes[v])], at });
+  }
+  // the main stroke and every branch of some length; the smallest scraps (a few points in a corner)
+  // are left out: the pen's width already all but covers them, and the finished letter fills the rest
+  const length = pts => pts.reduce((s, p, i) => i ? s + Math.hypot(p[0] - pts[i - 1][0], p[1] - pts[i - 1][1]) : 0, 0);
+  return { lines: lines.filter((l, i) => !i || length(l.pts) >= map.deepest * 0.6), width: 2 * map.deepest + 8 };
+}
+
+// ---------- the SVG ----------
+// the same scatter every time
+function seeded(seed) {
+  return () => {
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+// the walls' fills: a plain colour where they face right, and where they face down a pattern of
+// that colour with short scratches over it, in the side colour (the canvas version's hatching, as
+// strong as HATCH.amount, slanting HATCH.angle degrees up)
+function wallFills(id) {
+  const random = seeded(7), tile = 44;
+  const turn = -(HATCH.angle - 30) * Math.PI / 180, c = Math.cos(turn), s = Math.sin(turn);
+  const hx = 0.85 * c + 0.5 * s, hy = 0.85 * s - 0.5 * c;   // (0.85, -0.5) turned: 30° up as drawn
+  const strokes = n => Array.from({ length: n }, () => {
+    const x = random() * tile, y = random() * tile, l = 4 + random() * 12;
+    return `M${r1(x)} ${r1(y)}l${r1(l * hx)} ${r1(l * hy)}`;
+  }).join('');
+  const thin = strokes(7), thick = strokes(4);
+  const fills = [], defs = [];
+  for (let k = 0; k < SHADES; k++) {
+    const t = k / (SHADES - 1), color = mix(PAL.side, PAL.under, t);
+    if (t < 0.5) { fills.push({ fill: color, color }); continue; }
+    defs.push(`<pattern id="${id}-h${k}" patternUnits="userSpaceOnUse" width="${tile}" height="${tile}">`
+      + `<rect width="${tile}" height="${tile}" fill="${color}"/>`
+      + `<g fill="none" stroke="${PAL.side}" stroke-linecap="round" opacity="${Math.min(1, r1(t * 0.9 * HATCH.amount))}">`
+      + `<path stroke-width=".8" d="${thin}"/><path stroke-width="1.8" opacity=".6" d="${thick}"/></g></pattern>`);
+    fills.push({ fill: `url(#${id}-h${k})`, color });
+  }
+  // (and the place for the defs the letters share: see `shared`)
+  return { fills: Object.assign(fills, { id, shared: new Map() }), defs: defs.join('') };
+}
+
+// one glyph, worked out once for its font, character and size, at the origin: its outline, its
+// edges, its dots, and its pen strokes for the draw-in (the depth map they come from is slow, so
+// this is cached, and a letter's own size, turn and move are applied to the result by `place`)
+const worked = new Map();
+function glyphWork(font, ch, size) {
+  const key = `${font.names.fullName?.en}\n${ch}\n${size}`;
+  if (worked.has(key)) return worked.get(key);
+  const cmds = font.charToGlyph(ch).getPath(0, 0, size).commands;
+  const p2 = new Path2D(pathData(cmds)), rings = contours(cmds);
+  const map = depthMap(p2, rings, size);
+  const pen = penStrokes(map, ch);
+  // every edge, with the way it faces (outward)
+  const edges = [];
+  rings.forEach((ring, r) => {
+    for (let j = 0; j < ring.length; j++) {
+      const a = ring[j], b = ring[(j + 1) % ring.length];
+      const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy);
+      if (l < 0.01) continue;
+      let nx = dy / l, ny = -dx / l;
+      if (tester.isPointInPath(p2, (a[0] + b[0]) / 2 + nx, (a[1] + b[1]) / 2 + ny)) { nx = -nx; ny = -ny; }
+      edges.push({ r, j, nx, ny });
+    }
+  });
+  // the places down its strokes, for a spacing and a least depth (fast, but each kept, as a
+  // spacing slider asks for them over and over)
+  const placed = new Map();
+  const along = (step, min) => {
+    const k = r1(step) + ' ' + r1(min);
+    if (!placed.has(k)) placed.set(k, alongStrokes(map, pen, step, min));
+    return placed.get(k);
+  };
+  const work = { cmds, rings, pen, edges, along };
+  worked.set(key, work);
+  return work;
+}
+// a letter: its glyph's work, scaled by its own size, turned about its own middle, and moved to its
+// place; its walls are made from this afterwards (wallsOf), so the block runs the design's way
+// however the letter is turned
+function letter(it) {
+  const w = glyphWork(it.font, it.ch, it.size), s = it.scale, size = it.size * s;
+  const a = it.rot * Math.PI / 180, ca = Math.cos(a), sa = Math.sin(a);
+  const tx = it.x + it.dx, ty = it.y + it.dy;
+  const cx = advance(it.font, it.ch, size) / 2, cy = -capHeight(it.font, size) / 2;
+  const at = s === 1 && !a ? (x, y) => [x + tx, y + ty] : (x, y) => {
+    const u = x * s - cx, v = y * s - cy;
+    return [tx + cx + u * ca - v * sa, ty + cy + u * sa + v * ca];
+  };
+  const cmds = w.cmds.map(c => {
+    const o = { type: c.type };
+    for (const [kx, ky] of [['x', 'y'], ['x1', 'y1'], ['x2', 'y2']]) if (kx in c) [o[kx], o[ky]] = at(c[kx], c[ky]);
+    return o;
+  });
+  const rings = w.rings.map(ring => ring.map(([x, y]) => at(x, y)));
+  const edges = w.edges.map(({ r, j, nx, ny }) => ({ a: rings[r][j], b: rings[r][(j + 1) % rings[r].length],
+    nx: nx * ca - ny * sa, ny: nx * sa + ny * ca }));
+  const pen = { width: w.pen.width * s, lines: w.pen.lines.map(l => ({ at: l.at * s, pts: l.pts.map(([x, y]) => at(x, y)) })) };
+  // the marks down its strokes, for its style (dots, stars, teardrops or rope), found at the
+  // line's size, then scaled, turned and moved with the letter: [x, y, way, depth]
+  const one = it.size, inset = FACE.inset * one;
+  const marks = (step, min) => w.along(step, min).map(([x, y, way, depth]) => [...at(x, y), way + a, depth * s]);
+  let mark = null;
+  if (it.style === 'dots') mark = { r: FACE.dotR * one * s, at: marks(FACE.dotStep * one, inset + FACE.dotR * one + 2) };
+  else if (it.style === 'stars') mark = { r: FACE.starR * one * s, at: marks(FACE.starStep * one, inset + FACE.starR * one * 0.8 + 2) };
+  else if (it.style === 'teardrops') mark = { r: FACE.dropR * one * s, at: marks(FACE.dropStep * one, inset + FACE.dropR * one + 2) };
+  else if (it.style === 'rope') mark = { r: FACE.ropeWidth * one * s, at: marks(FACE.ropeStep * one, inset + FACE.ropeWidth * one + 2) };
+  return { it: { ...it, size }, d: pathData(cmds), rings, pen, edges, mark };
+}
+
+// a letter's walls, for the block's direction (EX) and the shadow's (SHADOW, an angle: the way the
+// walls in shadow face): every edge that faces along the block makes a wall, shaded from the
+// extrusion colour (facing away from the shadow) to the shadow colour (facing into it), curves
+// between; drawn in order along the block's direction, so a nearer wall covers a further one
+function wallsOf(L) {
+  const len = Math.hypot(...EX) || 1, ux = EX[0] / len, uy = EX[1] / len;
+  const sx = Math.cos(SHADOW * Math.PI / 180), sy = Math.sin(SHADOW * Math.PI / 180);
+  return L.edges.filter(({ nx, ny }) => nx * EX[0] + ny * EX[1] > 0).map(({ a, b, nx, ny }) => ({
+    k: Math.round(smooth(0.15, 0.75, nx * sx + ny * sy) * (SHADES - 1)),
+    depth: ((a[0] + b[0]) / 2) * ux + ((a[1] + b[1]) / 2) * uy,
+    d: () => `M${r1(a[0])} ${r1(a[1])}L${r1(b[0])} ${r1(b[1])}l${r1(EX[0])} ${r1(EX[1])}L${r1(a[0] + EX[0])} ${r1(a[1] + EX[1])}Z`,
+  })).sort((p, q) => p.depth - q.depth);
+}
+
+// a line with the points it doesn't need taken out: any within `eps` of the straight line between
+// the points either side of it (Ramer-Douglas-Peucker)
+function simplify(pts, eps) {
+  if (pts.length < 3) return pts;
+  const [ax, ay] = pts[0], [bx, by] = pts.at(-1), l = Math.hypot(bx - ax, by - ay);
+  let far = 0, at = 0;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const [px, py] = pts[i];
+    const d = l ? Math.abs((bx - ax) * (ay - py) - (ax - px) * (by - ay)) / l : Math.hypot(px - ax, py - ay);
+    if (d > far) { far = d; at = i; }
+  }
+  return far <= eps ? [pts[0], pts.at(-1)]
+    : [...simplify(pts.slice(0, at + 1), eps).slice(0, -1), ...simplify(pts.slice(at), eps)];
+}
+
+// a letter as SVG: a group holding its block (the back, then the walls, back to front), its face,
+// and the face's decoration (the inline, the light middle, or the dots). In the animated copy,
+// `masks` collects the pen strokes (once, as paths) and two masks that draw along them, one for
+// the face and one for the decoration, so each can be drawn in at its own time. The face and the
+// decoration are only tied to their masks by the animation, so without the script the letter
+// shows whole
+function letterSvg(L, id, n, fills, masks) {
+  const { it, d } = L;
+  const walls = it.flat ? [] : wallsOf(L);
+  if (masks) {
+    const xs = L.rings.flat().map(p => p[0]), ys = L.rings.flat().map(p => p[1]), m = L.pen.width;
+    const x = r1(Math.min(...xs) - m), y = r1(Math.min(...ys) - m);
+    const box = `maskUnits="userSpaceOnUse" x="${x}" y="${y}" width="${r1(Math.max(...xs) + m - x)}" height="${r1(Math.max(...ys) + m - y)}"`;
+    masks.push(L.pen.lines.map(({ pts, at }, i) => `<path id="${id}-p${n}-${i}" pathLength="1" data-at="${r1(at)}" d="M${
+      (pts.length > 1 ? simplify(pts, 0.8) : [pts[0], [pts[0][0] + 0.1, pts[0][1]]]).map(([px, py]) => `${r1(px)} ${r1(py)}`).join('L')}"/>`).join(''));
+    const uses = L.pen.lines.map((_, i) => `<use class="pen" href="#${id}-p${n}-${i}"/>`).join('');
+    const pen = `<g fill="none" stroke="#fff" stroke-width="${r1(L.pen.width)}" stroke-linecap="round" stroke-linejoin="round">${uses}</g>`;
+    if (!it.flat) masks.push(`<mask id="${id}-d${n}" ${box}>${pen}</mask>`);
+    if (!it.flat && PAL.face2 !== PAL.face)
+      masks.push(`<linearGradient id="${id}-g${n}" gradientUnits="userSpaceOnUse" x1="0" y1="${r1(Math.min(...ys))}" x2="0" y2="${r1(Math.max(...ys))}">`
+        + `<stop offset="0" stop-color="${PAL.face}"/><stop offset="1" stop-color="${PAL.face2}"/></linearGradient>`);
+  }
+  const tie = kind => masks ? ` data-mask="${id}-${kind}${n}"` : '';
+  // in the animated copy the face is drawn by the pen itself: its strokes, in the face's colour,
+  // trimmed to the letter's outline (a clip, which the browser does far more cheaply than a mask).
+  // The strokes' round ends fall short of the letter's sharp corners, so the whole face, hidden,
+  // comes on once they are drawn: without it, the corners stayed open (the block showing through
+  // them, or the sky) until the finished layer faded in
+  const faceOf = color => masks
+    ? `<g class="face"><clipPath id="${id}-fc${n}"><path d="${d}"/></clipPath><g clip-path="url(#${id}-fc${n})" fill="none" `
+      + `stroke="${color}" stroke-width="${r1(L.pen.width)}" stroke-linecap="round" stroke-linejoin="round">`
+      + L.pen.lines.map((_, i) => `<use class="pen" href="#${id}-p${n}-${i}"/>`).join('') + '</g>'
+      + `<path class="whole" fill="${color}" opacity="0.0015" d="${d}"/></g>`
+    : `<g class="face"><path fill="${color}" d="${d}"/></g>`;
+  // the line round the face, if any (in the finished letter only: it comes in with the finish)
+  const ring = OUTLINE && !masks ? `<path fill="none" stroke="${PAL.outline}" stroke-width="${r1(OUTLINE)}" stroke-linejoin="round" d="${d}"/>` : '';
+  if (it.flat) return `<g class="letter flat">${faceOf(PAL.side)}${ring}</g>`;
+  let svg = `<g class="letter"><g class="block"><path fill="${PAL.under}" transform="translate(${r1(EX[0])} ${r1(EX[1])})" d="${d}"/>`;
+  for (let i = 0; i < walls.length;) {
+    let j = i, run = '';
+    while (j < walls.length && walls[j].k === walls[i].k) run += walls[j++].d();
+    const f = fills[walls[i].k];
+    svg += `<path class="wall" fill="${f.fill}" stroke="${f.color}" stroke-width=".8" d="${run}"/>`;
+    i = j;
+  }
+  const clip = `${id}-c${n}`, inset = r1(2 * FACE.inset * it.size), deg = r1(it.rot);
+  // the face's colour, or its gradient, top to bottom: one shared by every face (by each one's own
+  // box), but while drawing, the letter's own, since the pen's strokes each have a smaller box
+  const face = PAL.face2 === PAL.face ? PAL.face : masks ? `url(#${id}-g${n})` : `url(#${shared(fills, 'grad')})`;
+  const inside = `<clipPath id="${clip}"><path d="${d}"/></clipPath>`;
+  // the face's border, over a decoration filling the face
+  const border = `<path clip-path="url(#${clip})" fill="none" stroke-linejoin="miter" stroke="${face}" stroke-width="${inset}" d="${d}"/>`;
+  // marks down the strokes: each a shape kept once in the defs, placed (and turned) by a <use>
+  const uses = (shape, turn) => `<g fill="${PAL.dots}">` + L.mark.at.map(([x, y, way]) => {
+    const t = r1(turn(way));
+    return `<use href="#${shape}" transform="translate(${r1(x)} ${r1(y)})${t ? `rotate(${t})` : ''}"/>`;
+  }).join('') + '</g>';
+  svg += `</g>${faceOf(face)}<g class="deco"${tie('d')}>`;
+  if (it.style === 'inline')
+    svg += `${inside}<g clip-path="url(#${clip})" fill="none" stroke-linejoin="miter">`
+      + `<path stroke="${PAL.light}" stroke-width="${r1(2 * (FACE.inset + FACE.line) * it.size)}" d="${d}"/>`
+      + `<path stroke="${face}" stroke-width="${inset}" d="${d}"/></g>`;
+  else if (it.style === 'light')
+    svg += `${inside}<path fill="${PAL.light}" d="${d}"/>${border}`;
+  else if (it.style === 'stripes')
+    svg += `${inside}<path fill="url(#${shared(fills, 'stripes', it.size, deg)})" d="${d}"/>${border}`;
+  // open: the face in the decoration colour, its edge drawn in the face colour just inside it
+  else if (it.style === 'outline')
+    svg += `${inside}<path fill="${PAL.light}" d="${d}"/><path clip-path="url(#${clip})" fill="none" stroke-linejoin="miter" `
+      + `stroke="${face}" stroke-width="${r1(2 * FACE.line * it.size)}" d="${d}"/>`;
+  else if (it.style === 'stars') svg += uses(shared(fills, 'star', L.mark.r), () => it.rot);
+  else if (it.style === 'teardrops') svg += uses(shared(fills, 'drop', L.mark.r), way => way * 180 / Math.PI);
+  // rope: a short dash across the stroke at each place, slanted, over the middle half of the
+  // stroke (and never into the border), so the dashes make a band down the middle; where strokes
+  // meet, a dash that would cross one already drawn is left out
+  else if (it.style === 'rope') {
+    const w = L.mark.r, slant = FACE.ropeAngle * Math.PI / 180, room = FACE.inset * it.size + w / 2;
+    const side = (p, q, r) => Math.sign((q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]));
+    const crosses = ([a, b], [c, d]) => side(a, b, c) !== side(a, b, d) && side(c, d, a) !== side(c, d, b);
+    const dashes = [];
+    for (const [x, y, way, depth] of L.mark.at) {
+      const h = Math.max(w / 2, Math.min(depth - room, depth * 0.5) / Math.max(0.3, Math.cos(slant))), a = way + Math.PI / 2 - slant;
+      const ux = Math.cos(a) * (h + w), uy = Math.sin(a) * (h + w);   // (tested with room for the line's width)
+      const dash = [[x - ux, y - uy], [x + ux, y + uy]];
+      if (dashes.some(e => crosses(dash, e))) continue;
+      dashes.push(dash);
+    }
+    svg += `<path fill="none" stroke="${PAL.dots}" stroke-width="${r1(w)}" stroke-linecap="round" d="`
+      + dashes.map(([[ax, ay], [bx, by]]) => {
+        const k = 1 - w / Math.hypot(bx - ax, by - ay) * 2;   // (drawn without that room)
+        const mx = (ax + bx) / 2, my = (ay + by) / 2, hx = (bx - ax) / 2 * k, hy = (by - ay) / 2 * k;
+        return `M${r1(mx - hx)} ${r1(my - hy)}L${r1(mx + hx)} ${r1(my + hy)}`;
+      }).join('') + '"/>';
+  } else if (it.style === 'dots') svg += `<g fill="${PAL.dots}">` + L.mark.at.map(([x, y]) => `<circle cx="${r1(x)}" cy="${r1(y)}" r="${r1(L.mark.r)}"/>`).join('') + '</g>';
+  return svg + `</g>${ring}</g>`;
+}
+// a def shared by every letter in one copy (kept in `fills.shared`, written once into its defs):
+// the face's gradient, a stripe pattern, a star or a teardrop. Returns its id
+function shared(fills, kind, ...args) {
+  const id = `${fills.id}-${kind}${args.map(v => '_' + String(r1(v)).replace(/[.-]/g, m => m === '.' ? 'p' : 'm')).join('')}`;
+  if (fills.shared.has(id)) return id;
+  let def;
+  if (kind === 'grad')
+    def = `<linearGradient id="${id}" x2="0" y2="1"><stop offset="0" stop-color="${PAL.face}"/><stop offset="1" stop-color="${PAL.face2}"/></linearGradient>`;
+  else if (kind === 'stripes') {
+    // across the face (0°: level), turned with the letter
+    const [size, turn] = args, w = r1(FACE.stripeWidth * size), step = r1(w + FACE.stripeGap * size);
+    def = `<pattern id="${id}" patternUnits="userSpaceOnUse" width="${step}" height="${step}" patternTransform="rotate(${r1(FACE.stripeAngle + turn)})">`
+      + `<rect width="${step}" height="${w}" fill="${PAL.stripes}"/></pattern>`;
+  } else if (kind === 'star') {
+    // pointing up, its inner corners at two-fifths of its reach
+    const [r] = args, k = FACE.starPoints;
+    def = `<path id="${id}" d="M${Array.from({ length: 2 * k }, (_, i) => {
+      const a = -Math.PI / 2 + i * Math.PI / k, l = i % 2 ? r * 0.42 : r;
+      return `${r1(Math.cos(a) * l)} ${r1(Math.sin(a) * l)}`;
+    }).join('L')}Z"/>`;
+  } else {
+    // a teardrop pointing the way the pen goes (along x), its round end behind, centred on its length
+    const [r] = args, tip = 2.4 * r, t = Math.acos(r / tip), mid = (tip - r) / 2;
+    def = `<path id="${id}" d="M${r1(tip - mid)} 0L${r1(r * Math.cos(t) - mid)} ${r1(-r * Math.sin(t))}`
+      + `A${r1(r)} ${r1(r)} 0 1 0 ${r1(r * Math.cos(t) - mid)} ${r1(r * Math.sin(t))}Z"/>`;
+  }
+  fills.shared.set(id, def);
+  return id;
+}
+
+// the letters, placed, for both copies (each glyph's slow work is done once, in glyphWork)
+const letters = fonts => layout(fonts).map(letter);
+// the words, as the lettering's accessible name ("Curious Agent")
+const label = () => words().toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase())
+  .replace(/[&<>"]/g, c => `&#${c.charCodeAt(0)};`);
+
+// the whole lettering as one standalone SVG. `id` prefixes every id in it, so two copies can share
+// a page; `animated` adds the pen strokes the draw-in follows. The finish: pale grain over the
+// letters and nowhere else, then everything wobbled by a pixel or two
+function lettering(parts, id) {
+  const { fills, defs } = wallFills(id);
+  // every letter's block first, then every face on top, so a block never covers a face, whichever
+  // way the blocks run
+  const svgs = parts.map((L, n) => letterSvg(L, id, n, fills, null));
+  const blockOf = s => s.includes('<g class="block"') ? s.slice(s.indexOf('<g class="block"'), s.indexOf('<g class="face"')) : '';
+  const body = svgs.map(blockOf).join('') + svgs.map(s => s.replace(blockOf(s), '')).join('');
+  const box = bounds(parts), { x0, y0, w, h } = box;
+  // the drop shadow: the whole lettering again, under it, as its shadow
+  const art = DROP ? `<use href="#${id}-art" filter="url(#${id}-drop)"/><g id="${id}-art" ` : '<g ';
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${x0} ${y0} ${w} ${h}" `
+    + `width="${w}" height="${h}" role="img" aria-label="${label()}"><title>${label()}</title>`
+    + `<defs>${finish(id)}${drop(id, box)}${defs}${[...fills.shared.values()].join('')}</defs>${art}filter="url(#${id}-finish)">${body}</g></svg>`;
+}
+// the whole lettering's box, with room for the blocks, the drop shadow and the wobble
+function bounds(parts, pad = 24) {
+  const pts = parts.flatMap(p => p.rings.flat());
+  const reach = (k, most) => {
+    const block = most(0, EX[k]), off = DROP ? (k ? DROP.dy : DROP.dx) + Math.sign(most(-1, 1)) * 2 * DROP.soft : 0;
+    return most(block, DROP ? block + off : 0);
+  };
+  const x0 = Math.floor(Math.min(...pts.map(p => p[0])) + reach(0, Math.min) - pad), y0 = Math.floor(Math.min(...pts.map(p => p[1])) + reach(1, Math.min) - pad);
+  const x1 = Math.ceil(Math.max(...pts.map(p => p[0])) + reach(0, Math.max) + pad), y1 = Math.ceil(Math.max(...pts.map(p => p[1])) + reach(1, Math.max) + pad);
+  return { x0, y0, w: x1 - x0, h: y1 - y0 };
+}
+// the drop shadow, if any: what it is given, in the shadow's colour, blurred and moved (over the
+// whole lettering's box, so every layer of the animated copy can use the one filter)
+const drop = (id, { x0, y0, w, h }) => DROP ? `<filter id="${id}-drop" filterUnits="userSpaceOnUse" x="${x0}" y="${y0}" width="${w}" height="${h}">`
+  + `<feFlood flood-color="${PAL.drop}"${DROP.opacity < 1 ? ` flood-opacity="${Math.round(DROP.opacity * 100) / 100}"` : ''}/><feComposite in2="SourceAlpha" operator="in"/>`
+  + `<feGaussianBlur stdDeviation="${r1(DROP.soft)}"/><feOffset dx="${r1(DROP.dx)}" dy="${r1(DROP.dy)}"/></filter>` : '';
+// the finish: pale grain over the letters and nowhere else, then everything wobbled by a pixel or two
+const finish = id => `<filter id="${id}-finish" x="-5%" y="-5%" width="110%" height="110%">`
+  + `<feTurbulence type="fractalNoise" baseFrequency="1.1" numOctaves="1" seed="3" result="noise"/>`
+  + `<feColorMatrix in="noise" values="0 0 0 0 1  0 0 0 0 .98  0 0 0 0 .92  ${r1(26 * TEXTURE) / 10} 0 0 0 ${-r1(16.2 * TEXTURE) / 10}" result="specks"/>`
+  + `<feComposite in="specks" in2="SourceAlpha" operator="in" result="grain"/>`
+  + `<feMerge result="grained"><feMergeNode in="SourceGraphic"/><feMergeNode in="grain"/></feMerge>`
+  + `<feTurbulence type="fractalNoise" baseFrequency=".05" numOctaves="2" seed="4" result="wobble"/>`
+  + `<feDisplacementMap in="grained" in2="wobble" scale="${r1(WOBBLE)}" xChannelSelector="R" yChannelSelector="G"/></filter>`;
+
+// the animated copy: the same lettering as a stack of small SVGs in a box, two to a letter, so
+// the browser can move each part on its own instead of repainting one big picture every frame.
+// Each letter's block is its own layer, which the animation slides out (the graphics card moves
+// it; nothing is repainted); its face and decoration are another, small layer, repainted only
+// while it is being drawn. All of them share one coordinate system, so the grain, the wobble and
+// the hatching line up across layers as in the single SVG
+function layered(parts, id) {
+  const { fills, defs } = wallFills(id);
+  const { x0, y0, w, h } = bounds(parts);
+  const pct = v => r1(v * 1000) / 1000 + '%';
+  // an SVG layer showing the box (bx, by, bw, bh) of the lettering, placed where that box is
+  const layer = (cls, bx, by, bw, bh, inner, extra = '') =>
+    `<svg class="${cls}" viewBox="${r1(bx)} ${r1(by)} ${r1(bw)} ${r1(bh)}" style="position:absolute;`
+    + `left:${pct((bx - x0) / w * 100)};top:${pct((by - y0) / h * 100)};width:${pct(bw / w * 100)};height:${pct(bh / h * 100)};`
+    + `overflow:visible;will-change:transform${extra}" aria-hidden="true">${inner}</svg>`;
+  const body = parts.map((L, n) => {
+    const masks = [];
+    const svg = letterSvg(L, id, n, fills, masks);
+    const xs = L.rings.flat().map(p => p[0]), ys = L.rings.flat().map(p => p[1]), m = 8;
+    const bx = Math.min(...xs) - m, by = Math.min(...ys) - m, bw = Math.max(...xs) - bx + m, bh = Math.max(...ys) - by + m;
+    const face = svg.slice(svg.indexOf('<g class="face"'), svg.lastIndexOf('</g>'));
+    let out = `<div class="letter${L.it.flat ? ' flat' : ''}" data-line="${L.it.line}">`;
+    // (the letter's whole box, block and all)
+    const kx = L.it.flat ? bx : Math.min(bx, bx + EX[0]), ky = L.it.flat ? by : Math.min(by, by + EX[1]);
+    const kw = L.it.flat ? bw : bw + Math.abs(EX[0]), kh = L.it.flat ? bh : bh + Math.abs(EX[1]);
+    const tag = DROP ? k => ` id="${id}-${k}${n}"` : () => '';
+    if (!L.it.flat) {
+      // the block, exactly as in the static SVG (its layer the letter's box stretched along the
+      // block's direction); the animation makes its own sliding copy of it
+      const blockSvg = svg.slice(svg.indexOf('<g class="block"'), svg.indexOf('<g class="face"')).replace(/^<g class="block"[^>]*>/, '<g>');
+      out += layer('block', kx, ky, kw, kh, `<g${tag('k')} filter="url(#${id}-finish)">${blockSvg}</g>`);
+    }
+    // the letter's drop shadow: its finished block and face again, through the shadow filter,
+    // under every block (z-index -1); it never changes, so it is painted once, and shown as the
+    // letter settles
+    if (DROP) {
+      const sx = kx + Math.min(0, DROP.dx) - 2 * DROP.soft, sy = ky + Math.min(0, DROP.dy) - 2 * DROP.soft;
+      out += layer('shadow', sx, sy, kw + Math.abs(DROP.dx) + 4 * DROP.soft, kh + Math.abs(DROP.dy) + 4 * DROP.soft,
+        `<g filter="url(#${id}-drop)">${L.it.flat ? '' : `<use href="#${id}-k${n}"/>`}<use href="#${id}-f${n}"/></g>`, ';z-index:-1');
+    }
+    // the face and its decoration twice: drawn in along the pen, crisp (the grain and wobble
+    // filter is costly to redo every frame, so this layer has none), hidden until the animation
+    // shows it; and finished, with the filter, which the animation fades in over it once the
+    // letter is drawn. That one never changes, so it is painted once. Without the script, only
+    // the finished one shows
+    const done = letterSvg(L, `${id}f`, n, fills, null);
+    const doneFace = done.slice(done.indexOf('<g class="face"'), done.lastIndexOf('</g>'));
+    // (faces above every block: z-index 1, the blocks staying at 0)
+    out += layer('faces', bx, by, bw, bh, `<defs>${masks.join('')}</defs><g>${face}</g>`, ';visibility:hidden;z-index:1');
+    out += layer('finished', bx, by, bw, bh, `<g${tag('f')} filter="url(#${id}-finish)">${doneFace}</g>`, ';z-index:1');
+    return out + '</div>';
+  }).join('');
+  // (a drop shadow's layers sit below the blocks but within the lettering: isolation)
+  return `<div class="atypix" role="img" aria-label="${label()}" style="position:relative;${DROP ? 'isolation:isolate;' : ''}aspect-ratio:${w} / ${h}">`
+    + `<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>${finish(id)}${drop(id, { x0, y0, w, h })}${defs}`
+    + `${[...fills.shared.values()].join('')}</defs></svg>`
+    + body + '</div>';
+}
+
+// ---------- the page ----------
+const loaded = {}, ready = {};   // each font as it loads, and once it has
+// a font, loaded once; one that fails says so on the page (and is tried again next time)
+const load = name => (loaded[name] ||= opentype.load(FONT_ROOT + FONTS[name]).then(font => (ready[name] = font), e => {
+  delete loaded[name];
+  throw new Error(`${name} did not load from ${FONT_ROOT + FONTS[name]} (${e.message || e})`);
+}));
+const say = text => { document.getElementById('status').textContent = text; };
+const still = document.querySelector('#still .art'), moving = document.querySelector('#moving .art');
+let stillSvg = '', movingSvg = '';
+
+async function gzipSize(text) {
+  try {
+    const stream = new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'));
+    return (await new Response(stream).arrayBuffer()).byteLength;
+  } catch { return null; }
+}
+const kb = n => (n / 1024).toFixed(1) + ' KB';
+const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'atypix';
+
+// every line's font loaded, then both copies written out and played (a line whose font failed is
+// left out, and the page says why)
+let drawing = 0;
+async function draw() {
+  const run = ++drawing;
+  document.body.classList.add('loading');
+  const failed = (await Promise.allSettled(design.lines.map(l => load(l.font)))).filter(r => r.status === 'rejected');
+  if (run !== drawing) return;           // something else was chosen while these loaded
+  say([...new Set(failed.map(r => r.reason.message))].join('; '));
+  document.body.classList.remove('loading');
+  rebuild();
+  play();
+  await showSizes();
+}
+
+// ---------- the settings ----------
+// the block's length and direction, the shadow's direction and the hatching (3D); the grain, the
+// wobble, a drop shadow and an outline (Finish); the colours (Color); and the face styles' measures
+// (Detail). A change writes both copies out again from the letters already worked out (fast: no
+// glyph is worked out again); letting go of a slider, or picking a colour, also replays the
+// animation. Rows: label, hover text, target, key, min, max, step, unit
+const LOOK_DEFAULTS = { length: 1, direction: Math.round(Math.atan2(EX_BASE[1], EX_BASE[0]) * 180 / Math.PI), shadow: SHADOW,
+  texture: TEXTURE, hatching: HATCH.amount, hatchAngle: HATCH.angle, wobble: WOBBLE,
+  dropDistance: 0, dropDirection: 45, dropSoftness: 6, dropOpacity: 1, outline: OUTLINE };
+const look = { ...LOOK_DEFAULTS };
+const COLOURS = [
+  ['face', 'the front of each letter (the top, with a gradient)', 'face'],
+  ['face bottom', 'the bottom of the face: a gradient from the face colour (the same colour: none)', 'face2'],
+  ['outline', 'the line round each letter (its width is in Finish)', 'outline'],
+  ['decoration', 'the inline, the light middle and the open outline’s inside', 'light'],
+  ['stripes', 'the stripes', 'stripes'],
+  ['dots', 'the dots, stars, teardrops and rope', 'dots'],
+  ['extrusion', 'the block, where it faces away from the shadow, and flat letters', 'side'],
+  ['shadow', 'the block, where it faces into the shadow', 'under'],
+  ['drop shadow', 'the shadow behind the whole lettering (its distance is in Finish)', 'drop']];
+const SOLID = [
+  ['Extrusion', [
+    ['length', 'how far the block reaches back behind the letters', look, 'length', 0, 3, 0.05, '×'],
+    ['direction', 'which way the block runs back (0: right, 90: down)', look, 'direction', 0, 359, 1, '°']]],
+  ['Shadow', [
+    ['shadow', 'which way the walls in shadow face (90: down; 0: right)', look, 'shadow', 0, 359, 1, '°'],
+    ['hatching', 'the scratches on the walls in shadow: 0 none, 1 as designed, 2 twice as strong', look, 'hatching', 0, 2, 0.05, '×'],
+    ['hatch angle', 'the way the scratches slant, in degrees up from level', look, 'hatchAngle', -90, 90, 1, '°']]]];
+const FINISH = [
+  ['Texture', [
+    ['grain', 'the pale grain over the letters: 0 none, 1 as designed, 2 twice as strong', look, 'texture', 0, 2, 0.05, '×'],
+    ['wobble', 'how far the hand-drawn wobble moves an edge (0: none)', look, 'wobble', 0, 12, 0.5, '']]],
+  ['Drop shadow', [
+    ['distance', 'how far the drop shadow falls from the lettering (0: none)', look, 'dropDistance', 0, 80, 1, ''],
+    ['direction', 'which way it falls (0: right, 90: down)', look, 'dropDirection', 0, 359, 1, '°'],
+    ['softness', 'how blurred its edge is', look, 'dropSoftness', 0, 30, 0.5, ''],
+    ['opacity', 'how strong it is (1: solid, 0: none)', look, 'dropOpacity', 0, 1, 0.05, '']]],
+  ['Outline', [
+    ['width', 'the line round each letter (0: none; its colour is in Color)', look, 'outline', 0, 12, 0.5, '']]]];
+// each style's measures, shown only while some letter has one of the styles that use them
+const DETAIL = [
+  ['Border', STYLES.filter(s => s !== 'flat' && s !== 'plain'), [
+    ['inset', 'the border inside each face, as a share of the size', FACE, 'inset', 0, 0.1, 0.001, '']]],
+  ['Inline', ['inline', 'outline'], [
+    ['inline', 'the inline’s width (and the open outline’s edge)', FACE, 'line', 0.002, 0.06, 0.001, '']]],
+  ['Dots', ['dots'], [
+    ['dot size', 'the dots’ radius', FACE, 'dotR', 0.004, 0.05, 0.001, ''],
+    ['dot spacing', 'from one dot to the next', FACE, 'dotStep', 0.02, 0.2, 0.001, '']]],
+  ['Stripes', ['stripes'], [
+    ['angle', 'their slant, in degrees (0: level across the face)', FACE, 'stripeAngle', -90, 90, 1, '°'],
+    ['width', 'each stripe’s width', FACE, 'stripeWidth', 0.004, 0.08, 0.001, ''],
+    ['gap', 'the gap between stripes', FACE, 'stripeGap', 0.004, 0.08, 0.001, '']]],
+  ['Stars', ['stars'], [
+    ['star size', 'a star’s reach, from its middle to a point', FACE, 'starR', 0.008, 0.06, 0.001, ''],
+    ['points', 'a star’s points', FACE, 'starPoints', 4, 8, 1, ''],
+    ['star spacing', 'from one star to the next', FACE, 'starStep', 0.03, 0.2, 0.001, '']]],
+  ['Teardrops', ['teardrops'], [
+    ['drop size', 'the radius of a teardrop’s round end (its point is 2.4 times as far)', FACE, 'dropR', 0.005, 0.04, 0.001, ''],
+    ['drop spacing', 'from one teardrop to the next', FACE, 'dropStep', 0.03, 0.2, 0.001, '']]],
+  ['Rope', ['rope'], [
+    ['angle', 'the dashes’ slant from straight across, in degrees', FACE, 'ropeAngle', -70, 70, 1, '°'],
+    ['spacing', 'from one dash to the next', FACE, 'ropeStep', 0.015, 0.12, 0.001, ''],
+    ['thickness', 'each dash’s thickness', FACE, 'ropeWidth', 0.004, 0.04, 0.001, '']]]];
+let parts = [];
+// both copies written out again: every letter placed (its glyph's slow work cached), then the walls
+// and colours from the settings
+function rebuild() {
+  const len = Math.hypot(...EX_BASE) * look.length, a = look.direction * Math.PI / 180;
+  EX = [len * Math.cos(a), len * Math.sin(a)];
+  SHADOW = look.shadow;
+  TEXTURE = look.texture;
+  HATCH = { amount: look.hatching, angle: look.hatchAngle };
+  WOBBLE = look.wobble;
+  const da = look.dropDirection * Math.PI / 180;
+  DROP = look.dropDistance > 0 ? { dx: look.dropDistance * Math.cos(da), dy: look.dropDistance * Math.sin(da), soft: look.dropSoftness, opacity: look.dropOpacity } : null;
+  OUTLINE = look.outline;
+  parts = letters(ready);
+  stillSvg = parts.length ? lettering(parts, 'still') : '';
+  movingSvg = parts.length ? layered(parts, 'moving') : '';
+  still.innerHTML = stillSvg;
+  mark();
+  fillDetail();
+}
+const settled = () => { play(); showSizes(); };
+
+// ---------- building the panels ----------
+const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; };
+const field = (label, hint, input, value = el('output')) => el('label', { title: hint }, label, input, value);
+const box = (title, ...kids) => el('fieldset', {}, el('legend', { textContent: title }), ...kids);
+// a tab's panel to fill: the flow inside its card, made on first use (the card scrolls; the flow
+// lays the groups down columns, which a scrolling box with a height limit would spill sideways)
+const panel = name => { const card = document.getElementById('tab-' + name);
+  return card.querySelector(':scope > .flow') || card.appendChild(el('div', { className: 'flow' })); };
+const button = (text, act, props = {}) => { const b = el('button', { type: 'button', textContent: text, ...props }); b.addEventListener('click', act); return b; };
+const menu = (options, current) => {
+  const m = el('select');
+  for (const [value, text] of options) m.append(new Option(text, value, false, value === current));
+  return m;
+};
+// a slider for target[key]; `live`, it rebuilds as it moves, otherwise once let go (a line's size,
+// since a new size works every letter out again); letting go replays
+function slider(target, key, min, max, step, unit, live = true) {
+  const input = el('input', { type: 'range', min, max, step, value: target[key] });
+  const value = el('output', { textContent: target[key] + unit });
+  input.addEventListener('input', () => { target[key] = +input.value; value.textContent = input.value + unit; if (live) rebuild(); });
+  input.addEventListener('change', () => { if (!live) rebuild(); settled(); });
+  return [input, value];
+}
+const rowsOf = rows => rows.map(([label, hint, target, key, min, max, step, unit]) => field(label, hint, ...slider(target, key, min, max, step, unit)));
+const sets = groups => groups.map(([title, rows]) => box(title, ...rowsOf(rows)));
+const ALIGN = [['left', 'left'], ['centre', 'center'], ['right', 'right']];
+let chosen = null;            // the letter being adjusted: [its line, its place in the line's text]
+
+// Font: each line's words, font, size, letter spacing and alignment; the leading; adding and
+// removing lines
+function fillFont() {
+  const p = panel('font');
+  p.replaceChildren();
+  design.lines.forEach((ln, li) => {
+    const text = el('input', { type: 'text', value: ln.text, spellcheck: false });
+    text.addEventListener('input', () => { ln.text = text.value; rebuild(); });
+    text.addEventListener('change', () => { fillStyles(); fillLetter(); fillControls(); settled(); });
+    const font = menu(Object.keys(FONTS).map(n => [n, n]), ln.font);
+    font.addEventListener('change', () => { ln.font = font.value; draw(); });
+    const align = menu(ALIGN, ln.align);
+    align.addEventListener('change', () => { ln.align = align.value; rebuild(); settled(); });
+    const set = box(`Line ${li + 1}`,
+      field('words', 'the line’s words', text),
+      field('font', 'the line’s font', font),
+      field('size', 'the letters’ size, in SVG units (applied on letting go)', ...slider(ln, 'size', 40, 600, 1, '', false)),
+      field('spacing', 'letter spacing, as a share of the size', ...slider(ln, 'track', -0.2, 0.6, 0.002, '')),
+      field('align', 'where the line sits across the widest one', align));
+    if (design.lines.length > 1) set.append(el('div', { className: 'buttons' }, button('Remove line', () => {
+      design.lines.splice(li, 1);
+      motion.lines.splice(li, 1);
+      if (chosen?.[0] === li) chosen = null; else if (chosen?.[0] > li) chosen[0]--;
+      rebuild(); buildAll(); settled();
+    })));
+    p.append(set);
+  });
+  p.append(box('Lines',
+    field('leading', 'from a line’s blocks (or baseline) to the tops of the next', ...slider(design, 'spacing', -150, 300, 1, '')),
+    el('div', { className: 'buttons' }, button('Add line', () => { design.lines.push(newLine()); buildAll(); draw(); }))));
+}
+// Style: each line's cycle of face styles, a menu for each step, × to take a step out (while there
+// are two or more), + to add one
+function fillStyles() {
+  const p = panel('style');
+  p.replaceChildren();
+  design.lines.forEach((ln, li) => {
+    const styles = el('div', { className: 'cycle' });
+    const fillCycle = () => {
+      const changed = () => { rebuild(); fillLetter(); settled(); };
+      styles.replaceChildren(...ln.styles.map((s, k) => {
+        const step = menu(STYLES.map(v => [v, v]), s);
+        step.addEventListener('change', () => { ln.styles[k] = step.value; changed(); });
+        const out = button('×', () => { ln.styles.splice(k, 1); fillCycle(); changed(); },
+          { title: 'take this step out of the cycle', disabled: ln.styles.length < 2 });
+        return el('span', {}, step, out);
+      }));
+      styles.append(button('+', () => { ln.styles.push(CYCLE[ln.styles.length % CYCLE.length]); fillCycle(); changed(); },
+        { title: 'add a step to the cycle' }));
+    };
+    fillCycle();
+    p.append(box(`Line ${li + 1}: ${ln.text.trim() || '(no words)'}`,
+      el('div', { className: 'styles', title: 'the face styles its letters take in turn (a letter given its own face skips it; flat: no block)' },
+        el('span', { textContent: 'styles' }), styles)));
+  });
+}
+// Detail: the measures of the styles in use, written again only when that set changes (so a
+// slider being dragged there is never replaced under the pointer)
+let detailKey = null;
+function fillDetail(force = false) {
+  const used = new Set(parts.map(L => L.it.style));
+  const groups = DETAIL.filter(([, styles]) => styles.some(s => used.has(s)));
+  const key = groups.map(g => g[0]).join();
+  if (key === detailKey && !force) return;
+  detailKey = key;
+  panel('detail').replaceChildren(...(groups.length ? groups.map(([title, , rows]) => box(title, ...rowsOf(rows)))
+    : [el('p', { className: 'note', textContent: 'No letter has a style with measures (flat letters have none).' })]));
+}
+// Letter: the chosen letter's own size, turn, move and face style (a turn about its middle; its
+// block is still made after, so it runs the design's way)
+function fillLetter() {
+  const set = box('Letter');
+  panel('letter').replaceChildren(set);
+  const choices = [['', 'none (or click one)']];
+  design.lines.forEach((ln, li) => [...ln.text].forEach((ch, i) => { if (ch.trim()) choices.push([`${li}:${i}`, `line ${li + 1}: ${ch} (${i + 1})`]); }));
+  if (chosen && !choices.some(([v]) => v === chosen.join(':'))) chosen = null;
+  const which = menu(choices, chosen ? chosen.join(':') : '');
+  which.addEventListener('change', () => { chosen = which.value ? which.value.split(':').map(Number) : null; fillLetter(); mark(); });
+  set.append(field('letter', 'which letter these adjust: pick one, or click it in the picture', which));
+  if (!chosen) return;
+  const ln = design.lines[chosen[0]];
+  const v = ln.letters[chosen[1]] = { ...NO_CHANGE, ...ln.letters[chosen[1]] };
+  const cycle = parts.find(L => L.it.line === chosen[0] && L.it.index === chosen[1]);
+  const style = menu([['', `the line’s${cycle && !v.style ? ` (${cycle.it.style})` : ''}`], ...STYLES.map(s => [s, s])], v.style);
+  style.addEventListener('change', () => { v.style = style.value; rebuild(); settled(); });
+  set.append(
+    field('size', 'a scale on the line’s size', ...slider(v, 'scale', 0.2, 3, 0.01, '×')),
+    field('turn', 'about the letter’s middle, in degrees', ...slider(v, 'rot', -180, 180, 0.5, '°')),
+    field('left/right', 'in SVG units', ...slider(v, 'dx', -300, 300, 1, '')),
+    field('up/down', 'in SVG units', ...slider(v, 'dy', -300, 300, 1, '')),
+    field('face', 'its face style (flat: no block)', style),
+    el('div', { className: 'buttons' }, button('Reset letter', () => { Object.assign(v, NO_CHANGE); fillLetter(); rebuild(); settled(); })));
+}
+// Color: a palette to start from, and every colour, in two columns
+const paletteOf = () => Object.keys(PALETTES).find(n => COLOURS.every(([, , k]) => PALETTES[n][k] === PAL[k])) || '';
+function fillColours() {
+  const palette = menu([...Object.keys(PALETTES).map(n => [n, n]), ['', 'your own']], paletteOf());
+  palette.addEventListener('change', () => {
+    if (!palette.value) return;
+    Object.assign(PAL, PALETTES[palette.value]);
+    fillColours(); rebuild(); settled();
+  });
+  const swatch = ([label, hint, key]) => {
+    const pick = el('input', { type: 'color', value: PAL[key] });
+    pick.addEventListener('input', () => { PAL[key] = pick.value; rebuild(); });
+    pick.addEventListener('change', () => { palette.value = paletteOf(); settled(); });
+    return el('label', { title: hint }, label, pick);
+  };
+  panel('colour').replaceChildren(
+    box('Palette', field('palette', 'start from one of these: every colour changes', palette, el('span'))),
+    // (down the first column, then the second)
+    el('fieldset', { className: 'colours' }, el('legend', { textContent: 'Colors' }),
+      el('div', { className: 'two', style: `grid-template-rows: repeat(${Math.ceil(COLOURS.length / 2)}, auto)` }, ...COLOURS.map(swatch))));
+}
+const fillSolid = () => panel('3d').replaceChildren(...sets(SOLID));
+const fillFinish = () => panel('finish').replaceChildren(...sets(FINISH));
+// every panel that shows the design's state, written again (after a preset, or a line added or taken away)
+function buildAll() { fillFont(); fillStyles(); fillLetter(); fillColours(); fillSolid(); fillFinish(); fillControls(); fillDetail(true); }
+
+// the chosen letter outlined in the static figure, only while the Letter tab is the chosen tab
+// (on the page only: the SVG downloaded has none)
+function mark() {
+  still.querySelector('.mark')?.remove();
+  const svg = still.querySelector('svg'), L = chosen && parts.find(p => p.it.line === chosen[0] && p.it.index === chosen[1]);
+  const onLetter = document.getElementById('tab-button-letter')?.getAttribute('aria-selected') === 'true';
+  if (svg && L && onLetter) svg.insertAdjacentHTML('beforeend', `<path class="mark" d="${L.d}" fill="none" stroke="${PAL.under}" `
+    + 'stroke-width="2" stroke-dasharray="8 6" vector-effect="non-scaling-stroke" pointer-events="none"/>');
+}
+// a click on a letter's face chooses it and opens the Letter tab; anywhere else, none
+still.addEventListener('click', e => {
+  const svg = still.querySelector('svg');
+  if (!svg) return;
+  const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(svg.getScreenCTM().inverse());
+  const hit = parts.findLast(L => tester.isPointInPath(new Path2D(L.d), p.x, p.y));
+  chosen = hit ? [hit.it.line, hit.it.index] : null;
+  fillLetter();
+  mark();
+  if (hit) showTab('letter');
+});
+
+// replay from the start, while the animated copy is on the stage: a fresh copy of it, fitted to the
+// stage, handed to the animation script (off the stage, nothing plays; showing it plays it)
+let timeline = null;
+function play() {
+  timeline?.kill();
+  timeline = null;
+  if (document.getElementById('moving').hidden) return moving.replaceChildren();
+  moving.innerHTML = movingSvg;
+  const root = moving.querySelector('.atypix');
+  if (!window.gsap || !root) return;
+  const [w, h] = root.style.aspectRatio.split('/').map(Number);
+  root.style.setProperty('--ar', w / h);
+  // (it starts itself, two frames after setup, or once in view; the readout times it from then)
+  const tl = timeline = animateLettering(root, motion);
+  tl.eventCallback('onStart', () => { if (timeline === tl) measure(); });
+}
+// how smoothly the last play ran, in this browser: frames a second, and the slowest frame
+let measuring = 0;
+function measure() {
+  const run = ++measuring, times = [], length = timeline ? timeline.duration() / timeline.timeScale() : 0;
+  const t0 = performance.now();
+  let last = t0;
+  const tick = now => {
+    if (run !== measuring) return;
+    times.push(now - last); last = now;
+    if (now - t0 < length * 1000) return requestAnimationFrame(tick);
+    const slow = times.filter(t => t > 25).length, worst = Math.max(...times);
+    document.getElementById('fps').textContent = `Last play, in this browser: ${Math.round(times.length / ((now - t0) / 1000))} frames a second; `
+      + `slowest frame ${Math.round(worst)} ms; ${slow} of ${times.length} frames slower than 25 ms (a smooth frame is 17 ms at 60 a second)`;
+  };
+  requestAnimationFrame(now => { last = now; requestAnimationFrame(tick); });
+}
+
+// ---------- the animation's controls ----------
+// Animation: every setting animateLettering takes, as sliders and menus (times up to 10 s; hover a
+// row for what it does), with a timing for each line; a change replays it (on letting go of a
+// slider), in the same random order until "New order". Export shows the options to pass to
+// animateLettering on a site
+const motion = structuredClone(LETTERING_DEFAULTS);
+const EASES = [['linear', 'linear'], ['in', 'ease in'], ['out', 'ease out'], ['inOut', 'ease in-out'],
+  ['back', 'overshoot'], ['elastic', 'elastic'], ['bounce', 'bounce']];
+const ORDERS = [['random', 'random'], ['leftToRight', 'left to right'], ['rightToLeft', 'right to left'], ['centreOut', 'center out']];
+const ENTRANCES = [['draw', 'draw in'], ['drop', 'drop'], ['pop', 'pop'], ['fade', 'fade']];
+const controlRows = () => [
+  ['Overall', [
+    ['speed', 'the whole animation: 2 is twice as fast', motion, 'speed', 0.1, 4, 0.05, '×'],
+    ['play', 'once, or over and over', motion, 'loop', [[false, 'once'], [true, 'loop']]],
+    ['hold', 'looping: how long the finished lettering stays before it plays again', motion, 'hold', 0, 10, 0.05, 's'],
+    ['start', 'at once, or when a quarter of it is scrolled into view (looping, it pauses while out of view)', motion, 'whenVisible',
+      [[false, 'at once'], [true, 'in view']]]]],
+  ...design.lines.map((ln, i) => [`${ln.text.trim() || `Line ${i + 1}`} line`, [
+    ['starts at', 'when its first letter can start', motion.lines[i], 'start', 0, 10, 0.05, 's'],
+    ['spread', 'its letters start across this window, after "starts at" (0: all together)', motion.lines[i], 'spread', 0, 10, 0.05, 's'],
+    ['order', 'which letters start first: at random, from the left, from the right, or from the middle out, evenly across the spread',
+      motion.lines[i], 'order', ORDERS]]]),
+  ['Letters coming in', [
+    ['comes in', 'drawn along the pen, dropped from above, popped up from its middle, or faded in', motion.face, 'entrance', ENTRANCES],
+    ['ease', null, motion.face, 'ease'],
+    ['duration', 'how long a letter takes to come in', motion.face, 'duration', 0.1, 10, 0.05, 's'],
+    ['strength', 'how strong the ease is', motion.face, 'strength', 0, 1, 0.05, '']]],
+  ['Face decoration', [
+    ['comes in', 'drawn along the pen, dropped from above, popped up from its middle, or faded in', motion.deco, 'entrance', ENTRANCES],
+    ['ease', null, motion.deco, 'ease'],
+    ['duration', 'how long the decoration takes to come in', motion.deco, 'duration', 0.1, 10, 0.05, 's'],
+    ['strength', 'how strong the ease is', motion.deco, 'strength', 0, 1, 0.05, ''],
+    ['delay', 'after its face starts drawing', motion.deco, 'delay', 0, 10, 0.05, 's']]],
+  ['Extrusion', [
+    ['ease', null, motion.extrude, 'ease'],
+    ['duration', 'how long it takes to spring out', motion.extrude, 'duration', 0.1, 10, 0.05, 's'],
+    ['strength', 'how strong the ease is', motion.extrude, 'strength', 0, 1, 0.05, ''],
+    ['delay', 'after its face is in (below 0: before)', motion.extrude, 'delay', -5, 10, 0.05, 's']]],
+];
+function fillControls() {
+  const p = panel('animation');
+  p.replaceChildren();
+  // a timing for every line, and none for lines that are gone
+  while (motion.lines.length < design.lines.length) motion.lines.push({ ...LETTERING_DEFAULTS.lines[0] });
+  motion.lines.length = design.lines.length;
+  for (const [title, rows] of controlRows()) {
+    const set = box(title);
+    for (const [label, hint, target, key, min, max, step, unit] of rows) {
+      const row = el('label');
+      if (hint) row.title = hint;
+      // a menu: of eases, or of the row's own choices (whose values need not be strings)
+      if (min === undefined || Array.isArray(min)) {
+        const choices = min || EASES, pick = el('select');
+        choices.forEach(([value, text], i) => pick.append(new Option(text, i, false, target[key] === value)));
+        pick.addEventListener('change', () => { target[key] = choices[pick.value][0]; refreshCode(); play(); });
+        row.append(label, pick, el('span'));
+      } else {
+        const input = el('input', { type: 'range', min, max, step, value: target[key] });
+        const value = el('output', { textContent: target[key] + unit });
+        input.addEventListener('input', () => { target[key] = +input.value; value.textContent = input.value + unit; refreshCode(); });
+        input.addEventListener('change', play);
+        row.append(label, input, value);
+      }
+      set.append(row);
+    }
+    p.append(set);
+  }
+  p.append(box('Order', el('p', { className: 'note', textContent: 'The random order the letters come in.' }),
+    el('div', { className: 'buttons' }, button('New order', () => { motion.seed = 1 + Math.floor(Math.random() * 9999); refreshCode(); play(); }))));
+  refreshCode();
+}
+
+// ---------- presets ----------
+// the whole design (the words and lines, every letter's adjustments, the colours, the design's
+// settings and the animation's) as a named preset kept in this browser, or as a JSON file to keep or
+// share. The browser's storage may be missing or refuse (a private window): the page works without
+// it, and says so
+const PRESETS = 'atypix-presets';
+const snapshot = () => ({ atypix: 1, design: structuredClone(design), look: { ...look }, colours: { ...PAL }, face: { ...FACE },
+  motion: structuredClone(motion) });
+const stored = () => { try { return JSON.parse(localStorage.getItem(PRESETS)) || {}; } catch { return {}; } };
+const store = all => { try { localStorage.setItem(PRESETS, JSON.stringify(all)); return true; } catch { return false; } };
+// a preset put back: anything missing or unknown in it falls back to the defaults
+function restore(p) {
+  if (!Array.isArray(p?.design?.lines)) throw new Error('that is not an Atypix preset');
+  const unknown = [];
+  design.lines = p.design.lines.map(l => {
+    const ln = newLine('', l);
+    ln.text = String(ln.text ?? '');
+    if (!FONTS[ln.font]) { unknown.push(ln.font); ln.font = 'Anton'; }
+    ln.styles = (Array.isArray(ln.styles) ? ln.styles : []).filter(s => STYLES.includes(s));
+    if (!ln.styles.length) ln.styles = [...CYCLE];
+    ln.letters = (Array.isArray(ln.letters) ? ln.letters : []).map(v => v && { ...NO_CHANGE, ...v, style: STYLES.includes(v.style) ? v.style : '' });
+    // (a preset from before flat was a style: a flat line's letters all flat, as they were)
+    if (ln.treatment === 'flat') { ln.styles = ['flat']; ln.letters = ln.letters.map(v => v && { ...v, style: '' }); }
+    delete ln.treatment;
+    return ln;
+  });
+  design.spacing = Number.isFinite(p.design.spacing) ? p.design.spacing : 26;
+  Object.assign(look, LOOK_DEFAULTS, p.look);
+  Object.assign(FACE, FACE_DEFAULTS, p.face);
+  // (a preset from before the gradient and stripe colours: no gradient, stripes in the decoration colour)
+  Object.assign(PAL, PAL_DEFAULTS, { face2: p.colours?.face, stripes: p.colours?.light }, p.colours);
+  for (const [k, v] of Object.entries(PAL)) if (!/^#[0-9a-f]{6}$/i.test(v)) PAL[k] = PAL_DEFAULTS[k];
+  const m = structuredClone(LETTERING_DEFAULTS);
+  for (const [k, v] of Object.entries(p.motion || {}))
+    m[k] = m[k] && typeof m[k] === 'object' && !Array.isArray(m[k]) ? { ...m[k], ...v } : v;
+  // (a preset from before round 3: each line in random order, everything drawn in, played once at once)
+  m.lines = (Array.isArray(m.lines) ? m.lines : LETTERING_DEFAULTS.lines).map(l => ({ ...LETTERING_DEFAULTS.lines[0], ...l }));
+  for (const l of m.lines) if (!ORDERS.some(([v]) => v === l.order)) l.order = 'random';
+  for (const k of ['face', 'deco']) if (!ENTRANCES.some(([v]) => v === m[k].entrance)) m[k].entrance = 'draw';
+  m.loop = m.loop === true; m.whenVisible = m.whenVisible === true;
+  if (!Number.isFinite(m.hold)) m.hold = LETTERING_DEFAULTS.hold;
+  for (const k of Object.keys(motion)) delete motion[k];
+  Object.assign(motion, m);
+  chosen = null;
+  buildAll();
+  draw().then(() => { if (unknown.length) say(`Not in the font menu, so Anton instead: ${unknown.join(', ')}`); });
+}
+
+// what a visitor would download for each: the static SVG alone; or the animated SVG, GSAP and
+// the animation script (the page itself also loads the font parser and the fonts, for the menu;
+// a site showing the lettering would not)
+const GSAP_SIZE = { raw: 72435, packed: 28277 };   // gsap.min.js 3.13.0, measured
+async function showSizes() {
+  const runtime = document.getElementById('runtime').textContent;
+  const size = async text => ({ raw: new Blob([text]).size, packed: await gzipSize(text) });
+  const [s, m, r] = await Promise.all([size(stillSvg), size(movingSvg), size(runtime)]);
+  const both = (a, b) => (b ? `${kb(a)} (${kb(b)} compressed)` : kb(a));
+  document.getElementById('size').textContent = `Static SVG: ${both(s.raw, s.packed)}`;
+  document.getElementById('moving-size').textContent =
+    `Animated: SVG ${both(m.raw, m.packed)} + GSAP ${both(GSAP_SIZE.raw, GSAP_SIZE.packed)} + animation script ${both(r.raw, r.packed)}`
+    + ` = ${both(m.raw + GSAP_SIZE.raw + r.raw, m.packed && r.packed ? m.packed + GSAP_SIZE.packed + r.packed : 0)}`;
+}
+
+// ---------- exports ----------
+// the static SVG; the animated copy as a snippet to paste into a page; and the static design as a
+// PNG or WebP picture at a chosen width
+const GSAP_URL = 'https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js';
+const save = (blob, name) => Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: name }).click();
+const fileName = ext => `${slug(words())}-${slug(design.lines[0]?.font || '')}.${ext}`;
+const download = () => stillSvg && save(new Blob([stillSvg], { type: 'image/svg+xml' }), fileName('svg'));
+// the animated lettering as one piece of HTML: the layered markup (its ids its own, so two can share
+// a page), GSAP from jsDelivr, and the animation script with the call and the panel's settings,
+// inside a function so it adds no names to the page. It fills the width of whatever holds it
+function snippet() {
+  const id = `atypix-${slug(words())}-${Math.random().toString(36).slice(2, 6)}`;
+  const markup = layered(parts, id).replace('<div class="atypix"', `<div class="atypix" id="${id}"`);
+  const runtime = document.getElementById('runtime').textContent.trim();
+  return `<!-- ${label().replace(/--/g, '-')}, lettered with Atypix: the lettering, then GSAP, then its animation. `
+    + 'Without the script, the finished lettering shows. -->\n'
+    + `${markup}\n<script src="${GSAP_URL}"><\/script>\n<script>\n(() => {\n${runtime}\n`
+    + `animateLettering(document.getElementById('${id}'), ${JSON.stringify(motion)});\n})();\n<\/script>\n`;
+}
+const downloadAnimated = () => parts.length && save(new Blob([snippet()], { type: 'text/html' }), fileName('html'));
+// the static SVG drawn by the browser onto a canvas `wide` pixels across (its own width and height
+// set to that size first, so the grain, the wobble and the hatching are drawn at it, not
+// stretched), then saved as `type`; clear around the lettering
+async function picture(type, wide) {
+  const [, , w, h] = stillSvg.match(/viewBox="([^"]+)"/)[1].split(' ').map(Number);
+  const tall = Math.max(1, Math.round(wide * h / w));
+  const sized = stillSvg.replace(/^<svg([^>]*?) width="[^"]*" height="[^"]*"/, `<svg$1 width="${wide}" height="${tall}"`);
+  const img = new Image();
+  img.src = URL.createObjectURL(new Blob([sized], { type: 'image/svg+xml' }));
+  try {
+    await img.decode();
+    const canvas = Object.assign(document.createElement('canvas'), { width: wide, height: tall });
+    canvas.getContext('2d').drawImage(img, 0, 0, wide, tall);
+    return await new Promise((done, fail) => canvas.toBlob(b => b ? done(b) : fail(new Error('the browser would not make it')), type, 0.92));
+  } finally { URL.revokeObjectURL(img.src); }
+}
+let widthInput = null;
+async function downloadPicture(type) {
+  if (!stillSvg) return;
+  const wide = Math.min(8000, Math.max(16, Math.round(+widthInput.value) || 2000));
+  widthInput.value = wide;
+  try {
+    const blob = await picture(type, wide);
+    // (a browser that cannot write WebP gives a PNG instead, and says so)
+    const png = blob.type !== 'image/webp';
+    say(png && type === 'image/webp' ? 'This browser cannot make WebP pictures, so this is a PNG' : '');
+    save(blob, fileName(png ? 'png' : 'webp'));
+  } catch (e) { say(`Could not make the picture: ${e.message || e}`); }
+}
+
+// Save: the downloads, with their sizes; a picture at a chosen width; and presets kept in this
+// browser. Written once: nothing in it shows the design's state but the sizes and the preset list
+let presetName = null;
+function fillSave() {
+  widthInput = el('input', { type: 'number', min: 16, max: 8000, step: 1, value: 2000 });
+  presetName = el('input', { type: 'text', placeholder: 'preset name', spellcheck: false });
+  const saved = el('select');
+  const list = (current = saved.value) => {
+    saved.replaceChildren(new Option('saved presets', ''));
+    for (const n of Object.keys(stored()).sort()) saved.append(new Option(n, n, false, n === current));
+  };
+  panel('save').replaceChildren(
+    box('Download',
+      el('div', { className: 'buttons' }, button('Download SVG', download),
+        button('Download animated', downloadAnimated, { title: 'the animated copy as one snippet to paste into a page: the lettering, GSAP and the animation, with the Animation tab’s settings' })),
+      el('p', { className: 'note', id: 'size' }), el('p', { className: 'note', id: 'moving-size' })),
+    box('Picture',
+      field('width', 'the static design as a picture this many pixels wide', widthInput, el('span', { textContent: 'px' })),
+      el('div', { className: 'buttons' }, button('PNG', () => downloadPicture('image/png')), button('WebP', () => downloadPicture('image/webp')))),
+    box('Presets',
+      field('name', 'what to call it (the words, if left empty)', presetName, el('span')),
+      el('div', { className: 'buttons' }, button('Save', () => {
+        const n = presetName.value.trim() || words() || 'untitled', all = stored();
+        all[n] = snapshot();
+        say(store(all) ? '' : 'This browser would not keep the preset: download it as JSON (Export) instead');
+        list(n);
+      })),
+      field('saved', 'presets kept in this browser', saved, el('span')),
+      el('div', { className: 'buttons' },
+        button('Load', () => {
+          const p = stored()[saved.value];
+          if (!p) return;
+          presetName.value = saved.value;
+          try { restore(p); } catch (e) { say(`Could not load ${saved.value}: ${e.message}`); }
+        }),
+        button('Delete', () => { const all = stored(); delete all[saved.value]; store(all); list(''); }))));
+  list();
+}
+// Export: the preset as a JSON file, and loading one; the animation's settings, to copy or to read
+let code = null;
+const refreshCode = () => { if (code) code.textContent = `animateLettering(root, ${JSON.stringify(motion, null, 1).replace(/\n\s*/g, ' ')});`; };
+function fillExport() {
+  const file = el('input', { type: 'file', accept: '.json,application/json', hidden: true });
+  file.addEventListener('change', async () => {
+    try { restore(JSON.parse(await file.files[0].text())); say(''); }
+    catch (e) { say(`Could not load ${file.files[0].name}: ${e.message}`); }
+    file.value = '';
+  });
+  code = el('code', { hidden: true });
+  const copy = button('Copy settings', async () => {
+    try { await navigator.clipboard.writeText(code.textContent); copy.textContent = 'Copied'; }
+    catch { code.hidden = false; show.textContent = 'Hide code'; getSelection().selectAllChildren(code); copy.textContent = 'Selected: press ⌘C'; }
+    setTimeout(() => { copy.textContent = 'Copy settings'; }, 1500);
+  });
+  const show = button('Show code', () => { code.hidden = !code.hidden; show.textContent = code.hidden ? 'Show code' : 'Hide code'; });
+  panel('export').replaceChildren(
+    box('Preset file',
+      el('p', { className: 'note', textContent: 'The whole design, words to animation, as a file to keep or share.' }),
+      el('div', { className: 'buttons' },
+        button('Download JSON', () => save(new Blob([JSON.stringify(snapshot(), null, 1)], { type: 'application/json' }),
+          `${slug(presetName.value.trim() || words())}.json`)),
+        button('Load JSON', () => file.click()), file)),
+    box('Animation settings',
+      el('p', { className: 'note', textContent: 'The options to pass to animateLettering(root, options) on a site.' }),
+      el('div', { className: 'buttons' }, copy, show), code));
+  refreshCode();
+}
+
+// ---------- the tabs ----------
+// a drawer at the bottom: a row of tabs with the open tab's panel beneath them, sliding up to
+// open and down to close (choosing the open tab again closes it; another tab slides to its
+// panel's height). The first seven show the static SVG on the stage, the rest the animated copy;
+// the stage takes whatever room the panel leaves. Which tab was open is remembered in this browser
+const TABS = [['font', 'Font'], ['style', 'Style'], ['detail', 'Detail'], ['letter', 'Letter'], ['colour', 'Color'],
+  ['3d', '3D'], ['finish', 'Finish'], ['animation', 'Animation'], ['save', 'Save'], ['export', 'Export']];
+const STILL_TABS = ['font', 'style', 'detail', 'letter', 'colour', '3d', 'finish'];
+const TAB_KEY = 'atypix-tab';
+let tab = 'font', open = true;
+const tabs = document.getElementById('tabs'), panels = document.getElementById('panels');
+tabs.append(...TABS.map(([name, text], i) => {
+  const b = button(text, () => showTab(name, true), { role: 'tab', id: 'tab-button-' + name });
+  b.append(el('span', { className: 'caret', ariaHidden: 'true' }));   // the open or closed triangle, shown on the chosen tab
+  b.style.zIndex = TABS.length - i;         // each tab over the next, which reaches back beneath it
+  return b;
+}));
+// a row too wide for the window: its edges fade wherever more tabs lie beyond them, the chosen
+// tab is brought to the middle (smoothly, unless motion is reduced or nothing is to be seen
+// moving), and a mouse wheel scrolls it sideways, since its scrollbar is hidden
+const fades = () => {
+  tabs.classList.toggle('more-left', tabs.scrollLeft > 1);
+  tabs.classList.toggle('more-right', tabs.scrollLeft < tabs.scrollWidth - tabs.clientWidth - 1);
+};
+const centreTab = (smooth = true) => {
+  const b = document.getElementById('tab-button-' + tab);
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  tabs.scrollTo({ left: b.offsetLeft + b.offsetWidth / 2 - tabs.clientWidth / 2, behavior: smooth && !reduced ? 'smooth' : 'auto' });
+  fades();
+};
+tabs.addEventListener('scroll', fades, { passive: true });
+tabs.addEventListener('wheel', e => {
+  if (tabs.scrollWidth <= tabs.clientWidth || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+  e.preventDefault();
+  tabs.scrollLeft += e.deltaY;
+}, { passive: false });
+new ResizeObserver(() => centreTab(false)).observe(tabs);
+// once a slide ends, an open drawer goes back to its natural height, so a panel that grows still fits
+panels.addEventListener('transitionend', e => {
+  if (e.target !== panels || e.propertyName !== 'height') return;
+  panels.classList.remove('sliding');
+  if (open) panels.style.height = '';
+});
+function showTab(name, again = false, slide = true) {
+  if (again && name === tab) open = !open; else { tab = name; open = true; }
+  const from = panels.getBoundingClientRect().height;
+  for (const [n] of TABS) {
+    document.getElementById('tab-' + n).hidden = n !== tab;   // the closing panel stays in place while it slides away
+    const b = document.getElementById('tab-button-' + n);
+    b.setAttribute('aria-selected', n === tab);
+    b.setAttribute('aria-expanded', open && n === tab);
+  }
+  let to = 0;
+  if (open) { panels.classList.remove('shut'); panels.style.height = ''; to = panels.getBoundingClientRect().height; }
+  const still = !slide || matchMedia('(prefers-reduced-motion: reduce)').matches || Math.abs(to - from) < 1;
+  if (still) { panels.classList.remove('sliding'); panels.style.height = open ? '' : '0px'; }
+  else {
+    panels.classList.add('sliding');
+    panels.style.height = from + 'px';
+    panels.offsetHeight;                    // the start height, laid out before the end one is set
+    panels.style.height = to + 'px';
+  }
+  panels.classList.toggle('shut', !open);
+  centreTab(slide);
+  mark();                                   // the chosen letter's outline shows on the Letter tab only
+  const animated = !STILL_TABS.includes(tab), shown = !document.getElementById('moving').hidden;
+  document.getElementById('still').hidden = animated;
+  document.getElementById('moving').hidden = !animated;
+  if (animated && !shown) play();
+  try { localStorage.setItem(TAB_KEY, JSON.stringify({ tab, open })); } catch {}
+}
+
+document.getElementById('replay').addEventListener('click', play);
+fillSave();
+fillExport();
+buildAll();
+try {
+  const last = JSON.parse(localStorage.getItem(TAB_KEY));
+  if (TABS.some(([n]) => n === last?.tab)) { tab = last.tab; open = last.open !== false; }
+} catch {}
+showTab(tab, false, false);
+draw();
+</script>
+</body>
+</html>
