@@ -206,6 +206,7 @@
   .performance[data-level=low] #performance-fill { background: #bd352d; }
   .performance[data-level=unavailable] #performance-fill { width: 0 !important; background: #3e5269; }
   .performance[data-level=measuring] #performance-fill { width: 30%; background: #3e5269; }
+  #tab-colour .palette-picker { grid-template-columns: 52px minmax(0,1fr); }
   #tab-colour .flow { display: grid; grid-template-columns: minmax(200px,260px) minmax(0,700px); gap: 14px; justify-content: center; align-items: start; }
   @media(max-width:900px) { #tab-colour .flow { display: block; } }
   .panel .color-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; max-width: 700px; }
@@ -246,8 +247,8 @@
   <span id="status" role="status"></span>
   <div id="preview-tools" class="tool-group" role="group" aria-label="Preview mode">
     <button id="preview-still" type="button" aria-pressed="true">Still</button>
-    <input id="canvas-color" type="color" value="#bccfd6" aria-label="Canvas color" title="Canvas color · preview only; artwork exports stay transparent">
     <button id="preview-animate" type="button" aria-pressed="false">Animate</button>
+    <input id="canvas-color" type="color" value="#bccfd6" aria-label="Canvas color" title="Canvas color · preview only; artwork exports stay transparent">
   </div>
 </header>
 <main id="stage">
@@ -1755,11 +1756,16 @@ function fillColours() {
     if (!palette.value) return;
     design.colourMode = palette.value === 'Rainbow' ? 'rainbow' : palette.value === 'Risograph' ? 'risograph' : 'solid';
     if (design.colourMode === 'solid') Object.assign(PAL, PALETTES[palette.value]);
+    // Choosing a palette recolors the whole design, including saved style examples.
+    for (const ln of design.lines) for (const v of ln.letters) if (v) delete v.colours;
     fillColours(); fillLetter(); rebuild(); settled();
   });
+  const paletteField = field('palette', 'apply a palette to every letter', palette);
+  paletteField.classList.add('palette-picker');
+  paletteField.lastElementChild.remove();
   const displayedPalette = () => design.colourMode !== 'solid' && design.lines.length ? letterColours({ line: 0, index: 0 }) : PAL;
   panel('colour').replaceChildren(
-    box('Palette', field('palette', 'the design’s colors; per-letter overrides are kept', palette, el('span')), el('p', { className: 'note', textContent: 'Per-letter color overrides are kept. Use palette colors on the Letter tab to clear an override. Rainbow/Risograph swatches show the first letter’s palette. Editing a global color replaces that mode.' })),
+    box('Palette', paletteField, el('p', { className: 'note', textContent: 'Choosing a palette recolors every letter, replacing individual color overrides. Undo restores your previous colors. Rainbow/Risograph swatches show the first letter’s palette. Editing a global color replaces that mode.' })),
     el('fieldset', { className: 'colours' }, el('legend', { textContent: 'Colors' }), ...colorEditor(key => displayedPalette()[key], (key, color) => {
       if (design.colourMode !== 'solid') Object.assign(PAL, displayedPalette());
       design.colourMode = 'solid'; PAL[key] = color; palette.value = paletteOf(); rebuild();
