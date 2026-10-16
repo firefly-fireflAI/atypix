@@ -204,18 +204,21 @@
   .performance[data-level=low] #performance-fill { background: #bd352d; }
   .performance[data-level=unavailable] #performance-fill { width: 0 !important; background: #3e5269; }
   .performance[data-level=measuring] #performance-fill { width: 30%; background: #3e5269; }
-  .panel .color-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; }
+  #tab-colour .flow { display: grid; grid-template-columns: minmax(200px,260px) minmax(0,700px); gap: 14px; justify-content: center; align-items: start; }
+  @media(max-width:900px) { #tab-colour .flow { display: block; } }
+  .panel .color-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; max-width: 700px; }
   .color-column { background: rgba(62,82,105,.075); border-radius: 10px; padding: 10px; }
+  .color-column h3 { margin: 0 0 6px; font: 700 11px/1.3 Lato,ui-sans-serif,system-ui,sans-serif; text-transform: uppercase; color: #3e5269; }
   .color-row { display: grid; grid-template-columns: 100px 42px; gap: 8px; align-items: center; padding: 5px; border-radius: 7px; }
-  .color-row > span { text-align: right; }
+  .color-row > span { text-align: left; }
   .color-row.is-active { background: rgba(62,82,105,.12); box-shadow: inset 0 0 0 1px #889ba9; }
   .panel .color-row input[type=color] { height: 28px; }
   .color-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
   .color-feedback { font-size: 11px; color: var(--muted); }
   #tab-style .style-presets { column-span: all; }
   @media(max-width:600px) {
-    .panel .color-grid { grid-template-columns: minmax(0,1fr); gap: 0; background: rgba(62,82,105,.075); border-radius: 10px; padding: 8px; }
-    .color-column { background: transparent; padding: 0; }
+    .panel .color-grid { grid-template-columns: minmax(0,1fr); gap: 10px; }
+    .color-column { padding: 10px; }
     .color-row { grid-template-columns: 92px 42px; }
   }
 </style>
@@ -533,7 +536,7 @@ const FONT_ROOT = 'https://cdn.jsdelivr.net/gh/google/fonts@main/';
 // stripes; dots: the dots, stars, teardrops and rope; drop: the drop shadow; outline: the line
 // round each letter, in every palette the extrusion colour to start with)
 const PAL = { face: '#f0955a', light: '#f9eec4', side: '#d8461b', under: '#261a57', dots: '#f7c52e',
-  face2: '#f0955a', stripes: '#f9eec4', drop: '#261a57', outline: '#d8461b' };
+  face2: '#f0955a', stripes: '#f9eec4', drop: '#261a57', outline: '#d8461b', outline2: '#d8461b' };
 const PAL_DEFAULTS = { ...PAL };
 // palettes to start from, each setting every colour (the colour tab's menu)
 const PALETTES = {
@@ -545,6 +548,7 @@ const PALETTES = {
   'Monochrome': { face: '#eeeeee', face2: '#cccccc', light: '#ffffff', side: '#737373', under: '#242424', dots: '#333333', stripes: '#ffffff', drop: '#161616', outline: '#444444' },
   'Paper & ink': { face: '#f2ead6', face2: '#e1d4b7', light: '#262b35', side: '#6e7b80', under: '#20272f', dots: '#d85738', stripes: '#262b35', drop: '#20272f', outline: '#6e7b80' },
 };
+for (const palette of Object.values(PALETTES)) palette.outline2 ??= palette.outline;
 // the faces' styles: an inline; a light middle; dots, stars or teardrops down the middle of each
 // stroke; stripes across the face; a rope of slanted dashes down the middle; an open outline;
 // plain (the block and the face, with no decoration); or flat (the face alone in the extrusion
@@ -918,7 +922,7 @@ function letterColours(it) {
     const index = before + [...design.lines[it.line].text].slice(0, it.index).filter(c => c.trim()).length;
     const face = RAINBOW[index % RAINBOW.length];
     base = { ...PAL, face, face2: face, light: '#fff4dc', stripes: '#fff4dc', dots: '#fff4dc',
-      side: mix(face, '#20263e', .28), under: mix(face, '#20263e', .65), outline: mix(face, '#20263e', .28) };
+      side: mix(face, '#20263e', .28), under: mix(face, '#20263e', .65), outline: mix(face, '#20263e', .28), outline2: mix(face, '#20263e', .28) };
   }
   if (design.colourMode === 'risograph') {
     if (it.line > 0) base = Object.fromEntries(Object.keys(PAL).map(k => [k, '#111111']));
@@ -927,7 +931,7 @@ function letterColours(it) {
       const blue = index % 2;
       const face = blue ? '#91eaf2' : '#ff427b', side = blue ? '#00bcd1' : '#d60068';
       const under = blue ? '#006370' : '#500228', dots = blue ? '#ffffff' : '#ffb8cd';
-      base = { face, face2: face, light: dots, dots, stripes: dots, side, under, outline: side, drop: under };
+      base = { face, face2: face, light: dots, dots, stripes: dots, side, under, outline: side, outline2: side, drop: under };
     }
   }
   return { ...base, ...it.colours };
@@ -1108,7 +1112,8 @@ function letterSvg(L, id, n, fills, masks) {
       + `<path class="whole" fill="${color}" opacity="0.0015" d="${d}"/></g>`
     : `<g class="face"><path fill="${color}" d="${d}"/></g>`;
   // the line round the face, if any (in the finished letter only: it comes in with the finish)
-  const ring = outline && !masks ? `<path fill="none" stroke="${pal.outline}" stroke-width="${r1(outline)}" stroke-linejoin="round" d="${d}"/>` : '';
+  const outlineColor = pal.outline2 === pal.outline ? pal.outline : `url(#${shared(fills, 'outlinegrad')})`;
+  const ring = outline && !masks ? `<path fill="none" stroke="${outlineColor}" stroke-width="${r1(outline)}" stroke-linejoin="round" d="${d}"/>` : '';
   if (it.flat) return `<g class="letter flat">${faceOf(pal.side)}${ring}</g>`;
   let svg = `<g class="letter"><g class="block"><path fill="${pal.under}" transform="translate(${r1(EX[0])} ${r1(EX[1])})" d="${d}"/>`;
   for (let i = 0; i < walls.length;) {
@@ -1178,8 +1183,8 @@ function shared(fills, kind, ...args) {
   const id = `${fills.id}-${kind}${args.map(v => '_' + String(r1(v)).replace(/[.-]/g, m => m === '.' ? 'p' : 'm')).join('')}`;
   if (fills.shared.has(id)) return id;
   let def;
-  if (kind === 'grad')
-    def = `<linearGradient id="${id}" x2="0" y2="1"><stop offset="0" stop-color="${pal.face}"/><stop offset="1" stop-color="${pal.face2}"/></linearGradient>`;
+  if (kind === 'grad' || kind === 'outlinegrad')
+    def = `<linearGradient id="${id}" x2="0" y2="1"><stop offset="0" stop-color="${kind === 'outlinegrad' ? pal.outline : pal.face}"/><stop offset="1" stop-color="${kind === 'outlinegrad' ? pal.outline2 : pal.face2}"/></linearGradient>`;
   else if (kind === 'stripes') {
     // across the face (0°: level), turned with the letter
     const [size, turn] = args, w = r1(FACE.stripeWidth * size), step = r1(w + FACE.stripeGap * size);
@@ -1376,9 +1381,10 @@ const LOOK_DEFAULTS = { length: 1, direction: Math.round(Math.atan2(EX_BASE[1], 
   dropDistance: 0, dropDirection: 45, dropSoftness: 6, dropOpacity: 1, outline: OUTLINE };
 const look = { ...LOOK_DEFAULTS };
 const COLOURS = [
-  ['face', 'the front of each letter (the top, with a gradient)', 'face'],
+  ['face top', 'the front of each letter (the top, with a gradient)', 'face'],
   ['face bottom', 'the bottom of the face: a gradient from the face colour (the same colour: none)', 'face2'],
-  ['outline', 'the line round each letter (its width is in Style)', 'outline'],
+  ['outline top', 'outline color at the top of the letter (width is in Style)', 'outline'],
+  ['outline bottom', 'outline color at the bottom; match the top for a solid outline', 'outline2'],
   ['decoration', 'the inline, the light middle and the open outline’s inside', 'light'],
   ['stripes', 'the stripes', 'stripes'],
   ['dots', 'the dots, stars, teardrops and rope', 'dots'],
@@ -1451,6 +1457,7 @@ function rebuild() {
   still.innerHTML = stillSvg;
   mark();
   fillDetail();
+  updateArtworkSize?.();
 }
 const settled = () => { play(); showSizes(); };
 
@@ -1521,11 +1528,11 @@ function parseHex(text) {
   if (/^[0-9a-f]{3}$/i.test(value)) return '#' + [...value].map(c => c + c).join('').toLowerCase();
   return /^[0-9a-f]{6}$/i.test(value) ? '#' + value.toLowerCase() : null;
 }
-function colorToAll(key, color) {
+function colorToAll(colors) {
   for (const ln of design.lines) [...ln.text].forEach((ch, i) => {
     if (!ch.trim()) return;
     const v = ln.letters[i] ||= { ...NO_CHANGE };
-    v.colours = cleanLetterColours({ ...v.colours, [key]: color });
+    v.colours = cleanLetterColours(colors);
   });
   rebuild();
 }
@@ -1539,8 +1546,11 @@ function colorEditor(read, write, after) {
     message.textContent = `Selected: ${COLOURS.find(c => c[2] === key)[0]}`;
   };
   const refresh = () => { for (const [key, row] of rows) row.pick.value = read(key); };
-  const columns = [el('div', { className: 'color-column' }), el('div', { className: 'color-column' })];
-  grid.append(...columns);
+  const groups = [
+    ['Face', ['face', 'face2']], ['Outline', ['outline', 'outline2']],
+    ['Decoration', ['light', 'stripes', 'dots']], ['Depth & shadow', ['side', 'under', 'drop']],
+  ].map(([title, keys]) => ({ keys, root: el('div', { className: 'color-column' }, el('h3', { textContent: title })) }));
+  grid.append(...groups.map(g => g.root));
   for (const [label, hint, key] of COLOURS) {
     const pick = el('input', { type: 'color', value: read(key) });
     pick.setAttribute('aria-label', `${label} color`);
@@ -1551,7 +1561,7 @@ function colorEditor(read, write, after) {
     name.addEventListener('click', () => { pick.focus(); if (pick.showPicker) { try { pick.showPicker(); } catch {} } else pick.click(); });
     pick.addEventListener('input', () => write(key, pick.value));
     pick.addEventListener('change', after);
-    columns[COLOURS.findIndex(c => c[2] === key) < Math.ceil(COLOURS.length / 2) ? 0 : 1].append(root);
+    groups.find(g => g.keys.includes(key)).root.append(root);
   }
   const copy = button('Copy color', async () => {
     copiedColor = read(selected);
@@ -1565,10 +1575,10 @@ function colorEditor(read, write, after) {
     if (!color) { message.textContent = 'Copy a HEX color first, then select a color row and paste.'; return; }
     write(selected, color); refresh(); after(); commitEdit(); message.textContent = `Pasted ${color}`;
   });
-  const all = button('Copy to all', () => { const color = read(selected); colorToAll(selected, color); refresh(); after(); message.textContent = `Applied ${color} to every letter’s ${COLOURS.find(c => c[2] === selected)[0]}`; });
+  const all = button('Copy to all', () => { const colors = Object.fromEntries(COLOURS.map(([, , key]) => [key, read(key)])); colorToAll(colors); refresh(); after(); message.textContent = 'Copied all color settings to every letter'; });
   select(selected);
   return [grid, el('div', { className: 'color-actions' }, copy, paste, all, message),
-    el('p', { className: 'note', textContent: 'Select a color row to copy or paste. Copy to all applies that color slot to every letter.' })];
+    el('p', { className: 'note', textContent: 'Select a color row to copy or paste one color. Copy to all applies this complete color set to every letter.' })];
 }
 function applyStylePreset(name) {
   const riso = name === 'RISO', marquee = name === 'MARQUEE', candy = name === 'Candy pop';
@@ -1576,7 +1586,7 @@ function applyStylePreset(name) {
   if (!riso) Object.assign(PAL, PALETTES[name === 'Candy pop' ? 'Candy' : name === 'Monochrome' ? 'Monochrome' : 'Tangerine']);
   if (marquee) {
     // Colors, outline and grain recovered from the user's exported Mar Type snippet.
-    Object.assign(PAL, { face: '#ffd052', face2: '#ffa200', light: '#ffdc7a', dots: '#fdd591', stripes: '#ffdc7a', side: '#2e1800', under: '#122e40', outline: '#ffdc7a', drop: '#122e40' });
+    Object.assign(PAL, { face: '#ffd052', face2: '#ffa200', light: '#ffdc7a', dots: '#fdd591', stripes: '#ffdc7a', side: '#2e1800', under: '#122e40', outline: '#ffdc7a', outline2: '#ffdc7a', drop: '#122e40' });
     Object.assign(look, { length: .45, direction: 40, shadow: 90, hatching: 1, hatchAngle: 30, texture: 1, grainPreset: 'Speck', wobble: 0, wobbleFrequency: .008, wobbleJitter: 0, outline: 3, dropDistance: 0 });
     Object.assign(FACE, { inset: FACE_DEFAULTS.inset, dotR: .02, dotStep: .07 });
   }
@@ -1917,7 +1927,7 @@ function fillControls() {
 // share. The browser's storage may be missing or refuse (a private window): the page works without
 // it, and says so
 const PRESETS = 'atypix-presets';
-const snapshot = () => ({ atypix: 1, design: structuredClone(design), look: { ...look }, colours: { ...PAL }, face: { ...FACE },
+const snapshot = () => ({ atypix: 2, design: structuredClone(design), look: { ...look }, colours: { ...PAL }, face: { ...FACE },
   motion: structuredClone(motion) });
 const stored = () => { try { return JSON.parse(localStorage.getItem(PRESETS)) || {}; } catch { return {}; } };
 const store = all => { try { localStorage.setItem(PRESETS, JSON.stringify(all)); return true; } catch { return false; } };
@@ -1932,6 +1942,7 @@ function restore(p) {
     ln.styles = (Array.isArray(ln.styles) ? ln.styles : []).filter(s => STYLES.includes(s));
     if (!ln.styles.length) ln.styles = [...CYCLE];
     ln.letters = (Array.isArray(ln.letters) ? ln.letters : []).map(v => v && { ...NO_CHANGE, ...v, style: STYLES.includes(v.style) ? v.style : '', ...(v.colours ? { colours: cleanLetterColours(v.colours) } : {}) });
+    if (!(p.atypix >= 2)) for (const v of ln.letters) if (v?.colours?.outline && !v.colours.outline2) v.colours = cleanLetterColours({ ...v.colours, outline2: v.colours.outline });
     for (const v of ln.letters) if (v && 'outline' in v) {
       if (Number.isFinite(v.outline)) v.outline = Math.min(12, Math.max(0, v.outline)); else delete v.outline;
     }
@@ -1949,7 +1960,7 @@ function restore(p) {
     look[key] = Number.isFinite(look[key]) ? Math.min(max, Math.max(min, look[key])) : LOOK_DEFAULTS[key];
   Object.assign(FACE, FACE_DEFAULTS, p.face);
   // (a preset from before the gradient and stripe colours: no gradient, stripes in the decoration colour)
-  Object.assign(PAL, PAL_DEFAULTS, { face2: p.colours?.face, stripes: p.colours?.light }, p.colours);
+  Object.assign(PAL, PAL_DEFAULTS, { face2: p.colours?.face, stripes: p.colours?.light }, p.colours, { outline2: p.colours?.outline2 || p.colours?.outline || PAL_DEFAULTS.outline2 });
   for (const [k, v] of Object.entries(PAL)) if (!/^#[0-9a-f]{6}$/i.test(v)) PAL[k] = PAL_DEFAULTS[k];
   const m = structuredClone(LETTERING_DEFAULTS);
   for (const [k, v] of Object.entries(p.motion || {}))
@@ -2057,9 +2068,11 @@ const GSAP_SIZE = { raw: 72435, packed: 28277 };   // gsap.min.js 3.13.0, measur
 async function showSizes() {
   const runtime = document.getElementById('runtime').textContent;
   const size = async text => ({ raw: new Blob([text]).size, packed: await gzipSize(text) });
-  const [s, m, r] = await Promise.all([size(stillSvg), size(movingSvg), size(runtime)]);
+  const source = stillSvg, animated = movingSvg;
+  const [s, m, r] = await Promise.all([size(source), size(animated), size(runtime)]);
+  if (source !== stillSvg || animated !== movingSvg) return;
   const both = (a, b) => (b ? `${kb(a)} (${kb(b)} compressed)` : kb(a));
-  document.getElementById('size').textContent = `Static SVG: ${both(s.raw, s.packed)}`;
+  updateArtworkSize?.();
   document.getElementById('moving-size').textContent =
     `Animated: SVG ${both(m.raw, m.packed)} + GSAP ${both(GSAP_SIZE.raw, GSAP_SIZE.packed)} + animation script ${both(r.raw, r.packed)}`
     + ` = ${both(m.raw + GSAP_SIZE.raw + r.raw, m.packed && r.packed ? m.packed + GSAP_SIZE.packed + r.packed : 0)}`;
@@ -2088,10 +2101,10 @@ const downloadAnimated = () => parts.length && save(new Blob([snippet()], { type
 // the static SVG drawn by the browser onto a canvas `wide` pixels across (its own width and height
 // set to that size first, so the grain, the wobble and the hatching are drawn at it, not
 // stretched), then saved as `type`; clear around the lettering
-async function picture(type, wide) {
-  const [, , w, h] = stillSvg.match(/viewBox="([^"]+)"/)[1].split(' ').map(Number);
+async function picture(type, wide, source = stillSvg) {
+  const [, , w, h] = source.match(/viewBox="([^"]+)"/)[1].split(' ').map(Number);
   const tall = Math.max(1, Math.round(wide * h / w));
-  const sized = stillSvg.replace(/^<svg([^>]*?) width="[^"]*" height="[^"]*"/, `<svg$1 width="${wide}" height="${tall}"`);
+  const sized = source.replace(/^<svg([^>]*?) width="[^"]*" height="[^"]*"/, `<svg$1 width="${wide}" height="${tall}"`);
   const img = new Image();
   img.src = URL.createObjectURL(new Blob([sized], { type: 'image/svg+xml' }));
   try {
@@ -2101,13 +2114,24 @@ async function picture(type, wide) {
     return await new Promise((done, fail) => canvas.toBlob(b => b ? done(b) : fail(new Error('the browser would not make it')), type, 0.92));
   } finally { URL.revokeObjectURL(img.src); }
 }
+// One cached raster per format avoids regenerating the same download for its size preview.
+const rasterCache = new Map();
+function raster(type, width, source = stillSvg) {
+  const cached = rasterCache.get(type);
+  if (cached?.source === source && cached.width === width) return cached.promise;
+  const promise = picture(type, width, source);
+  rasterCache.set(type, { source, width, promise });
+  promise.catch(() => { if (rasterCache.get(type)?.promise === promise) rasterCache.delete(type); });
+  return promise;
+}
+let updateArtworkSize = null;
 let widthInput = null;
 async function downloadPicture(type) {
   if (!stillSvg) return;
   const wide = Math.min(8000, Math.max(16, Math.round(+widthInput.value) || 2000));
   widthInput.value = wide;
   try {
-    const blob = await picture(type, wide);
+    const blob = await raster(type, wide);
     // (a browser that cannot write WebP gives a PNG instead, and says so)
     const png = blob.type !== 'image/webp';
     say(png && type === 'image/webp' ? 'This browser cannot make WebP pictures, so this is a PNG' : '');
@@ -2140,7 +2164,7 @@ function fillSave() {
     for (const n of Object.keys(stored()).sort()) saved.append(new Option(n, n, false, n === current));
   };
   const file = el('input', { type: 'file', accept: '.json,application/json', hidden: true });
-  file.setAttribute('aria-label', 'Open design JSON');
+  file.setAttribute('aria-label', 'Load Atypix Design');
   file.addEventListener('change', async () => {
     const selected = file.files[0];
     if (!selected) return;
@@ -2148,11 +2172,11 @@ function fillSave() {
     catch (e) { say(`Could not load ${selected.name}: ${e.message}`); }
     file.value = '';
   });
-  const browser = el('div', {}, el('h3', { textContent: 'In this browser' }),
+  const browser = el('details', {}, el('summary', { textContent: 'Browser saves' }),
     row(presetName, button('Save in browser', () => {
       const n = presetName.value.trim() || words() || 'untitled', all = stored();
       all[n] = snapshot();
-      say(store(all) ? '' : 'This browser could not save the design. Download design JSON instead.');
+      say(store(all) ? '' : 'This browser could not save the design. Download Atypix Design instead.');
       list(n);
     })),
     row(saved, button('Load saved', () => {
@@ -2161,12 +2185,12 @@ function fillSave() {
       try { restore(p); } catch (e) { say(`Could not load ${saved.value}: ${e.message}`); }
     }), button('Delete', () => { const all = stored(); delete all[saved.value]; store(all); list(''); })),
     note('Your draft saves automatically. Named saves normally survive closing tabs or quitting the browser. Clearing site data can erase them; clearing history alone generally does not.'));
-  const backup = el('div', {}, el('h3', { textContent: 'On your device · recommended backup' }),
-    note('JSON keeps every editable setting, including animation. Open it here to edit again, in this or another browser.'),
-    row(button('Download design JSON', () => save(new Blob([JSON.stringify(snapshot(), null, 1)], { type: 'application/json' }),
-      `${slug(presetName.value.trim() || words())}.json`)), button('Open design JSON', () => file.click()), file),
-    note('Browser saves are convenient; a downloaded JSON file is the safer backup. No HTML is needed to reopen a design.'));
-  const designBox = box('Save / load design', el('div', { className: 'save-columns' }, browser, backup));
+  const backup = el('div', {},
+    note('This file saves every design setting, including animation. Load it again anytime in Atypix.'),
+    row(button('Download Atypix Design', () => save(new Blob([JSON.stringify(snapshot(), null, 1)], { type: 'application/json' }),
+      `${slug(presetName.value.trim() || words())}.json`)), button('Load Atypix Design', () => file.click()), file),
+    note('Saves as JSON to your device.'));
+  const designBox = box('Save / load design', backup, browser);
   designBox.classList.add('save-design');
 
   widthInput = el('input', { type: 'number', min: 16, max: 8000, step: 1, value: 2000 });
@@ -2174,6 +2198,36 @@ function fillSave() {
   widthRow.hidden = true;
   let format = 'svg';
   const formatHelp = note('Scalable vector artwork · transparent background.');
+  formatHelp.id = 'artwork-description';
+  formatHelp.title = 'SVG compressed size estimates gzip web delivery; the downloaded SVG is uncompressed. PNG/WebP sizes are the actual image files.';
+  let sizeRun = 0, sizeTimer, sizeRequest;
+  updateArtworkSize = () => {
+    const source = stillSvg, selectedFormat = format;
+    const width = format === 'svg' ? null : Math.min(8000, Math.max(16, Math.round(+widthInput.value) || 2000));
+    if (document.getElementById('tab-save').hidden) { clearTimeout(sizeTimer); sizeRun++; sizeRequest = null; return; }
+    if (sizeRequest?.source === source && sizeRequest.format === selectedFormat && sizeRequest.width === width) return;
+    sizeRequest = { source, format: selectedFormat, width };
+    clearTimeout(sizeTimer);
+    const run = ++sizeRun;
+    const base = format === 'svg' ? 'Scalable vector artwork · transparent background.' : 'Static image · transparent background · choose a width in pixels.';
+    formatHelp.textContent = base + (source ? ' Calculating size…' : '');
+    if (!source || document.getElementById('tab-save').hidden) return;
+    sizeTimer = setTimeout(async () => {
+      try {
+        let result;
+        if (selectedFormat === 'svg') {
+          const compressed = await gzipSize(source);
+          result = `${kb(new Blob([source]).size)}${compressed ? ` (${kb(compressed)} compressed)` : ''}`;
+        } else {
+          const blob = await raster('image/' + selectedFormat, width, source);
+          result = kb(blob.size) + (selectedFormat === 'webp' && blob.type !== 'image/webp' ? ' (PNG fallback)' : '');
+        }
+        if (run === sizeRun && source === stillSvg) formatHelp.textContent = base + ' ' + result;
+      } catch { if (run === sizeRun) formatHelp.textContent = base + ' Size unavailable until export.'; }
+    }, 250);
+  };
+  widthInput.addEventListener('input', updateArtworkSize);
+  widthInput.addEventListener('change', updateArtworkSize);
   const artworkDownload = button('Download SVG', () => format === 'svg' ? download() : downloadPicture('image/' + format));
   const formats = el('div', { className: 'buttons format-options', role: 'group' });
   formats.setAttribute('aria-label', 'Artwork format');
@@ -2182,12 +2236,12 @@ function fillSave() {
       format = kind; widthRow.hidden = kind === 'svg';
       for (const btn of formats.children) btn.setAttribute('aria-pressed', btn === b);
       artworkDownload.textContent = 'Download ' + kind.toUpperCase();
-      formatHelp.textContent = kind === 'svg' ? 'Scalable vector artwork · transparent background.' : 'Static image · transparent background · choose a width in pixels.';
+      updateArtworkSize();
     });
     b.setAttribute('aria-pressed', kind === format); formats.append(b);
   }
   const artwork = box('Download artwork', note('Finished artwork for a design, document, or website. No design JSON required.'),
-    formats, widthRow, formatHelp, row(artworkDownload), el('p', { className: 'note', id: 'size' }));
+    formats, widthRow, formatHelp, row(artworkDownload));
 
   code = el('code', { hidden: true });
   const copySettings = button('Copy settings', () => copyExport(copySettings, code.textContent, code));
@@ -2298,6 +2352,7 @@ function showTab(name, again = false, slide = true) {
     panels.style.height = to + 'px';
   }
   panels.classList.toggle('shut', !open);
+  if (name === 'save') updateArtworkSize?.();
   sectionPicker.value = tab;
   controlsToggle.textContent = open ? 'Hide controls' : 'Show controls';
   controlsToggle.setAttribute('aria-expanded', open);
