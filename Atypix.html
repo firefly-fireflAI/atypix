@@ -1833,6 +1833,7 @@ function fillSave() {
   };
   panel('save').replaceChildren(
     box('Download',
+      el('p', { className: 'note', textContent: 'SVG, PNG and WebP display your finished artwork. Animated HTML displays the animation. No design JSON is needed to display either.' }),
       el('div', { className: 'buttons' }, button('Download SVG', download),
         button('Download animated', downloadAnimated, { title: 'the animated copy as one snippet to paste into a page: the lettering, GSAP and the animation, with the Animation tab’s settings' })),
       el('p', { className: 'note', id: 'size' }), el('p', { className: 'note', id: 'moving-size' })),
@@ -1840,6 +1841,8 @@ function fillSave() {
       field('width', 'the static design as a picture this many pixels wide', widthInput, el('span', { textContent: 'px' })),
       el('div', { className: 'buttons' }, button('PNG', () => downloadPicture('image/png')), button('WebP', () => downloadPicture('image/webp')))),
     box('Presets',
+      el('p', { className: 'note', textContent: 'Your latest draft saves automatically. Save a named design below to keep another version; Load opens a named save from this browser.' }),
+      el('p', { className: 'note', textContent: 'Browser saves normally survive closing a tab or quitting the browser. Clearing site data can erase them; clearing browsing history alone generally does not. Keep a downloaded JSON backup for designs you want to keep (Export tab).' }),
       field('name', 'what to call it (the words, if left empty)', presetName, el('span')),
       el('div', { className: 'buttons' }, button('Save', () => {
         const n = presetName.value.trim() || words() || 'untitled', all = stored();
@@ -1877,11 +1880,12 @@ function fillExport() {
   const show = button('Show code', () => { code.hidden = !code.hidden; show.textContent = code.hidden ? 'Show code' : 'Hide code'; });
   panel('export').replaceChildren(
     box('Preset file',
-      el('p', { className: 'note', textContent: 'The whole design, words to animation, as a file to keep or share.' }),
+      el('p', { className: 'note', textContent: 'Download JSON backs up your whole editable design, including animation, to a file on your device. Load JSON reopens that file in Atypix, including in another browser.' }),
       el('div', { className: 'buttons' },
         button('Download JSON', () => save(new Blob([JSON.stringify(snapshot(), null, 1)], { type: 'application/json' }),
           `${slug(presetName.value.trim() || words())}.json`)),
-        button('Load JSON', () => file.click()), file)),
+        button('Load JSON', () => file.click()), file),
+      el('p', { className: 'note', textContent: 'You do not need both HTML and JSON: use JSON to edit the design again; use exported artwork or animated HTML to display it. Browser saves are convenient, but a downloaded JSON file is the safer backup.' })),
     box('Animation settings',
       el('p', { className: 'note', textContent: 'The options to pass to animateLettering(root, options) on a site.' }),
       el('div', { className: 'buttons' }, copy, show), code));
