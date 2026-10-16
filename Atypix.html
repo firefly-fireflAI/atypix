@@ -141,13 +141,25 @@
   /* registered, so the fades can ease in and out rather than jump */
   @property --fade-l { syntax: '<length>'; inherits: false; initial-value: 0px; }
   @property --fade-r { syntax: '<length>'; inherits: false; initial-value: 0px; }
-  #workspace-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; padding: 8px 16px 0; }
-  #workspace-tools button { border: 1px solid var(--rule); border-radius: 7px; padding: 6px 12px; color: var(--ink); background: transparent; cursor: pointer; }
-  #workspace-tools button:disabled { opacity: .4; cursor: default; }
-  #workspace-tools button:focus-visible { outline: 2px solid #261a57; outline-offset: 2px; }
-  #workspace-tools [aria-pressed=true] { background: #3e5269; color: white; border-color: #3e5269; }
-  #workspace-tools .tool-group { display: flex; gap: 4px; }
-  #draft-status { font-size: 12px; color: var(--muted); }
+  header { position: relative; padding-right: 190px; min-height: 34px; }
+  .tool-group { display: flex; gap: 5px; }
+  .tool-group button { border: 0; border-radius: 8px; padding: 7px 12px 6px; cursor: pointer;
+    background: #3e5269; color: #fff; font: 700 12px/1 Lato, ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: .04em; text-transform: uppercase; }
+  .tool-group button:hover { background: #4f6683; }
+  .tool-group button:disabled { opacity: .4; cursor: default; }
+  .tool-group button:focus-visible { outline: 2px solid #261a57; outline-offset: 2px; }
+  #preview-tools { position: absolute; right: 16px; top: 10px; }
+  #preview-tools [aria-pressed=false] { background: transparent; color: #3e5269; box-shadow: inset 0 0 0 1px #889ba9; }
+  #workspace-tools { display: flex; align-items: center; gap: 8px; padding: 6px 16px 0; }
+  #history-tools { margin-left: auto; flex: none; }
+  #draft-status { font-size: 11px; color: var(--muted); }
+  #tab-animation .animation-presets { column-span: all; margin-bottom: 14px; }
+  #tab-animation .animation-presets .buttons { flex-wrap: wrap; }
+  @media (max-width: 600px) {
+    header { padding-right: 16px; gap: 4px 14px; }
+    #preview-tools { position: static; flex-basis: 100%; padding-top: 5px; }
+  }
 </style>
 <!-- the tabs' lettering (the page's own; nothing exported uses it) -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@700&display=swap">
@@ -158,26 +170,27 @@
 <body>
 <header>
   <h1>Atypix</h1>
-  <p>Block lettering as SVG: no font, no library and no canvas to show it; GSAP to move it.</p>
+  <p>Dimensional lettering, made to move.</p>
   <span id="status" role="status"></span>
-</header>
-<div id="workspace-tools" aria-label="Design tools">
-  <div class="tool-group" role="group" aria-label="Edit history">
-    <button id="undo" type="button" disabled title="Undo (Ctrl/⌘ Z)">Undo</button>
-    <button id="redo" type="button" disabled title="Redo (Ctrl/⌘ Shift Z)">Redo</button>
-  </div>
-  <div class="tool-group" role="group" aria-label="Preview mode">
+  <div id="preview-tools" class="tool-group" role="group" aria-label="Preview mode">
     <button id="preview-still" type="button" aria-pressed="true">Still</button>
     <button id="preview-animate" type="button" aria-pressed="false">Animate</button>
   </div>
-  <span id="draft-status" role="status" aria-live="polite"></span>
-</div>
+</header>
 <main id="stage">
   <figure id="still"><div class="art"></div><figcaption>Static SVG · click a letter to adjust it</figcaption></figure>
   <figure id="moving" hidden><div class="art"></div><figcaption><button id="replay" type="button">Replay</button>
     <span id="fps"></span></figcaption></figure>
 </main>
 <nav id="dock" aria-label="Settings">
+  <div id="workspace-tools">
+    <span id="draft-status" role="status" aria-live="polite"></span>
+    <div id="history-tools" class="tool-group" role="group" aria-label="Edit history">
+      <button id="undo" type="button" disabled title="Undo (Ctrl/⌘ Z)">Undo</button>
+      <button id="redo" type="button" disabled title="Redo (Ctrl/⌘ Shift Z)">Redo</button>
+      <button id="reset" type="button" title="Restore the starting design and animation. Undo brings your design back.">Reset</button>
+    </div>
+  </div>
   <div id="tabs" role="tablist"></div>
   <div id="panels">
     <section class="panel" id="tab-font" role="tabpanel"></section>
@@ -1548,9 +1561,46 @@ const controlRows = () => [
     ['strength', 'how strong the ease is', motion.extrude, 'strength', 0, 1, 0.05, ''],
     ['delay', 'after its face is in (below 0: before)', motion.extrude, 'delay', -5, 10, 0.05, 's']]],
 ];
+// Animation starting points replace motion only, preserving the artwork and preview mode.
+function animationPreset(name) {
+  const m = structuredClone(LETTERING_DEFAULTS);
+  m.lines = design.lines.map((_, i) => ({ ...LETTERING_DEFAULTS.lines[0], start: i * 0.2 }));
+  if (name === 'Cascade') {
+    m.lines.forEach(l => { l.order = 'leftToRight'; l.spread = 0.9; });
+    m.face.duration = 0.7; m.deco.duration = 0.65; m.extrude.ease = 'out'; m.extrude.duration = 0.6;
+  } else if (name === 'Pop') {
+    m.lines.forEach(l => { l.order = 'centreOut'; l.spread = 0.45; });
+    Object.assign(m.face, { entrance: 'pop', ease: 'back', duration: 0.55, strength: 0.6 });
+    Object.assign(m.deco, { entrance: 'pop', ease: 'back', duration: 0.45, delay: 0.12 });
+    Object.assign(m.extrude, { duration: 0.65, delay: -0.15 });
+  } else if (name === 'Drop') {
+    m.lines.forEach(l => { l.order = 'leftToRight'; l.spread = 0.6; });
+    Object.assign(m.face, { entrance: 'drop', ease: 'bounce', duration: 0.8, strength: 0.7 });
+    Object.assign(m.deco, { entrance: 'fade', ease: 'out', duration: 0.35, delay: 0.4 });
+    Object.assign(m.extrude, { ease: 'out', duration: 0.5, delay: -0.1 });
+  } else if (name === 'Soft fade') {
+    m.lines.forEach(l => { l.order = 'leftToRight'; l.spread = 0.5; });
+    Object.assign(m.face, { entrance: 'fade', ease: 'inOut', duration: 1.2 });
+    Object.assign(m.deco, { entrance: 'fade', ease: 'inOut', duration: 1, delay: 0.15 });
+    Object.assign(m.extrude, { ease: 'inOut', duration: 0.9, delay: -0.4 });
+  } else {
+    // Draw in is the original animation, with all lines starting together.
+    m.lines.forEach(l => { l.start = 0; });
+  }
+  return m;
+}
+function applyAnimationPreset(name) {
+  Object.assign(motion, animationPreset(name));
+  fillControls();
+  play();
+}
 function fillControls() {
   const p = panel('animation');
-  p.replaceChildren();
+  p.replaceChildren(box('Animation presets',
+    el('div', { className: 'buttons' }, ...['Draw in', 'Cascade', 'Pop', 'Drop', 'Soft fade'].map(name =>
+      button(name, () => applyAnimationPreset(name)))),
+    el('p', { className: 'note', textContent: 'Changes animation only. Choose Animate to preview; fine-tune below.' })));
+  p.firstElementChild.classList.add('animation-presets');
   // a timing for every line, and none for lines that are gone
   while (motion.lines.length < design.lines.length) motion.lines.push({ ...LETTERING_DEFAULTS.lines[0] });
   motion.lines.length = design.lines.length;
@@ -1670,6 +1720,11 @@ function stepHistory(direction) {
 }
 document.getElementById('undo').addEventListener('click', () => stepHistory(-1));
 document.getElementById('redo').addEventListener('click', () => stepHistory(1));
+document.getElementById('reset').addEventListener('click', () => {
+  commitEdit();
+  restore(initialDesign);
+  commitEdit(); // reset is undoable; named presets and the preview choice are kept
+});
 const editableDesignControl = target => target.closest('#panels') && !target.closest('#tab-save, #tab-export');
 document.addEventListener('input', e => {
   if (!editableDesignControl(e.target)) return;
