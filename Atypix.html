@@ -141,7 +141,7 @@
   /* registered, so the fades can ease in and out rather than jump */
   @property --fade-l { syntax: '<length>'; inherits: false; initial-value: 0px; }
   @property --fade-r { syntax: '<length>'; inherits: false; initial-value: 0px; }
-  header { position: relative; padding-right: 228px; min-height: 34px; }
+  header { position: relative; padding-right: 264px; min-height: 34px; }
   .tool-group { display: flex; gap: 5px; }
   .tool-group button { border: 0; border-radius: 8px; padding: 7px 12px 6px; cursor: pointer;
     background: #3e5269; color: #fff; font: 700 12px/1 Lato, ui-sans-serif, system-ui, sans-serif;
@@ -150,6 +150,9 @@
   .tool-group button:disabled { opacity: .4; cursor: default; }
   .tool-group button:focus-visible { outline: 2px solid #261a57; outline-offset: 2px; }
   #canvas-color { width:28px; height:27px; padding:2px; border:1px solid #889ba9; border-radius:6px; background:transparent; cursor:pointer; flex:none; }
+  #preview-tools #canvas-eyedropper { display:grid; place-items:center; width:28px; height:27px; padding:3px; background:transparent; border:0; border-radius:6px; flex:none; color:#000; }
+  #preview-tools #canvas-eyedropper:hover { background:rgba(62,82,105,.12); }
+  #canvas-eyedropper svg { width:22px; height:22px; }
   #canvas-color:focus-visible { outline:2px solid #261a57; outline-offset:2px; }
   #preview-tools { position: absolute; right: 16px; top: 10px; }
   #preview-tools [aria-pressed=false] { background: transparent; color: #3e5269; box-shadow: inset 0 0 0 1px #889ba9; }
@@ -182,7 +185,7 @@
     .save-columns > div + div { border-left: 0; border-top: 1px solid var(--rule); padding: 12px 0 0; margin-top: 12px; }
   }
   @media (max-width: 600px) {
-    header { padding-right: 214px; gap: 4px 14px; min-height: 48px; }
+    header { padding-right: 250px; gap: 4px 14px; min-height: 48px; }
     #preview-tools { position: absolute; right: 16px; top: 10px; }
     #tabs { display: none; }
     #mobile-settings { display: flex; align-items: end; gap: 12px; padding: 10px 16px 0; }
@@ -249,6 +252,9 @@
     <button id="preview-still" type="button" aria-pressed="true">Still</button>
     <button id="preview-animate" type="button" aria-pressed="false">Animate</button>
     <input id="canvas-color" type="color" value="#bccfd6" aria-label="Canvas color" title="Canvas color · preview only; artwork exports stay transparent">
+    <button id="canvas-eyedropper" type="button" aria-label="Pick canvas color" title="Pick canvas color">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 18 12 9 15 12 6 21H3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="m10 6 8 8" stroke="currentColor" stroke-width="3"/><path d="m13 8 5-5q1-1 2 0l1 1q1 1 0 2l-5 5Z" fill="currentColor"/></svg>
+    </button>
   </div>
 </header>
 <main id="stage">
@@ -2553,6 +2559,15 @@ function setPreview(mode) {
   play();       // also kills and clears a playback when returning to Still
   try { localStorage.setItem('atypix-preview', mode); } catch {}
 }
+document.getElementById('canvas-eyedropper').addEventListener('click', async () => {
+  const picker = document.getElementById('canvas-color');
+  const choose = () => { try { picker.showPicker(); } catch { picker.click(); } };
+  if (!window.EyeDropper) { choose(); return; }
+  try {
+    const { sRGBHex } = await new EyeDropper().open();
+    setCanvasColor(sRGBHex); commitEdit();
+  } catch (error) { if (error.name !== 'AbortError') choose(); }
+});
 document.getElementById('canvas-color').addEventListener('input', e => setCanvasColor(e.target.value));
 document.getElementById('canvas-color').addEventListener('change', commitEdit);
 document.getElementById('preview-still').addEventListener('click', () => setPreview('still'));
