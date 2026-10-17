@@ -256,6 +256,17 @@
   #tab-help .help-intro { font-weight: 600; }
   #tab-help .help-footer { color: var(--muted); font-size: 12px; }
   @media(max-width:600px) { #tab-help .flow { grid-template-columns: minmax(0,1fr); } }
+/* Keep letter transforms beside the tabbed per-letter effects. */
+#tab-letter>.flow{display:grid;columns:auto;grid-template-columns:minmax(240px,310px) minmax(0,1fr);gap:12px;align-items:start}
+#tab-letter>.flow>*{margin:0}
+#tab-letter>.flow>.colours{grid-column:1/-1}
+.letter-section-tabs{display:flex;flex-wrap:wrap;gap:3px;border-bottom:1px solid #b9cbd5;margin-bottom:8px}
+#tab-letter .letter-section-tabs button{background:transparent;color:#536c82;border-radius:6px 6px 0 0;border-bottom:3px solid transparent;font-size:11px;padding:7px 9px;white-space:nowrap}
+#tab-letter .letter-section-tabs button[aria-selected=true]{background:#d3e3eb;border-bottom-color:#59abb1;color:#3e5269}
+.letter-section-panes{max-width:350px}
+.letter-section-panes>fieldset{margin:0}
+@media(max-width:700px){#tab-letter>.flow{grid-template-columns:minmax(0,1fr)}#tab-letter .letter-section-tabs button{font-size:10px;padding:7px}.letter-section-panes{max-width:none}}
+
 </style>
 <!-- the tabs' lettering (the page's own; nothing exported uses it) -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@700&display=swap">
@@ -2133,7 +2144,25 @@ function letterShadowControls(v) {
   group.append(el('div',{className:'buttons'},button('Use global shadow',()=>{for(const key of ['shadow','shadowStyle','hatching','hatchAngle','shadowDotDensity'])delete v[key];rebuild();fillLetter();settled();})));
   return group;
 }
+let activeLetterSection = 'Letter outline';
+const letterSectionNames = ['Letter outline','Outline spacing','Letter 3D shadow','Letter extrusion','Letter animation','Letter drop shadow','Letter finish'];
+function arrangeLetterSections() {
+  const flow=panel('letter'),sections=el('div',{className:'letter-sections'}),tabs=el('div',{className:'letter-section-tabs'}),panes=el('div',{className:'letter-section-panes'});
+  tabs.setAttribute('role','tablist');tabs.setAttribute('aria-label','Letter settings');
+  for(const [index,name] of letterSectionNames.entries()){
+    const pane=[...flow.children].find(node=>node.querySelector('legend')?.textContent===name);
+    if(!pane)continue;
+    const selected=name===activeLetterSection;
+    const pick=button(name,()=>{activeLetterSection=name;fillLetter();document.getElementById('letter-section-tab-'+index)?.focus({preventScroll:true});});
+    pick.id='letter-section-tab-'+index;pick.setAttribute('role','tab');pick.setAttribute('aria-selected',String(selected));pick.setAttribute('aria-controls','letter-section-panel-'+index);pick.tabIndex=selected?0:-1;
+    pane.id='letter-section-panel-'+index;pane.setAttribute('role','tabpanel');pane.setAttribute('aria-labelledby',pick.id);pane.hidden=!selected;pane.querySelector('legend').hidden=true;
+    tabs.append(pick);panes.append(pane);
+  }
+  tabs.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();let index=letterSectionNames.indexOf(activeLetterSection);index=event.key==='Home'?0:event.key==='End'?letterSectionNames.length-1:(index+(event.key==='ArrowRight'?1:-1)+letterSectionNames.length)%letterSectionNames.length;activeLetterSection=letterSectionNames[index];fillLetter();document.getElementById('letter-section-tab-'+index)?.focus({preventScroll:true});});
+  sections.append(tabs,panes);flow.insertBefore(sections,flow.querySelector('.colours'));
+}
 function fillLetter() {
+  const card=document.getElementById('tab-letter'),scroll=card.scrollTop;
   const set = box('Letter', el('p', { className: 'note', textContent: 'Click a letter to adjust it, or select one below.' }));
   panel('letter').replaceChildren(set);
   const choices = [['', 'Select']];
@@ -2187,6 +2216,8 @@ function fillLetter() {
     }, settled),
     el('div', { className: 'buttons' }, button('Use palette colors', () => { delete v.colours; fillLetter(); rebuild(); settled(); })));
   panel('letter').append(colors);
+  arrangeLetterSections();
+  card.scrollTop=scroll;
 }
 // Color: a palette to start from, and every colour, in two columns
 const paletteOf = () => design.colourMode === 'rainbow' ? 'Rainbow' : design.colourMode === 'risograph' ? 'Risograph' : Object.keys(PALETTES).find(n => COLOURS.every(([, , k]) => PALETTES[n][k] === PAL[k])) || '';
