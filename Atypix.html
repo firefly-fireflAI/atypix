@@ -1165,7 +1165,7 @@ function letterSvg(L, id, n, fills, masks) {
   // box), but while drawing, the letter's own, since the pen's strokes each have a smaller box
   const inside = `<clipPath id="${clip}"><path d="${d}"/></clipPath>`;
   // the face's border, over a decoration filling the face
-  const border = `<path clip-path="url(#${clip})" fill="none" stroke-linejoin="miter" stroke-miterlimit="20" stroke="${face}" stroke-width="${inset}" d="${d}"/>`;
+  const border = `<path clip-path="url(#${clip})" fill="none" stroke-linejoin="miter" stroke="${face}" stroke-width="${inset}" d="${d}"/>`;
   // marks down the strokes: each a shape kept once in the defs, placed (and turned) by a <use>
   const uses = (shape, turn) => `<g fill="${pal.dots}">` + L.mark.at.map(([x, y, way]) => {
     const t = r1(turn(way));
@@ -1173,7 +1173,7 @@ function letterSvg(L, id, n, fills, masks) {
   }).join('') + '</g>';
   svg += `</g>${faceOf(face)}<g class="deco"${tie('d')}>`;
   if (it.style === 'inline')
-    svg += `${inside}<g clip-path="url(#${clip})" fill="none" stroke-linejoin="miter" stroke-miterlimit="20">`
+    svg += `${inside}<g clip-path="url(#${clip})" fill="none" stroke-linejoin="miter">`
       + `<path stroke="${pal.light}" stroke-width="${r1(2 * (FACE.inset + FACE.line) * it.size)}" d="${d}"/>`
       + `<path stroke="${face}" stroke-width="${inset}" d="${d}"/></g>`;
   else if (it.style === 'light')
@@ -1182,7 +1182,7 @@ function letterSvg(L, id, n, fills, masks) {
     svg += `${inside}<path fill="url(#${shared(fills, 'stripes', it.size, deg)})" d="${d}"/>${border}`;
   // open: the face in the decoration colour, its edge drawn in the face colour just inside it
   else if (it.style === 'outline')
-    svg += `${inside}<path fill="${pal.light}" d="${d}"/><path clip-path="url(#${clip})" fill="none" stroke-linejoin="miter" stroke-miterlimit="20" `
+    svg += `${inside}<path fill="${pal.light}" d="${d}"/><path clip-path="url(#${clip})" fill="none" stroke-linejoin="miter" `
       + `stroke="${face}" stroke-width="${r1(2 * FACE.line * it.size)}" d="${d}"/>`;
   else if (it.style === 'stars') svg += uses(shared(fills, 'star', L.mark.r), () => it.rot);
   else if (it.style === 'teardrops') svg += uses(shared(fills, 'drop', L.mark.r), way => way * 180 / Math.PI);
