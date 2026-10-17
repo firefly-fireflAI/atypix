@@ -450,7 +450,7 @@ function animateLettering(root, options = {}) {
     // (a random number taken for every letter, whatever its line's order, so one line's order
     // leaves the others' random starts as they were)
     const r = random(), k = turn(line.order, place.get(letter), count[letter.dataset.line] + 1);
-    const start = line.start + (k ?? r) * line.spread;
+    const start = Math.max(0,line.start + (k ?? r) * line.spread + (+letter.dataset.animationOffset || 0));
     // longer letters take a little longer to draw (and the same to come in whole)
     const f = letter.querySelector('.faces .face'), fPens = pensOf(f);
     const scale = Math.min(1.4, Math.max(0.7, Math.max(...fPens.map(p => p.at + p.len)) / 550));
@@ -487,11 +487,18 @@ function animateLettering(root, options = {}) {
       const at = outline.entrance === 'finish' ? drawn + outline.delay : atFor(outline, 'letterStart');
       const ease = letteringEase(outline.ease, outline.strength);
       if (outline.entrance === 'draw') {
-        const path = ring.querySelector('path'), length = path.getTotalLength();
-        tl.set(path, { attr: { 'stroke-dasharray': `${length} ${length}` } }, 0)
-          .fromTo(path, { attr: { 'stroke-dashoffset': length } },
-            { attr: { 'stroke-dashoffset': 0 }, duration: outline.duration, ease, immediateRender: true }, at)
-          .set(path, { attr: { 'stroke-dasharray': 'none' } }, at + outline.duration);
+        const path=ring.querySelector('.outline-ring'), length=path.getTotalLength(), ns='http://www.w3.org/2000/svg';
+        const defs=document.createElementNS(ns,'defs'), mask=document.createElementNS(ns,'mask'), pen=path.cloneNode();
+        const key='outline-reveal-'+Math.random().toString(36).slice(2);
+        const [x,y,w,h]=ring.getAttribute('viewBox').split(' ').map(Number), padding=+path.getAttribute('stroke-width')+2;
+        mask.id=key; mask.setAttribute('maskUnits','userSpaceOnUse');
+        for(const [k,v] of Object.entries({x:x-padding,y:y-padding,width:w+2*padding,height:h+2*padding})) mask.setAttribute(k,v);
+        pen.removeAttribute('class'); pen.removeAttribute('id'); pen.setAttribute('stroke','white'); pen.setAttribute('stroke-width',padding);
+        pen.setAttribute('stroke-linecap','round'); pen.setAttribute('stroke-dasharray',`${length} ${2*length}`);
+        mask.append(pen);defs.append(mask);ring.prepend(defs);
+        tl.set(path,{attr:{mask:`url(#${key})`}},0)
+          .fromTo(pen,{attr:{'stroke-dashoffset':length}},{attr:{'stroke-dashoffset':0},duration:outline.duration,ease,immediateRender:true},at)
+          .set(path,{attr:{mask:'none'}},at+outline.duration);
       } else wholeIn(ring, outline.entrance === 'finish' ? 'fade' : outline.entrance, at, outline.duration, ease);
     }
     // a drop shadow, if the letter has one, fades in once the letter has settled
@@ -658,7 +665,7 @@ function layout(fonts) {
   const full = Math.max(0, ...rows.map(r => width(r.items)));
   let y = 0;
   rows.forEach((r, i) => {
-    if (i) y += (rows[i - 1].items.some(it => !it.blank && !it.flat) ? Math.max(0, EX[1]) : 0)
+    if (i) y += Math.max(0, ...rows[i - 1].items.filter(it=>!it.blank).map(it=>letterExtrusion(it)[1]))
       + design.spacing + capHeight(r.font, r.ln.size);
     const room = full - width(r.items);
     shift(r.items, r.ln.align === 'left' ? 0 : r.ln.align === 'right' ? room : room / 2, y);
@@ -1101,6 +1108,7 @@ function letter(it) {
 // extrusion colour (facing away from the shadow) to the shadow colour (facing into it), curves
 // between; drawn in order along the block's direction, so a nearer wall covers a further one
 function wallsOf(L) {
+  const EX = letterExtrusion(L.it);
   const len = Math.hypot(...EX) || 1, ux = EX[0] / len, uy = EX[1] / len;
   const sx = Math.cos(SHADOW * Math.PI / 180), sy = Math.sin(SHADOW * Math.PI / 180);
   return L.edges.filter(({ nx, ny }) => nx * EX[0] + ny * EX[1] > 0).map(({ a, b, nx, ny }) => ({
@@ -1131,10 +1139,51 @@ function simplify(pts, eps) {
 // the face and one for the decoration, so each can be drawn in at its own time. The face and the
 // decoration are only tied to their masks by the animation, so without the script the letter
 // shows whole
+const OUTLINE_STYLES = ['Solid', 'Dashed', 'Dotted'];
+const letterValue = (it, key, fallback) => Number.isFinite(it[key]) ? it[key] : fallback;
+function letterExtrusion(it) {
+  if (it.flat) return [0,0];
+  const length = Math.hypot(...EX_BASE) * letterValue(it, 'extrusionDepth', look.length);
+  const angle = letterValue(it, 'extrusionDirection', look.direction) * Math.PI / 180;
+  return [length * Math.cos(angle), length * Math.sin(angle)];
+}
+function letterDrop(it) {
+  const distance = letterValue(it, 'dropDistance', look.dropDistance), opacity = letterValue(it, 'dropOpacity', look.dropOpacity);
+  const angle = look.dropDirection * Math.PI / 180;
+  return distance > 0 && opacity > 0 ? { dx:distance*Math.cos(angle),dy:distance*Math.sin(angle),soft:look.dropSoftness,opacity } : null;
+}
+const outlineStyleOf = it => OUTLINE_STYLES.includes(it.outlineStyle) ? it.outlineStyle : look.outlineStyle;
+function outlinePattern(it) {
+  const style = outlineStyleOf(it), gap = letterValue(it, 'outlineGap', look.outlineGap);
+  if (style === 'Dashed') return ` stroke-dasharray="${r1(letterValue(it,'outlineDash',look.outlineDash))} ${r1(gap)}" stroke-linecap="butt"`;
+  if (style === 'Dotted') return ` stroke-dasharray="0 ${r1(letterOutline(it)+gap)}" stroke-linecap="round"`;
+  return '';
+}
+function outlinePath(L, color, className = '') {
+  const width = letterOutline(L.it);
+  return width ? `<path${className ? ` class="${className}"` : ''} fill="none" stroke="${color}" stroke-width="${r1(width)}" stroke-linejoin="round"${outlinePattern(L.it)} d="${L.d}"/>` : '';
+}
+function letterEffects(parts, id, box) {
+  const finishes = new Map(), drops = new Map(), definitions = [];
+  return {
+    finish(L) {
+      const texture = letterValue(L.it,'texture',look.texture), wobble = letterValue(L.it,'wobble',look.wobble), key = [texture,wobble].join();
+      if (!finishes.has(key)) { const tag = `${id}-fx${finishes.size}`; finishes.set(key,tag); definitions.push(finish(tag,texture,wobble)); }
+      return finishes.get(key);
+    },
+    drop(L) {
+      const settings = letterDrop(L.it); if (!settings) return null;
+      const color = letterColours(L.it).drop, key = JSON.stringify([settings,color]);
+      if (!drops.has(key)) { const tag = `${id}-ds${drops.size}`; drops.set(key,tag); definitions.push(drop(tag,box,{drop:color},settings)); }
+      return drops.get(key);
+    },
+    defs: () => definitions.join('')
+  };
+}
 const letterOutline = it => Number.isFinite(it.outline) ? Math.min(12, Math.max(0, it.outline)) : OUTLINE;
 function letterSvg(L, id, n, fills, masks) {
   const { it, d } = L;
-  const pal = fills.palette, outline = letterOutline(it);
+  const pal = fills.palette, outline = letterOutline(it), ex = letterExtrusion(it);
   const walls = it.flat ? [] : wallsOf(L);
   if (masks) {
     const xs = L.rings.flat().map(p => p[0]), ys = L.rings.flat().map(p => p[1]), m = L.pen.width;
@@ -1167,11 +1216,11 @@ function letterSvg(L, id, n, fills, masks) {
     : `<g class="face"><path fill="${color}" d="${d}"/></g>`;
   // the line round the face, if any (in the finished letter only: it comes in with the finish)
   const outlineColor = pal.outline2 === pal.outline ? pal.outline : `url(#${shared(fills, 'outlinegrad')})`;
-  const ring = outline && !masks ? `<path class="outline-ring" fill="none" stroke="${outlineColor}" stroke-width="${r1(outline)}" stroke-linejoin="round" d="${d}"/>` : '';
+  const ring = !masks ? outlinePath(L, outlineColor, 'outline-ring') : '';
   const face = pal.face2 === pal.face ? pal.face : masks ? `url(#${id}-g${n})` : `url(#${shared(fills, 'grad')})`;
   if (it.style === 'lineart') return `<g class="letter flat"><g class="face"></g>${ring}</g>`;
   if (it.flat) return `<g class="letter flat">${faceOf(face)}${ring}</g>`;
-  let svg = `<g class="letter"><g class="block"><path fill="${HATCH.style === 'None' ? pal.side : HATCH.style === 'Dots' ? fills[SHADES - 1].fill : pal.under}" transform="translate(${r1(EX[0])} ${r1(EX[1])})" d="${d}"/>`;
+  let svg = `<g class="letter"><g class="block"><path fill="${HATCH.style === 'None' ? pal.side : HATCH.style === 'Dots' ? fills[SHADES - 1].fill : pal.under}" transform="translate(${r1(ex[0])} ${r1(ex[1])})" d="${d}"/>`;
   for (let i = 0; i < walls.length;) {
     let j = i, run = '';
     while (j < walls.length && walls[j].k === walls[i].k) run += walls[j++].d();
@@ -1276,57 +1325,51 @@ const label = () => words().toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCas
 // a page; `animated` adds the pen strokes the draw-in follows. The finish: pale grain over the
 // letters and nowhere else, then everything wobbled by a pixel or two
 function lettering(parts, id) {
-  const paints = letterPaints(id);
-  // every letter's block first, then every face on top, so a block never covers a face, whichever
-  // way the blocks run
-  const svgs = parts.map((L, n) => letterSvg(L, id, n, paints.forLetter(L), null));
-  const blockOf = s => s.includes('<g class="block"') ? s.slice(s.indexOf('<g class="block"'), s.indexOf('<g class="face"')) : '';
-  const body = svgs.map(blockOf).join('') + svgs.map(s => s.replace(blockOf(s), '')).join('');
-  const box = bounds(parts), { x0, y0, w, h } = box;
-  // the drop shadow: the whole lettering again, under it, as its shadow
-  const shadowGroups = new Map();
-  parts.forEach((L, n) => { const color = letterColours(L.it).drop; if (!shadowGroups.has(color)) shadowGroups.set(color, []); shadowGroups.get(color).push(L); });
-  const customDrops = DROP && [...shadowGroups.keys()].some(c => c !== PAL.drop);
-  let shadowDefs = '', shadows = '';
-  if (customDrops) [...shadowGroups].forEach(([color, letters], i) => {
-    const key = `${id}-shadow${i}`;
-    shadowDefs += drop(key, box, { drop: color });
-    const silhouettes = letters.map(L => `<g fill="${L.it.style === 'lineart' ? 'none' : 'white'}">${L.it.flat ? '' : `<path d="${L.d}" transform="translate(${r1(EX[0])} ${r1(EX[1])})"/>${wallsOf(L).map(w => `<path d="${w.d()}"/>`).join('')}`}<path d="${L.d}"${letterOutline(L.it) ? ` stroke="white" stroke-width="${r1(letterOutline(L.it))}" stroke-linejoin="round"` : ''}/></g>`).join('');
-    shadows += `<g filter="url(#${key}-drop)"><g filter="url(#${id}-finish)">${silhouettes}</g></g>`;
-  });
-  const art = DROP && !customDrops ? `<use href="#${id}-art" filter="url(#${id}-drop)"/><g id="${id}-art" ` : '<g ';
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${x0} ${y0} ${w} ${h}" `
-    + `width="${w}" height="${h}" role="img" aria-label="${label()}"><title>${label()}</title>`
-    + `<defs>${finish(id)}${drop(id, box)}${paints.defs()}${shadowDefs}</defs>${shadows}${art}filter="url(#${id}-finish)">${body}</g></svg>`;
+  const paints = letterPaints(id), box = bounds(parts), effects = letterEffects(parts,id,box);
+  const { x0,y0,w,h } = box;
+  const svgs = parts.map((L,n)=>letterSvg(L,id,n,paints.forLetter(L),null));
+  const blockOf = s => s.includes('<g class="block"') ? s.slice(s.indexOf('<g class="block"'),s.indexOf('<g class="face"')) : '';
+  const wrap = (L,markup) => `<g filter="url(#${effects.finish(L)}-finish)">${markup}</g>`;
+  const shadows = parts.map((L,n)=> {
+    const tag = effects.drop(L);
+    return tag ? `<g filter="url(#${tag}-drop)">${wrap(L,letterSvg(L,`${id}s`,n,paints.forLetter(L),null))}</g>` : '';
+  }).join('');
+  const blocks = parts.map((L,n)=>wrap(L,blockOf(svgs[n]))).join('');
+  const faces = parts.map((L,n)=>wrap(L,svgs[n].replace(blockOf(svgs[n]),''))).join('');
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${x0} ${y0} ${w} ${h}" width="${w}" height="${h}" role="img" aria-label="${label()}"><title>${label()}</title>`
+    + `<defs>${paints.defs()}${effects.defs()}</defs>${shadows}${blocks}${faces}</svg>`;
 }
 // the whole lettering's box, with room for the blocks, the drop shadow and the wobble
 function bounds(parts, pad = 24) {
-  const pts = parts.flatMap(p => p.rings.flat());
-  const reach = (k, most) => {
-    const block = most(0, EX[k]), off = DROP ? (k ? DROP.dy : DROP.dx) + Math.sign(most(-1, 1)) * 2 * DROP.soft : 0;
-    return most(block, DROP ? block + off : 0);
-  };
-  const x0 = Math.floor(Math.min(...pts.map(p => p[0])) + reach(0, Math.min) - pad), y0 = Math.floor(Math.min(...pts.map(p => p[1])) + reach(1, Math.min) - pad);
-  const x1 = Math.ceil(Math.max(...pts.map(p => p[0])) + reach(0, Math.max) + pad), y1 = Math.ceil(Math.max(...pts.map(p => p[1])) + reach(1, Math.max) + pad);
-  return { x0, y0, w: x1 - x0, h: y1 - y0 };
+  const boxes = parts.map(L=> {
+    const pts=L.rings.flat(), ex=letterExtrusion(L.it), shade=letterDrop(L.it);
+    const margin=Math.max(pad,letterOutline(L.it)/2+letterValue(L.it,'wobble',look.wobble)*2+2);
+    const low=k=>Math.min(...pts.map(p=>p[k]))+Math.min(0,ex[k]);
+    const high=k=>Math.max(...pts.map(p=>p[k]))+Math.max(0,ex[k]);
+    const reach=(k,lowSide)=>shade ? (lowSide?Math.min(0,(k?shade.dy:shade.dx)-2*shade.soft):Math.max(0,(k?shade.dy:shade.dx)+2*shade.soft)) : 0;
+    return [low(0)+reach(0,true)-margin,low(1)+reach(1,true)-margin,high(0)+reach(0,false)+margin,high(1)+reach(1,false)+margin];
+  });
+  const x0=Math.floor(Math.min(...boxes.map(b=>b[0]))),y0=Math.floor(Math.min(...boxes.map(b=>b[1])));
+  const x1=Math.ceil(Math.max(...boxes.map(b=>b[2]))),y1=Math.ceil(Math.max(...boxes.map(b=>b[3])));
+  return {x0,y0,w:x1-x0,h:y1-y0};
 }
 // the drop shadow, if any: what it is given, in the shadow's colour, blurred and moved (over the
 // whole lettering's box, so every layer of the animated copy can use the one filter)
-const drop = (id, { x0, y0, w, h }, pal = PAL) => DROP ? `<filter id="${id}-drop" filterUnits="userSpaceOnUse" x="${x0}" y="${y0}" width="${w}" height="${h}">`
-  + `<feFlood flood-color="${pal.drop}"${DROP.opacity < 1 ? ` flood-opacity="${Math.round(DROP.opacity * 100) / 100}"` : ''}/><feComposite in2="SourceAlpha" operator="in"/>`
-  + `<feGaussianBlur stdDeviation="${r1(DROP.soft)}"/><feOffset dx="${r1(DROP.dx)}" dy="${r1(DROP.dy)}"/></filter>` : '';
+const drop = (id, { x0, y0, w, h }, pal = PAL, settings = DROP) => settings ? `<filter id="${id}-drop" filterUnits="userSpaceOnUse" x="${x0}" y="${y0}" width="${w}" height="${h}">`
+  + `<feFlood flood-color="${pal.drop}"${settings.opacity < 1 ? ` flood-opacity="${Math.round(settings.opacity * 100) / 100}"` : ''}/><feComposite in2="SourceAlpha" operator="in"/>`
+  + `<feGaussianBlur stdDeviation="${r1(settings.soft)}"/><feOffset dx="${r1(settings.dx)}" dy="${r1(settings.dy)}"/></filter>` : '';
 // the finish: pale grain over the letters and nowhere else, then everything wobbled by a pixel or two
-const finish = id => {
-  const grain = look.grainPreset !== 'None' && TEXTURE > 0;
+const finish = (id, texture = TEXTURE, wobble = WOBBLE) => {
+  const grain = look.grainPreset !== 'None' && texture > 0;
   return `<filter id="${id}-finish" x="-5%" y="-5%" width="110%" height="110%">`
   + (grain ? `<feTurbulence type="fractalNoise" baseFrequency="${(GRAIN_PRESETS[look.grainPreset] || GRAIN_PRESETS.Speck).frequency}" numOctaves="${(GRAIN_PRESETS[look.grainPreset] || GRAIN_PRESETS.Speck).octaves}" seed="${(GRAIN_PRESETS[look.grainPreset] || GRAIN_PRESETS.Speck).seed}" result="noise"/>`
-  + `<feColorMatrix in="noise" values="0 0 0 0 1  0 0 0 0 .98  0 0 0 0 .92  ${r1(26 * TEXTURE) / 10} 0 0 0 ${-r1(16.2 * TEXTURE) / 10}" result="specks"/>`
+  + `<feColorMatrix in="noise" values="0 0 0 0 1  0 0 0 0 .98  0 0 0 0 .92  ${r1(26 * texture) / 10} 0 0 0 ${-r1(16.2 * texture) / 10}" result="specks"/>`
   + `<feComposite in="specks" in2="SourceAlpha" operator="in" result="grain"/>`
   + `<feMerge result="grained"><feMergeNode in="SourceGraphic"/><feMergeNode in="grain"/></feMerge>` : '')
   + `<feTurbulence type="fractalNoise" baseFrequency="${look.wobbleFrequency}" numOctaves="2" seed="4" result="edgeBase"/>`
   + `<feTurbulence type="fractalNoise" baseFrequency="${look.wobbleFrequency * 2.6}" numOctaves="3" seed="19" result="edgeDetail"/>`
   + `<feComposite in="edgeBase" in2="edgeDetail" operator="arithmetic" k2="${1 - look.wobbleJitter}" k3="${look.wobbleJitter}" result="wobble"/>`
-  + `<feDisplacementMap in="${grain ? 'grained' : 'SourceGraphic'}" in2="wobble" scale="${r1(WOBBLE)}" xChannelSelector="R" yChannelSelector="G"/></filter>`;
+  + `<feDisplacementMap in="${grain ? 'grained' : 'SourceGraphic'}" in2="wobble" scale="${r1(wobble)}" xChannelSelector="R" yChannelSelector="G"/></filter>`;
 };
 
 // the animated copy: the same lettering as a stack of small SVGs in a box, two to a letter, so
@@ -1336,8 +1379,9 @@ const finish = id => {
 // while it is being drawn. All of them share one coordinate system, so the grain, the wobble and
 // the hatching line up across layers as in the single SVG
 function layered(parts, id) {
-  const paints = letterPaints(id), shadowDefs = [];
+  const paints = letterPaints(id);
   const { x0, y0, w, h } = bounds(parts);
+  const effects = letterEffects(parts,id,{x0,y0,w,h});
   const pct = v => r1(v * 1000) / 1000 + '%';
   // an SVG layer showing the box (bx, by, bw, bh) of the lettering, placed where that box is
   const layer = (cls, bx, by, bw, bh, inner, extra = '') =>
@@ -1346,30 +1390,29 @@ function layered(parts, id) {
     + `overflow:visible;will-change:transform${extra}" aria-hidden="true">${inner}</svg>`;
   const body = parts.map((L, n) => {
     const masks = [], fills = paints.forLetter(L);
-    const dropId = DROP && fills.palette.drop !== PAL.drop ? `${id}-ld${n}` : id;
-    if (dropId !== id) shadowDefs.push(drop(dropId, { x0, y0, w, h }, fills.palette));
+    const dropId = effects.drop(L), shade = letterDrop(L.it), ex = letterExtrusion(L.it), finishId = effects.finish(L);
     const svg = letterSvg(L, id, n, fills, masks);
     const xs = L.rings.flat().map(p => p[0]), ys = L.rings.flat().map(p => p[1]), m = 8;
     const bx = Math.min(...xs) - m, by = Math.min(...ys) - m, bw = Math.max(...xs) - bx + m, bh = Math.max(...ys) - by + m;
     const face = svg.slice(svg.indexOf('<g class="face"'), svg.lastIndexOf('</g>'));
-    let out = `<div class="letter${L.it.flat ? ' flat' : ''}" data-line="${L.it.line}">`;
+    let out = `<div class="letter${L.it.flat ? ' flat' : ''}" data-line="${L.it.line}" data-animation-offset="${letterValue(L.it,'animationOffset',0)}">`;
     // (the letter's whole box, block and all)
-    const kx = L.it.flat ? bx : Math.min(bx, bx + EX[0]), ky = L.it.flat ? by : Math.min(by, by + EX[1]);
-    const kw = L.it.flat ? bw : bw + Math.abs(EX[0]), kh = L.it.flat ? bh : bh + Math.abs(EX[1]);
-    const tag = DROP ? k => ` id="${id}-${k}${n}"` : () => '';
+    const kx = L.it.flat ? bx : Math.min(bx, bx + ex[0]), ky = L.it.flat ? by : Math.min(by, by + ex[1]);
+    const kw = L.it.flat ? bw : bw + Math.abs(ex[0]), kh = L.it.flat ? bh : bh + Math.abs(ex[1]);
+    const tag = shade ? k => ` id="${id}-${k}${n}"` : () => '';
     if (!L.it.flat) {
       // the block, exactly as in the static SVG (its layer the letter's box stretched along the
       // block's direction); the animation grows these walls in place
       const blockSvg = svg.slice(svg.indexOf('<g class="block"'), svg.indexOf('<g class="face"')).replace(/^<g class="block"[^>]*>/, '<g>');
-      out += layer('block', kx, ky, kw, kh, `<g${tag('k')} filter="url(#${id}-finish)">${blockSvg}</g>`);
+      out += layer('block', kx, ky, kw, kh, `<g${tag('k')} filter="url(#${finishId}-finish)">${blockSvg}</g>`);
     }
     // the letter's drop shadow: its finished block and face again, through the shadow filter,
     // under every block (z-index -1); it never changes, so it is painted once, and shown as the
     // letter settles
-    if (DROP) {
-      const sx = kx + Math.min(0, DROP.dx) - 2 * DROP.soft, sy = ky + Math.min(0, DROP.dy) - 2 * DROP.soft;
-      out += layer('shadow', sx, sy, kw + Math.abs(DROP.dx) + 4 * DROP.soft, kh + Math.abs(DROP.dy) + 4 * DROP.soft,
-        `<g filter="url(#${dropId}-drop)">${L.it.flat ? '' : `<g filter="url(#${id}-finish)">${svg.slice(svg.indexOf('<g class="block"'), svg.indexOf('<g class="face"')).replace('<g class="block">', '<g>')}</g>`}${L.it.style === 'lineart' ? `<path fill="none" stroke="white" stroke-width="${r1(letterOutline(L.it))}" stroke-linejoin="round" d="${L.d}"/>` : `<use href="#${id}-f${n}"/>`}</g>`, ';z-index:-1');
+    if (shade) {
+      const sx = kx + Math.min(0, shade.dx) - 2 * shade.soft, sy = ky + Math.min(0, shade.dy) - 2 * shade.soft;
+      out += layer('shadow', sx, sy, kw + Math.abs(shade.dx) + 4 * shade.soft, kh + Math.abs(shade.dy) + 4 * shade.soft,
+        `<g filter="url(#${dropId}-drop)">${L.it.flat ? '' : `<g filter="url(#${finishId}-finish)">${svg.slice(svg.indexOf('<g class="block"'), svg.indexOf('<g class="face"')).replace('<g class="block">', '<g>')}</g>`}${L.it.style === 'lineart' ? outlinePath(L,'white') : `<use href="#${id}-f${n}"/>`}</g>`, ';z-index:-1');
     }
     // the face and its decoration twice: drawn in along the pen, crisp (the grain and wobble
     // filter is costly to redo every frame, so this layer has none), hidden until the animation
@@ -1381,13 +1424,13 @@ function layered(parts, id) {
     const doneFace = done.slice(done.indexOf('<g class="face"'), done.lastIndexOf('</g>')).replace(outlineRing, '');
     // (faces above every block: z-index 1, the blocks staying at 0)
     out += layer('faces', bx, by, bw, bh, `<defs>${masks.join('')}</defs><g>${face}</g>`, ';visibility:hidden;z-index:1');
-    out += layer('finished', bx, by, bw, bh, `<g${tag('f')} filter="url(#${id}-finish)">${doneFace}</g>`, ';z-index:1');
-    if (outlineRing) out += layer('letter-outline', bx, by, bw, bh, outlineRing, ';z-index:2');
+    out += layer('finished', bx, by, bw, bh, `<g${tag('f')} filter="url(#${finishId}-finish)">${doneFace}</g>`, ';z-index:1');
+    if (outlineRing) out += layer('letter-outline', bx, by, bw, bh, `<g filter="url(#${finishId}-finish)">${outlineRing}</g>`, ';z-index:2');
     return out + '</div>';
   }).join('');
   // (a drop shadow's layers sit below the blocks but within the lettering: isolation)
-  return `<div class="atypix" role="img" aria-label="${label()}" style="position:relative;${DROP ? 'isolation:isolate;' : ''}aspect-ratio:${w} / ${h}">`
-    + `<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>${finish(id)}${drop(id, { x0, y0, w, h })}${paints.defs()}${shadowDefs.join('')}`
+  return `<div class="atypix" role="img" aria-label="${label()}" style="position:relative;isolation:isolate;aspect-ratio:${w} / ${h}">`
+    + `<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>${paints.defs()}${effects.defs()}`
     + `</defs></svg>`
     + body + '</div>';
 }
@@ -1435,7 +1478,7 @@ async function draw() {
 // animation. Rows: label, hover text, target, key, min, max, step, unit
 const LOOK_DEFAULTS = { length: 1, direction: Math.round(Math.atan2(EX_BASE[1], EX_BASE[0]) * 180 / Math.PI), shadow: SHADOW,
   texture: TEXTURE, grainPreset: 'Speck', wobbleFrequency: 0.05, wobbleJitter: 0, shadowStyle: 'Hatching', shadowDotDensity: 3, hatching: HATCH.amount, hatchAngle: HATCH.angle, wobble: WOBBLE,
-  dropDistance: 0, dropDirection: 45, dropSoftness: 6, dropOpacity: 1, outline: OUTLINE };
+  dropDistance: 0, dropDirection: 45, dropSoftness: 6, dropOpacity: 1, outline: OUTLINE, outlineStyle: 'Solid', outlineDash: 8, outlineGap: 6 };
 const look = { ...LOOK_DEFAULTS };
 const COLOURS = [
   ['face top', 'the front of each letter (the top, with a gradient)', 'face'],
@@ -1710,7 +1753,7 @@ function applyStylePreset(name) {
   }
   design.lines.forEach((ln, i) => {
     ln.styles = i ? ['flat'] : riso ? ['risograph'] : name === 'Monochrome' ? ['plain'] : candy ? ['stars'] : [...CYCLE];
-    ln.letters.forEach(v => { if (v) { v.style = ''; delete v.colours; delete v.outline; } });
+    ln.letters.forEach(v => { if (v) { v.style = ''; delete v.colours; delete v.outline; delete v.outlineStyle; delete v.outlineDash; delete v.outlineGap; } });
   });
   if (riso) Object.assign(FACE, { risoR: FACE_DEFAULTS.risoR, risoStep: FACE_DEFAULTS.risoStep, risoOpacity: 1 });
   Object.assign(motion, animationPreset(STYLE_ANIMATIONS[name] || 'Draw in'));
@@ -1746,8 +1789,11 @@ function fillStyles() {
         el('span', { textContent: 'styles' }), styles)));
   });
   p.append(box('Outline',
-    el('p', { className: 'note', textContent: 'Default outline for all letters. Override its width and color on the Letter tab.' }),
-    field('width', 'outline width for all letters unless overridden (0: none)', ...slider(look, 'outline', 0, 12, 0.5, ''))));
+    el('p', { className: 'note', textContent: 'Default outline for all letters. Override its width, pattern and color on the Letter tab.' }),
+    field('width', 'outline width for all letters unless overridden (0: none)', ...slider(look, 'outline', 0, 12, 0.5, '')),
+    outlinePatternControls(look),
+    ...(look.outlineStyle === 'Dashed' ? [field('dash length','length of each dash',...slider(look,'outlineDash',1,40,.5,''))] : []),
+    ...(look.outlineStyle !== 'Solid' ? [field('spacing','gap between outline marks',...slider(look,'outlineGap',.5,40,.5,''))] : [])));
 }
 // Detail: the measures of the styles in use, written again only when that set changes (so a
 // slider being dragged there is never replaced under the pointer)
@@ -1764,6 +1810,25 @@ function fillDetail(force = false) {
 }
 // Letter: the chosen letter's own size, turn, move and face style (a turn about its middle; its
 // block is still made after, so it runs the design's way)
+function letterOverrideGroup(v, title, settings, note = '') {
+  const keys=settings.map(s=>s[0]), inherit=el('input',{type:'checkbox',checked:keys.every(k=>!Number.isFinite(v[k]))});
+  const defaults=Object.fromEntries(settings.map(([key,label,fallback])=>[key,fallback]));
+  const values=new Proxy({}, {get:(_,key)=>letterValue(v,key,defaults[key]),set:(_,key,value)=>{v[key]=value;inherit.checked=false;return true;}});
+  const group=box(title,field('use global','follow the global settings',inherit));
+  if(note) group.append(el('p',{className:'note',textContent:note}));
+  for(const [key,label,fallback,min,max,step,unit] of settings) group.append(field(label,`override ${label} for this letter`,...slider(values,key,min,max,step,unit)));
+  inherit.addEventListener('change',()=>{
+    for(const key of keys) {if(inherit.checked) delete v[key];else v[key]=values[key];}
+    rebuild();fillLetter();settled();
+  });
+  return group;
+}
+function outlinePatternControls(target, letter = false) {
+  const inherited=letter ? [['',`Use global (${look.outlineStyle})`]] : [];
+  const select=menu([...inherited,...OUTLINE_STYLES.map(s=>[s,s])],letter ? target.outlineStyle||'' : target.outlineStyle);
+  select.addEventListener('change',()=>{if(letter&&!select.value)delete target.outlineStyle;else target.outlineStyle=select.value;rebuild();letter?fillLetter():fillStyles();settled();});
+  return field('pattern','solid, dashed or dotted outline',select);
+}
 function fillLetter() {
   const set = box('Letter', el('p', { className: 'note', textContent: 'Click a letter to adjust it, or select one below.' }));
   panel('letter').replaceChildren(set);
@@ -1785,7 +1850,7 @@ function fillLetter() {
     field('left/right', 'in SVG units', ...slider(v, 'dx', -300, 300, 1, '')),
     field('up/down', 'in SVG units', ...slider(v, 'dy', -300, 300, 1, '')),
     field('face', 'its face style (flat: no block; line art: outlines only)', style),
-    el('div', { className: 'buttons' }, button('Reset letter', () => { delete v.outline; delete v.colours; Object.assign(v, NO_CHANGE); fillLetter(); rebuild(); settled(); })));
+    el('div', { className: 'buttons' }, button('Reset letter', () => { for(const key of Object.keys(v)) delete v[key]; Object.assign(v, NO_CHANGE); fillLetter(); rebuild(); settled(); })));
   const inheritOutline = el('input', { type: 'checkbox', checked: !Number.isFinite(v.outline) });
   const outlineWidth = el('input', { type: 'range', min: 0, max: 12, step: 0.5, value: letterOutline(v) });
   const outlineValue = el('output', { textContent: outlineWidth.value });
@@ -1800,8 +1865,15 @@ function fillLetter() {
   });
   panel('letter').append(box('Letter outline',
     el('p', { className: 'note', textContent: 'Style sets the outline for all letters. Override its width here; 0 removes it. Set its color in Letter colors.' }),
-    field('use global', 'inherit the outline width from Style', inheritOutline),
-    field('width', 'outline width for this letter only', outlineWidth, outlineValue)));
+    field('global width', 'inherit the outline width from Style', inheritOutline),
+    field('width', 'outline width for this letter only', outlineWidth, outlineValue),
+    outlinePatternControls(v,true)));
+  const patternSettings=letterOverrideGroup(v,'Outline spacing',[['outlineDash','dash length',look.outlineDash,1,40,.5,''],['outlineGap','spacing',look.outlineGap,.5,40,.5,'']],'Dash length applies to dashed outlines; spacing applies to dashes and dots.');
+  panel('letter').append(patternSettings,
+    letterOverrideGroup(v,'Letter extrusion',[['extrusionDepth','depth',look.length,0,3,.05,'×'],['extrusionDirection','direction',look.direction,0,359,1,'°']],'Flat and line art stay flat. Other styles can use their own depth and direction.'),
+    letterOverrideGroup(v,'Letter animation',[['animationOffset','offset',0,-5,10,.05,'s']],'Negative starts earlier, positive starts later. This shifts all parts of this letter together; playback starts at 0.'),
+    letterOverrideGroup(v,'Letter drop shadow',[['dropDistance','distance',look.dropDistance,0,80,1,''],['dropOpacity','opacity',look.dropOpacity,0,1,.05,'']],'Direction and softness follow Finish. Distance 0 removes this letter’s drop shadow.'),
+    letterOverrideGroup(v,'Letter finish',[['texture','grain',look.texture,0,2,.05,'×'],['wobble','edge amount',look.wobble,0,12,.5,'']],'Grain type and edge frequency/jitter follow Finish. Grain type None disables grain for every letter.'));
   const colors = el('fieldset', { className: 'colours' }, el('legend', { textContent: 'Letter colors' }),
     el('p', { className: 'note', textContent: 'Changes apply to this letter only. Unchanged colors follow the Color tab’s palette.' }),
     ...colorEditor(key => letterColours({ ...v, line: chosen[0], index: chosen[1] })[key], (key, color) => {
@@ -1868,8 +1940,13 @@ function mark() {
   still.querySelector('.mark')?.remove();
   const svg = still.querySelector('svg'), L = chosen && parts.find(p => p.it.line === chosen[0] && p.it.index === chosen[1]);
   const onLetter = document.getElementById('tab-button-letter')?.getAttribute('aria-selected') === 'true';
-  if (svg && L && onLetter) svg.insertAdjacentHTML('beforeend', `<path class="mark" d="${L.d}" fill="none" stroke="${PAL.under}" `
-    + 'stroke-width="2" stroke-dasharray="8 6" vector-effect="non-scaling-stroke" pointer-events="none"/>');
+  if (svg && L && onLetter) {
+    const points=L.rings.flat(), margin=8+letterOutline(L.it)/2;
+    const x=Math.min(...points.map(p=>p[0]))-margin,y=Math.min(...points.map(p=>p[1]))-margin;
+    const w=Math.max(...points.map(p=>p[0]))-x+margin,h=Math.max(...points.map(p=>p[1]))-y+margin;
+    // Keep the selection marker outside the artwork so outline patterns stay visible.
+    svg.insertAdjacentHTML('beforeend',`<rect class="mark" x="${r1(x)}" y="${r1(y)}" width="${r1(w)}" height="${r1(h)}" rx="4" fill="none" stroke="${PAL.under}" stroke-width="1.5" stroke-dasharray="4 4" vector-effect="non-scaling-stroke" pointer-events="none"/>`);
+  }
 }
 // a click on a letter's face chooses it and opens the Letter tab; anywhere else, none
 still.addEventListener('click', e => {
@@ -2240,6 +2317,13 @@ function setCanvasColor(color) {
 }
 const snapshot = () => ({ atypix: 2, canvasColor, design: structuredClone(design), look: { ...look }, colours: { ...PAL }, face: { ...FACE },
   motion: structuredClone(motion) });
+const LETTER_LIMITS={extrusionDepth:[0,3],extrusionDirection:[0,359],animationOffset:[-5,10],dropDistance:[0,80],dropOpacity:[0,1],texture:[0,2],wobble:[0,12],outlineDash:[1,40],outlineGap:[.5,40]};
+function cleanLetterOverrides(v) {
+  if(!v)return v;
+  for(const [key,[min,max]] of Object.entries(LETTER_LIMITS)) {if(Number.isFinite(v[key]))v[key]=Math.max(min,Math.min(max,v[key]));else delete v[key];}
+  if(!OUTLINE_STYLES.includes(v.outlineStyle))delete v.outlineStyle;
+  return v;
+}
 // a preset put back: anything missing or unknown in it falls back to the defaults
 function restore(p) {
   if (!Array.isArray(p?.design?.lines)) throw new Error('that is not an Atypix preset');
@@ -2251,7 +2335,7 @@ function restore(p) {
     if (!FONTS[ln.font]) { unknown.push(ln.font); ln.font = 'Anton'; }
     ln.styles = (Array.isArray(ln.styles) ? ln.styles : []).filter(s => STYLES.includes(s));
     if (!ln.styles.length) ln.styles = [...CYCLE];
-    ln.letters = (Array.isArray(ln.letters) ? ln.letters : []).map(v => v && { ...NO_CHANGE, ...v, style: STYLES.includes(v.style) ? v.style : '', ...(v.colours ? { colours: cleanLetterColours(v.colours) } : {}) });
+    ln.letters = (Array.isArray(ln.letters) ? ln.letters : []).map(v => cleanLetterOverrides(v && { ...NO_CHANGE, ...v, style: STYLES.includes(v.style) ? v.style : '', ...(v.colours ? { colours: cleanLetterColours(v.colours) } : {}) }));
     if (!(p.atypix >= 2)) for (const v of ln.letters) if (v?.colours?.outline && !v.colours.outline2) v.colours = cleanLetterColours({ ...v.colours, outline2: v.colours.outline });
     for (const v of ln.letters) if (v && 'outline' in v) {
       if (Number.isFinite(v.outline)) v.outline = Math.min(12, Math.max(0, v.outline)); else delete v.outline;
@@ -2264,6 +2348,8 @@ function restore(p) {
   design.colourMode = ['rainbow', 'risograph'].includes(p.design.colourMode) ? p.design.colourMode : 'solid';
   design.spacing = Number.isFinite(p.design.spacing) ? p.design.spacing : 26;
   Object.assign(look, LOOK_DEFAULTS, p.look);
+  if(!OUTLINE_STYLES.includes(look.outlineStyle))look.outlineStyle='Solid';
+  for(const key of ['outlineDash','outlineGap'])look[key]=Number.isFinite(look[key])?Math.max(LETTER_LIMITS[key][0],Math.min(LETTER_LIMITS[key][1],look[key])):LOOK_DEFAULTS[key];
   if (!SHADOW_STYLES.includes(look.shadowStyle)) look.shadowStyle = 'Hatching';
   look.shadowDotDensity = Number.isFinite(look.shadowDotDensity) ? Math.max(1, Math.min(6, look.shadowDotDensity)) : 3;
   if (look.grainPreset === 'Original') look.grainPreset = 'Speck';
