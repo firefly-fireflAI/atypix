@@ -208,6 +208,7 @@
   .performance-label { font: 700 10px/1 Lato, ui-sans-serif, system-ui, sans-serif; text-transform: uppercase; letter-spacing: .04em; }
   .performance-track { display: inline-block; width: 58px; height: 6px; border-radius: 4px; background: #3e526933; overflow: hidden; }
   #performance-fill { display: block; height: 100%; width: 0; background: #287f64; transition: width .25s; }
+  .performance[data-level=caution] #performance-fill { background: #d17a14; }
   .performance[data-level=low] #performance-fill { background: #bd352d; }
   .performance[data-level=unavailable] #performance-fill { width: 0 !important; background: #3e5269; }
   .performance[data-level=measuring] #performance-fill { width: 30%; background: #3e5269; }
@@ -2142,7 +2143,8 @@ function play() {
   editorSoloPreview();updateEditorTracks();
 }
 // Sample only a visible, uninterrupted playback. This is a practical 60fps target,
-// not a hardware benchmark: red below 50fps or if over 10% of frames take >25ms.
+// not a hardware benchmark: green at 50fps with steady frames, orange for
+// uneven playback or 30–49fps, and red below 30fps.
 let measuring = 0;
 function performanceState(summary, level = 'measuring', fps = null, detail = '') {
   const root = document.getElementById('fps'), meter = document.getElementById('performance-meter');
@@ -2160,9 +2162,10 @@ function performanceResult(times) {
   if (!times.length) return;
   const fps = Math.round(1000 * times.length / times.reduce((a, b) => a + b, 0));
   const slow = times.filter(t => t > 25).length, ratio = slow / times.length;
-  const low = fps < 50 || ratio > .1;
-  performanceState(`${low ? 'May stutter' : 'Smooth'} · ${fps} fps`, low ? 'low' : 'good', fps,
-    `Last playback: ${fps} frames per second; ${Math.round(ratio * 100)}% of frames took over 25 ms. Target: at least 50 fps and no more than 10% slow frames. Measured on this device.`);
+  const level = fps < 30 ? 'low' : fps < 50 || ratio > .1 ? 'caution' : 'good';
+  const label = { good: 'Smooth', caution: 'May stutter', low: 'Choppy' }[level];
+  performanceState(`${label} · ${fps} fps`, level, fps,
+    `Last playback: ${fps} frames per second; ${Math.round(ratio * 100)}% of frames took over 25 ms. Green: at least 50 fps with no more than 10% slow frames. Orange: 30–49 fps or uneven frames. Red: below 30 fps. Measured on this device.`);
 }
 function measure() {
   const run = ++measuring, times = [];
