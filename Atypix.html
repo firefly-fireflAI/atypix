@@ -332,53 +332,24 @@ function letteringEase(type, s) {
   }
   return 'none';
 }
-// A block's sliding copy, for the extrusion: built LETTERING_SPARE deeper than the block and
-// shifted back by as much, so it can slide out from behind the face, and spring past full depth
-// into that spare depth without a gap opening. Tucked back, its walls would poke out past the
-// face at corners, so it sits in a frame clipped to the block's own shape, which stays put while
-// the copy slides inside it. Made once, when the animation is set up
-// (`tag` makes its ids unique to one call of animateLettering, so two lettering snippets on one
-// page do not share a clip)
-const LETTERING_SPARE = 0.4;
-function springCopy(rest, tag, n) {
-  const ns = 'http://www.w3.org/2000/svg', f = 1 + LETTERING_SPARE;
-  const r = v => Math.round(v * 10) / 10;
-  const copy = rest.cloneNode(true);
-  // (the block's own ids stay the block's: a drop shadow refers to it)
-  for (const tagged of copy.querySelectorAll('[id]')) tagged.removeAttribute('id');
-  const [vx, vy, vw, vh] = rest.getAttribute('viewBox').split(' ').map(Number);
-  const back = copy.querySelector('path[transform]');
-  const [ex, ey] = back.getAttribute('transform').match(/[-\d.]+/g).map(Number);
-  back.setAttribute('transform', `translate(${r(ex * f)} ${r(ey * f)})`);
-  const walls = [...copy.querySelectorAll('.wall')];
-  for (const w of walls) w.setAttribute('d', w.getAttribute('d').replace(
-    /M([-\d.]+) ([-\d.]+)L([-\d.]+) ([-\d.]+)l[-\d.]+ [-\d.]+L[-\d.]+ [-\d.]+Z/g,
-    (m, ax, ay, bx, by) => `M${ax} ${ay}L${bx} ${by}l${r(ex * f)} ${r(ey * f)}L${r(+ax + ex * f)} ${r(+ay + ey * f)}Z`));
-  // the frame is the block's own shape, at its full depth and no further: clipped to the shape at
-  // full spare depth, slivers of the copy's walls showed where a letter curves in (inside a U,
-  // under a C's arm), which no block has, until the hand-back made them vanish. So a spring past
-  // full depth never shows deeper than the block; the copy still dips back and settles
-  const fit = `matrix(${1 / vw} 0 0 ${1 / vh} ${-vx / vw} ${-vy / vh})`;
-  const clip = document.createElementNS(ns, 'clipPath');
-  clip.id = `atypix-spring-${tag}${n}`;
-  clip.setAttribute('clipPathUnits', 'objectBoundingBox');
-  [rest.querySelector('path[transform]'), ...rest.querySelectorAll('.wall')].forEach((p, i) => {
-    if (!p.id) p.id = `${clip.id}-${i}`;
-    const use = document.createElementNS(ns, 'use');
-    use.setAttribute('href', '#' + p.id);
-    use.setAttribute('transform', fit);
-    clip.append(use);
-  });
-  const defs = document.createElementNS(ns, 'defs');
-  defs.append(clip);
-  copy.prepend(defs);
-  const frame = document.createElement('div');
-  frame.style.cssText = `position:absolute;left:${rest.style.left};top:${rest.style.top};width:${rest.style.width};`
-    + `height:${rest.style.height};clip-path:url(#${clip.id})`;
-  copy.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;overflow:visible;will-change:transform';
-  frame.append(copy);
-  rest.before(frame);
-  return { el: copy, frame, rx: ex / vw * 100, ry: ey / vh * 100 };
+// Grow the actual extrusion in place. Moving an enlarged copy changes its silhouette at
+// concave corners and moves its texture; swapping it back at the end makes both jump.
+function extrusionShape(rest) {
+  const back = rest.querySelector('path[transform]');
+  const transform = back.getAttribute('transform');
+  const [ex, ey] = transform.match(/[-\d.]+/g).map(Number);
+  const walls = [...rest.querySelectorAll('.wall')].map(el => ({ el, d: el.getAttribute('d') }));
+  const r = v => Math.round(v * 1000) / 1000;
+  let last;
+  return progress => {
+    const depth = Math.max(0, progress);
+    if (depth === last) return;
+    last = depth;
+    back.setAttribute('transform', depth === 1 ? transform : `translate(${r(ex * depth)} ${r(ey * depth)})`);
+    for (const { el, d } of walls) el.setAttribute('d', depth === 1 ? d : d.replace(
+      /M([-\d.]+) ([-\d.]+)L([-\d.]+) ([-\d.]+)l([-\d.]+) ([-\d.]+)L([-\d.]+) ([-\d.]+)Z/g,
+      (m, ax, ay, bx, by, dx, dy, endX, endY) => `M${ax} ${ay}L${bx} ${by}l${r(+dx * depth)} ${r(+dy * depth)}L${r(+ax + (+endX - +ax) * depth)} ${r(+ay + (+endY - +ay) * depth)}Z`));
+  };
 }
 function animateLettering(root, options = {}) {
   const svg = { getElementById: id => root.querySelector('#' + CSS.escape(id)) };
@@ -388,7 +359,6 @@ function animateLettering(root, options = {}) {
   const shadow = { ...D.dropShadow, ...options.dropShadow };
   let seed = o.seed * 7919;
   const random = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
-  const tag = Math.random().toString(36).slice(2, 7);
   const tl = gsap.timeline({ paused: true });
   // a part's pen strokes: in its mask (the decoration), or in the part itself (the face, drawn
   // by its strokes directly)
@@ -511,27 +481,15 @@ function animateLettering(root, options = {}) {
       if (shade) wholeIn(shade, shadow.entrance === 'finish' ? 'fade' : shadow.entrance,
         shadow.entrance === 'finish' ? finish + shadow.delay : atFor(shadow, 'letterStart'), shadow.duration, letteringEase(shadow.ease, shadow.strength));
     };
-    // the extrusion: a sliding copy of the block springs out (a move the graphics card makes, with
-    // nothing repainted), then hands back to the block itself, exactly as designed
+    // Grow the actual walls, with their patterns anchored to the lettering coordinates.
     if (!rest) { shadeIn(drawn + 0.3); continue; }
-    const s = springCopy(rest, tag, all.indexOf(letter));
-    // (an overshoot past full depth eases into the spare depth rather than stopping dead at its
-    // end, which held a deeper block still for a moment; and the copy is shown whole the moment it
-    // starts, tucked behind the face: faded in, an elastic ease had already sprung it out while it
-    // was still see-through)
-    const soft = (v, r) => { const room = r * LETTERING_SPARE, past = v + room;
-      return r && past * r > 0 ? -room + room * Math.tanh(past / room) : v; };
-    gsap.set(s.el, { opacity: WAITING });
+    const paintDepth = extrusionShape(rest), depth = { value: 0 };
+    paintDepth(0);
     tl.set(rest, { opacity: WAITING }, 0)
-      .set(s.el, { opacity: WAITING }, 0)
-      .fromTo(s.el, { x: 0, y: 0, xPercent: -s.rx * (1 + LETTERING_SPARE), yPercent: -s.ry * (1 + LETTERING_SPARE) },
-        { x: 0, y: 0, xPercent: -s.rx * LETTERING_SPARE, yPercent: -s.ry * LETTERING_SPARE, duration: ex.duration,
-          ease: letteringEase(ex.ease, ex.strength),
-          modifiers: { xPercent: v => soft(v, s.rx), yPercent: v => soft(v, s.ry) },
-          immediateRender: true }, out)
-      .set(s.el, { opacity: 1 }, out)
-      .set(rest, { opacity: 1 }, settled)
-      .set(s.frame, { visibility: 'hidden' }, settled);
+      .set(rest, { opacity: 1 }, out)
+      .fromTo(depth, { value: 0 }, { value: 1, duration: ex.duration,
+        ease: letteringEase(ex.ease, ex.strength), immediateRender: true,
+        onUpdate: () => paintDepth(depth.value) }, out);
     shadeIn(Math.max(settled, drawn + 0.3));
   }
   // looping: the finished lettering stays for `hold` seconds, fades, and plays again (going back
@@ -1329,8 +1287,8 @@ const finish = id => {
 
 // the animated copy: the same lettering as a stack of small SVGs in a box, two to a letter, so
 // the browser can move each part on its own instead of repainting one big picture every frame.
-// Each letter's block is its own layer, which the animation slides out (the graphics card moves
-// it; nothing is repainted); its face and decoration are another, small layer, repainted only
+// Each letter's block is its own layer, whose wall geometry grows along the extrusion vector;
+// its face and decoration are another, small layer, repainted only
 // while it is being drawn. All of them share one coordinate system, so the grain, the wobble and
 // the hatching line up across layers as in the single SVG
 function layered(parts, id) {
@@ -1357,7 +1315,7 @@ function layered(parts, id) {
     const tag = DROP ? k => ` id="${id}-${k}${n}"` : () => '';
     if (!L.it.flat) {
       // the block, exactly as in the static SVG (its layer the letter's box stretched along the
-      // block's direction); the animation makes its own sliding copy of it
+      // block's direction); the animation grows these walls in place
       const blockSvg = svg.slice(svg.indexOf('<g class="block"'), svg.indexOf('<g class="face"')).replace(/^<g class="block"[^>]*>/, '<g>');
       out += layer('block', kx, ky, kw, kh, `<g${tag('k')} filter="url(#${id}-finish)">${blockSvg}</g>`);
     }
@@ -1367,7 +1325,7 @@ function layered(parts, id) {
     if (DROP) {
       const sx = kx + Math.min(0, DROP.dx) - 2 * DROP.soft, sy = ky + Math.min(0, DROP.dy) - 2 * DROP.soft;
       out += layer('shadow', sx, sy, kw + Math.abs(DROP.dx) + 4 * DROP.soft, kh + Math.abs(DROP.dy) + 4 * DROP.soft,
-        `<g filter="url(#${dropId}-drop)">${L.it.flat ? '' : `<use href="#${id}-k${n}"/>`}${L.it.style === 'lineart' ? `<path fill="none" stroke="white" stroke-width="${r1(letterOutline(L.it))}" stroke-linejoin="round" d="${L.d}"/>` : `<use href="#${id}-f${n}"/>`}</g>`, ';z-index:-1');
+        `<g filter="url(#${dropId}-drop)">${L.it.flat ? '' : `<g filter="url(#${id}-finish)">${svg.slice(svg.indexOf('<g class="block"'), svg.indexOf('<g class="face"')).replace('<g class="block">', '<g>')}</g>`}${L.it.style === 'lineart' ? `<path fill="none" stroke="white" stroke-width="${r1(letterOutline(L.it))}" stroke-linejoin="round" d="${L.d}"/>` : `<use href="#${id}-f${n}"/>`}</g>`, ';z-index:-1');
     }
     // the face and its decoration twice: drawn in along the pen, crisp (the grain and wobble
     // filter is costly to redo every frame, so this layer has none), hidden until the animation
