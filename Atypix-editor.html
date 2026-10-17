@@ -292,12 +292,12 @@
 #tab-animation .ae-parts button{background:transparent;color:#536c82;border-radius:6px 6px 0 0;border-bottom:3px solid transparent;font-size:11px;padding:9px 11px;white-space:nowrap}
 #tab-animation .ae-parts [aria-selected=true]{background:#d3e3eb;border-bottom-color:#59abb1;color:#3e5269}
 .ae-content{padding:14px}
-.ae-basic{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.ae-basic{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;max-width:620px}
 #tab-animation .ae-basic>label{grid-template-columns:62px minmax(0,1fr) 48px;font-size:12px}
 #tab-animation .ae-basic>label:has(select){grid-template-columns:65px minmax(0,1fr)}
 #tab-animation .ae-basic>label:has(select)>span{display:none}
 .ae-start-details:empty{display:none}
-.ae-start-details{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}
+.ae-start-details{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;margin-top:14px;max-width:620px}
 .ae-start-details .note{grid-column:1/-1;margin:0}
 #tab-animation .ae-start-details>label{font-size:12px;grid-template-columns:70px minmax(0,1fr) 48px}
 #tab-animation .ae-start-details>label:has(select){grid-template-columns:70px minmax(0,1fr)}
@@ -305,7 +305,7 @@
 @media(max-width:600px){.ae-start-details{grid-template-columns:minmax(0,1fr)}}
 #tab-animation details{border-top:1px solid #bfd0da;padding-top:12px;margin-top:14px}
 #tab-animation summary{font-size:12px;color:#3e5269;font-weight:700;cursor:pointer}
-.ae-more-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:12px}
+.ae-more-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;margin-top:12px;max-width:620px}
 #tab-animation .ae-more-grid>label{font-size:12px;grid-template-columns:65px minmax(0,1fr) 46px}
 #tab-animation .ae-more-grid>label:has(select){grid-template-columns:65px minmax(0,1fr)}
 #tab-animation .ae-more-grid>label:has(select)>span{display:none}
@@ -318,7 +318,7 @@
 .ae-state-arrow{align-self:center;font-size:22px;color:#6e8799}
 .ae-state input:disabled{background:#e6eef3;color:#6e8497;opacity:1}
 #tab-animation>.flow>details{padding:0;border:0}
-@media(max-width:1050px){.ae-top{align-items:start;flex-wrap:wrap}.ae-basic{grid-template-columns:minmax(0,1fr)}.ae-more-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:1050px){.ae-top{align-items:start;flex-wrap:wrap}.ae-basic{grid-template-columns:minmax(0,1fr)}.ae-more-grid{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:600px){.ae-top{gap:12px}.ae-scope{width:100%;flex-wrap:wrap}.ae-scope label{flex:1}#tab-animation .ae-scope select{width:100%}.ae-segment button{flex:1}.ae-segment{width:100%}.ae-top>div:first-child{width:100%}.ae-ruler,.ae-track{grid-template-columns:77px 58px minmax(0,1fr);gap:6px}.ae-ruler{font-size:8px}.ae-track .ae-number-wrap>span{right:7px}.ae-track-name small{font-size:9px}.ae-track-bar{font-size:9px;padding-left:5px}#ae-ticks{font-size:8px}#ae-ticks span:nth-child(2),#ae-ticks span:nth-child(4),#ae-ticks span:nth-child(5){display:none}#tab-animation .ae-tracks{padding:9px}.ae-player{flex-wrap:wrap;gap:10px}.ae-scrub-wrap{flex-basis:100%}.ae-player-actions{gap:5px}#tab-animation .ae-player-actions button{font-size:10px;padding:8px 9px}.ae-edit-head{flex-wrap:wrap}.ae-edit-head strong{font-size:10px}#tab-animation .ae-parts button{font-size:10px;padding:8px}.ae-parts{padding-left:5px;padding-right:5px}.ae-content{padding:11px}.ae-more-grid{grid-template-columns:minmax(0,1fr)}.ae-states{gap:6px;grid-template-columns:minmax(0,1fr) 16px minmax(0,1fr)}.ae-state{padding:10px}.ae-state-values{grid-template-columns:minmax(0,1fr)}.ae-state-arrow{font-size:16px}.ae-state-head label{font-size:9px!important}.ae-basic{gap:9px}.ae-player-note{font-size:10px}}
 
 </style>
@@ -550,11 +550,11 @@ function animateLettering(root, options = {}) {
   };
   // each line's letters, left to right, for an order other than random
   const lineRanges={};
-  const all = [...root.querySelectorAll('.letter')], count = {}, place = new Map();
+  const all = [...root.querySelectorAll('.letter')].filter(letter=>options.onlyLine==null||+letter.dataset.line===options.onlyLine), count = {}, place = new Map();
   for (const letter of all) place.set(letter, count[letter.dataset.line] = (count[letter.dataset.line] ?? -1) + 1);
   const turn = (order, k, n) => n < 2 ? 0 : order === 'leftToRight' ? k / (n - 1) : order === 'rightToLeft' ? 1 - k / (n - 1)
     : order === 'centreOut' ? Math.abs(k - (n - 1) / 2) / ((n - 1) / 2) : null;
-  for (const letter of all) {
+  if(!(o.scope==='lines'&&!options.lineChild)) for (const letter of all) {
     const settings=partsForLine(o,+letter.dataset.line);
     const {face,deco,extrude:ex,outline,dropShadow:shadow}=settings;
     const line = { ...D.lines[0], ...(o.lines[+letter.dataset.line] || o.lines[0]) };
@@ -640,7 +640,15 @@ function animateLettering(root, options = {}) {
         onUpdate: () => paintDepth(depth.value) }, out);
     shadeIn(Math.max(settled, drawn + 0.3));
   }
-  if(o.reverse) {
+  if(o.scope==='lines'&&!options.lineChild){
+    for(const index of [...new Set(all.map(letter=>+letter.dataset.line))]){
+      const start=o.lines[index]?.start||0,lines=o.lines.map((line,i)=>i===index?{...line,start:0}:line);
+      const child=animateLettering(root,{...o,lines,speed:1,loop:false,whenVisible:false,manual:true,lineChild:true,onlyLine:index,reverse:o.lineParts?.[index]?.reverse??o.reverse});
+      child.cancelAutoplay();tl.add(child,start);child.paused(false);
+      lineRanges[index]={start,end:start+child.contentDuration};
+    }
+  }
+  if(o.reverse&&!(o.scope==='lines'&&!options.lineChild)) {
     const forward=tl,duration=forward.duration(),cursor={time:duration};
     tl=gsap.timeline({paused:true});tl.add(forward,0);forward.pause();forward.time(duration,false);
     tl.fromTo(cursor,{time:duration},{time:0,duration,ease:'none',immediateRender:false,onUpdate:()=>forward.time(cursor.time,false)},0);
@@ -773,6 +781,7 @@ function line(font, ln, li) {
   const text = [...ln.text];
   let at = 0, k = 0;
   return text.map((ch, i) => {
+    if (!ln.letters[i] && ln.letterPattern?.length) ln.letters[i] = structuredClone(ln.letterPattern[i % ln.letterPattern.length]);
     const v = { ...NO_CHANGE, ...ln.letters[i] }, size = ln.size * v.scale;
     const glyph = font.charToGlyph(ch), blank = !glyph.path?.commands?.length;
     const style = v.style || ln.styles[k % ln.styles.length] || CYCLE[0];
@@ -1448,6 +1457,10 @@ function shared(fills, kind, ...args) {
 }
 
 // the letters, placed, for both copies (each glyph's slow work is done once, in glyphWork)
+function extrusionOrder(parts){
+ const depth=L=>{const points=L.rings.flat(),ex=letterExtrusion(L.it),length=Math.hypot(...ex)||1;return ((Math.min(...points.map(p=>p[0]))+Math.max(...points.map(p=>p[0])))*ex[0]+(Math.min(...points.map(p=>p[1]))+Math.max(...points.map(p=>p[1])))*ex[1])/length;};
+ return parts.map((L,index)=>({index,depth:depth(L)})).sort((a,b)=>a.depth-b.depth||a.index-b.index).map(v=>v.index);
+}
 const letters = fonts => layout(fonts).map(letter);
 // the words, as the lettering's accessible name ("Curious Agent")
 const label = () => words().toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase())
@@ -1466,7 +1479,7 @@ function lettering(parts, id) {
     const tag = effects.drop(L);
     return tag ? `<g filter="url(#${tag}-drop)">${wrap(L,letterSvg(L,`${id}s`,n,paints.forLetter(L),null))}</g>` : '';
   }).join('');
-  const blocks = parts.map((L,n)=>wrap(L,blockOf(svgs[n]))).join('');
+  const blocks = extrusionOrder(parts).map(n=>wrap(parts[n],blockOf(svgs[n]))).join('');
   const faces = parts.map((L,n)=>wrap(L,svgs[n].replace(blockOf(svgs[n]),''))).join('');
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${x0} ${y0} ${w} ${h}" width="${w}" height="${h}" role="img" aria-label="${label()}"><title>${label()}</title>`
     + `<defs>${paints.defs()}${effects.defs()}</defs>${shadows}${blocks}${faces}</svg>`;
@@ -1524,6 +1537,7 @@ function layered(parts, id) {
     `<svg class="${cls}" viewBox="${r1(bx)} ${r1(by)} ${r1(bw)} ${r1(bh)}" style="position:absolute;`
     + `left:${pct((bx - x0) / w * 100)};top:${pct((by - y0) / h * 100)};width:${pct(bw / w * 100)};height:${pct(bh / h * 100)};`
     + `overflow:visible;will-change:transform${extra}" aria-hidden="true">${inner}</svg>`;
+  const order=extrusionOrder(parts),rank=new Map(order.map((n,i)=>[n,i]));
   const body = parts.map((L, n) => {
     const masks = [], fills = paints.forLetter(L);
     const dropId = effects.drop(L), shade = letterDrop(L.it,true), ex = letterExtrusion(L.it), finishId = effects.finish(L);
@@ -1542,7 +1556,7 @@ function layered(parts, id) {
       const blockSvg = svg.slice(svg.indexOf('<g class="block"'), svg.indexOf('<g class="face"')).replace(/^<g class="block"[^>]*>/, '<g>');
       const shadowAngle=SHADOW*Math.PI/180;
       const model={base:Math.hypot(...EX_BASE),depth:letterValue(L.it,'extrusionDepth',look.length),direction:letterValue(L.it,'extrusionDirection',look.direction),ex:ex.map(r1),fills:Array.from(fills,f=>({fill:f.fill,color:f.color})),edges:L.edges.map(e=>({a:e.a.map(r1),b:e.b.map(r1),nx:Math.round(e.nx*1000)/1000,ny:Math.round(e.ny*1000)/1000,k:Math.round(smooth(.15,.75,e.nx*Math.cos(shadowAngle)+e.ny*Math.sin(shadowAngle))*(SHADES-1))}))};
-      out += layer('block', kx, ky, kw, kh, `<g${tag('k')} filter="url(#${finishId}-finish)">${blockSvg}</g>`).replace('class="block"',`class="block" data-extrusion='${JSON.stringify(model)}'`);
+      out += layer('block', kx, ky, kw, kh, `<g${tag('k')} filter="url(#${finishId}-finish)">${blockSvg}</g>`).replace('class="block"',`class="block" data-extrusion='${JSON.stringify(model)}'`).replace('overflow:visible;',`overflow:visible;z-index:${rank.get(n)};`);
     }
     // the letter's drop shadow: its finished block and face again, through the shadow filter,
     // under every block (z-index -1); it never changes, so it is painted once, and shown as the
@@ -1561,9 +1575,9 @@ function layered(parts, id) {
     const outlineRing = done.match(/<path class="outline-ring"[^>]*\/>/)?.[0] || '';
     const doneFace = done.slice(done.indexOf('<g class="face"'), done.lastIndexOf('</g>')).replace(outlineRing, '');
     // (faces above every block: z-index 1, the blocks staying at 0)
-    out += layer('faces', bx, by, bw, bh, `<defs>${masks.join('')}</defs><g>${face}</g>`, ';visibility:hidden;z-index:1');
-    out += layer('finished', bx, by, bw, bh, `<g${tag('f')} filter="url(#${finishId}-finish)">${doneFace}</g>`, ';z-index:1');
-    if (outlineRing) out += layer('letter-outline', bx, by, bw, bh, `<g filter="url(#${finishId}-finish)">${outlineRing}</g>`, ';z-index:2');
+    out += layer('faces', bx, by, bw, bh, `<defs>${masks.join('')}</defs><g>${face}</g>`, `;visibility:hidden;z-index:${parts.length+1}`);
+    out += layer('finished', bx, by, bw, bh, `<g${tag('f')} filter="url(#${finishId}-finish)">${doneFace}</g>`, `;z-index:${parts.length+1}`);
+    if (outlineRing) out += layer('letter-outline', bx, by, bw, bh, `<g filter="url(#${finishId}-finish)">${outlineRing}</g>`, `;z-index:${parts.length+2}`);
     return out + '</div>';
   }).join('');
   // (a drop shadow's layers sit below the blocks but within the lettering: isolation)
@@ -1870,13 +1884,17 @@ function colorEditor(read, write, after) {
 // Style presets can choose an animation independently of the current preview mode.
 const STYLE_ANIMATIONS = {
   'Handletter': 'Draw in', 'RISO': 'Drop', 'MARQUEE': 'Paint',
-  'Candy pop': 'Pop', 'Bugle': 'Custom', 'Jellybeans': 'Paint',
+  'Candy pop': 'Pop', 'Pow': 'Custom', 'Lollipop': 'Custom', 'Bugle': 'Custom', 'Jellybeans': 'Paint',
 };
 // Complete saved example supplied by the user; cloned before each application.
 const JELLYBEANS_PRESET = {"atypix":2,"design":{"lines":[{"text":"ATYPIX","font":"Anton","size":300,"track":-0.012,"align":"centre","styles":["outline"],"letters":[null,{"scale":1,"rot":0,"dx":-6,"dy":0,"style":""},{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"face":"#aec1ef","light":"#ccf0ff","side":"#4767b3","under":"#162850","face2":"#aec1ef","outline":"#4768b3","outline2":"#4768b3"}},{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"face":"#ffcb70","light":"#ffec8f","side":"#fa9e00","under":"#d17f33","face2":"#ffcc70","outline":"#ffab1a","outline2":"#ffcb70"}},{"scale":1,"rot":0,"dx":5,"dy":0,"style":"","colours":{"face":"#ea81ed","side":"#910094","under":"#370038","face2":"#ea81ee","outline":"#900094","outline2":"#900094"}},{"scale":1,"rot":0,"dx":7,"dy":0,"style":""}]},{"text":"TYPE","font":"Fjalla One","size":150,"track":0.12,"align":"centre","styles":["flat"],"letters":[{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"face":"#ffffff","light":"#ffffff","side":"#ffffff","under":"#ffffff","face2":"#ffffff","outline":"#ffffff","outline2":"#ffffff"}},{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"face":"#ffffff","light":"#ffffff","side":"#ffffff","under":"#ffffff","dots":"#ffffff","face2":"#ffffff","stripes":"#ffffff","drop":"#ffffff","outline":"#ffffff","outline2":"#ffffff"}},{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"face":"#ffffff","light":"#ffffff","side":"#ffffff","under":"#ffffff","dots":"#ffffff","face2":"#ffffff","stripes":"#ffffff","drop":"#ffffff","outline":"#ffffff","outline2":"#ffffff"}},{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"face":"#ffffff","light":"#ffffff","side":"#ffffff","under":"#ffffff","dots":"#ffffff","face2":"#ffffff","stripes":"#ffffff","drop":"#ffffff","outline":"#ffffff","outline2":"#ffffff"}},{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"face":"#ffffff","light":"#ffffff","side":"#ffffff","under":"#ffffff","dots":"#ffffff","face2":"#ffffff","stripes":"#ffffff","drop":"#ffffff","outline":"#ffffff","outline2":"#ffffff"}}]}],"spacing":26,"colourMode":"risograph"},"look":{"length":0.45,"direction":40,"shadow":90,"texture":1,"grainPreset":"Speck","wobbleFrequency":0.008,"wobbleJitter":0,"hatching":1,"hatchAngle":30,"wobble":0,"dropDistance":0,"dropDirection":45,"dropSoftness":6,"dropOpacity":1,"outline":3},"colours":{"face":"#f0955a","light":"#f9eec4","side":"#d8461b","under":"#261a57","dots":"#f7c52e","face2":"#f0955a","stripes":"#f9eec4","drop":"#261a57","outline":"#d8461b","outline2":"#d8461b"},"face":{"inset":0.012,"line":0.016,"dotR":0.02,"dotStep":0.07,"risoR":0.005,"risoStep":0.024,"risoOpacity":1,"stripeAngle":0,"stripeWidth":0.02,"stripeGap":0.02,"starR":0.026,"starPoints":5,"starStep":0.085,"dropR":0.016,"dropStep":0.075,"ropeAngle":35,"ropeStep":0.045,"ropeWidth":0.014},"motion":{"speed":1,"seed":1,"loop":false,"hold":2,"whenVisible":false,"lines":[{"start":0,"spread":0.9,"order":"leftToRight"},{"start":0.2,"spread":0.9,"order":"leftToRight"}],"face":{"entrance":"draw","ease":"out","strength":0.5,"duration":0.7},"deco":{"entrance":"draw","ease":"out","strength":0.5,"duration":0.65,"delay":0.3},"extrude":{"ease":"back","strength":0.85,"duration":1.75,"delay":-0.45}}};
 const MARQUEE_PRESET = {"atypix":2,"design":{"lines":[{"text":"ATYPIX","font":"Anton","size":300,"track":-0.012,"align":"centre","styles":["dots"],"letters":[{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"under":"#f58114","outline2":"#e6aa05"}},{"scale":1,"rot":0,"dx":-6,"dy":0,"style":"","colours":{"face":"#ffd052","light":"#ffdc7a","side":"#2e1800","under":"#f58114","dots":"#fdd591","face2":"#ffa200","stripes":"#ffdc7a","drop":"#122e40","outline":"#ffdc7a","outline2":"#e6aa05"}},{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"face":"#ffd052","light":"#ffdc7a","side":"#2e1800","under":"#f58114","dots":"#fdd591","face2":"#ffa200","stripes":"#ffdc7a","drop":"#122e40","outline":"#ffdc7a","outline2":"#e6aa05"}},{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"face":"#ffd052","light":"#ffdc7a","side":"#2e1800","under":"#f58114","dots":"#fdd591","face2":"#ffa200","stripes":"#ffdc7a","drop":"#122e40","outline":"#ffdc7a","outline2":"#e6aa05"}},{"scale":1,"rot":0,"dx":5,"dy":0,"style":"","colours":{"face":"#ffd052","light":"#ffdc7a","side":"#2e1800","under":"#f58114","dots":"#fdd591","face2":"#ffa200","stripes":"#ffdc7a","drop":"#122e40","outline":"#ffdc7a","outline2":"#e6aa05"}},{"scale":1,"rot":0,"dx":7,"dy":0,"style":"","colours":{"face":"#ffd052","light":"#ffdc7a","side":"#2e1800","under":"#f58114","dots":"#fdd591","face2":"#ffa200","stripes":"#ffdc7a","drop":"#122e40","outline":"#ffdc7a","outline2":"#e6aa05"}}]},{"text":"TYPE","font":"Fjalla One","size":150,"track":0.12,"align":"centre","styles":["flat"],"letters":[{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"outline":"#d1d1d1"}},{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"face":"#ffd052","light":"#ffdc7a","side":"#2e1800","under":"#122e40","dots":"#fdd591","face2":"#ffa200","stripes":"#ffdc7a","drop":"#122e40","outline":"#d1d1d1","outline2":"#ffdc7a"}},{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"face":"#ffd052","light":"#ffdc7a","side":"#2e1800","under":"#122e40","dots":"#fdd591","face2":"#ffa200","stripes":"#ffdc7a","drop":"#122e40","outline":"#d1d1d1","outline2":"#ffdc7a"}},{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"face":"#ffd052","light":"#ffdc7a","side":"#2e1800","under":"#122e40","dots":"#fdd591","face2":"#ffa200","stripes":"#ffdc7a","drop":"#122e40","outline":"#d1d1d1","outline2":"#ffdc7a"}},{"scale":1,"rot":0,"dx":0,"dy":0,"style":""}]}],"spacing":26,"colourMode":"solid"},"look":{"length":0.45,"direction":40,"shadow":90,"texture":0.25,"grainPreset":"Coarse paper","wobbleFrequency":0.008,"wobbleJitter":0,"hatching":1,"hatchAngle":30,"wobble":0,"dropDistance":9,"dropDirection":45,"dropSoftness":6,"dropOpacity":0.1,"outline":3},"colours":{"face":"#ffd052","light":"#ffdc7a","side":"#2e1800","under":"#122e40","dots":"#fdd591","face2":"#ffa200","stripes":"#ffdc7a","drop":"#122e40","outline":"#ffdc7a","outline2":"#ffdc7a"},"face":{"inset":0.034,"line":0.016,"dotR":0.02,"dotStep":0.07,"risoR":0.005,"risoStep":0.024,"risoOpacity":1,"stripeAngle":0,"stripeWidth":0.02,"stripeGap":0.02,"starR":0.026,"starPoints":5,"starStep":0.085,"dropR":0.016,"dropStep":0.075,"ropeAngle":35,"ropeStep":0.045,"ropeWidth":0.014},"motion":{"speed":1,"seed":1,"loop":false,"hold":2,"whenVisible":false,"lines":[{"start":0,"spread":0.9,"order":"leftToRight"},{"start":0.2,"spread":0.9,"order":"leftToRight"}],"face":{"entrance":"draw","ease":"out","strength":0.5,"duration":0.7},"deco":{"entrance":"draw","ease":"out","strength":0.5,"duration":0.65,"delay":0.3},"outline":{"entrance":"draw","ease":"inOut","strength":0.15,"duration":0.3,"delay":0.15},"extrude":{"ease":"back","strength":0.85,"duration":1.75,"delay":-0.45}}};
 const BUGLE_PRESET = {"atypix":2,"canvasColor":"#bccfd6","design":{"lines":[{"text":"ATYPIX","font":"Anton","size":300,"track":-0.012,"align":"centre","styles":["plain","risograph"],"letters":[{"scale":1,"rot":0,"dx":0,"dy":0,"style":""},{"scale":1,"rot":0,"dx":-6,"dy":0,"style":""},{"scale":1,"rot":0,"dx":0,"dy":0,"style":""},{"scale":1,"rot":0,"dx":0,"dy":0,"style":""},{"scale":1,"rot":0,"dx":5,"dy":0,"style":""},{"scale":1,"rot":0,"dx":7,"dy":0,"style":""}]},{"text":"TYPE","font":"Fjalla One","size":150,"track":0.12,"align":"centre","styles":["flat"],"letters":[{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","outline":0,"colours":{"face":"#454545","face2":"#292929","outline2":"#303030"}},{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"face":"#454545","light":"#ffffff","side":"#737373","under":"#242424","dots":"#b5b5b5","face2":"#292929","stripes":"#ffffff","drop":"#161616","outline":"#9e9e9e","outline2":"#303030"}},{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"face":"#454545","light":"#ffffff","side":"#737373","under":"#242424","dots":"#b5b5b5","face2":"#292929","stripes":"#ffffff","drop":"#161616","outline":"#9e9e9e","outline2":"#303030"}},{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"face":"#454545","light":"#ffffff","side":"#737373","under":"#242424","dots":"#b5b5b5","face2":"#292929","stripes":"#ffffff","drop":"#161616","outline":"#9e9e9e","outline2":"#303030"}},{"scale":1,"rot":0,"dx":0,"dy":0,"style":""}]}],"spacing":26,"colourMode":"solid"},"look":{"length":1,"direction":40,"shadow":359,"texture":0.95,"grainPreset":"Fine dust","wobbleFrequency":0.05,"wobbleJitter":0,"shadowStyle":"Dots","shadowDotDensity":6,"hatching":1,"hatchAngle":30,"wobble":3,"dropDistance":0,"dropDirection":45,"dropSoftness":6,"dropOpacity":1,"outline":2.5,"outlineStyle":"Dotted","outlineDash":8,"outlineGap":6},"colours":{"face":"#eeeeee","light":"#ffffff","side":"#737373","under":"#242424","dots":"#b5b5b5","face2":"#cccccc","stripes":"#ffffff","drop":"#161616","outline":"#9e9e9e","outline2":"#9e9e9e"},"face":{"inset":0.034,"line":0.016,"dotR":0.02,"dotStep":0.07,"risoR":0.005,"risoStep":0.024,"risoOpacity":1,"stripeAngle":0,"stripeWidth":0.02,"stripeGap":0.02,"starR":0.026,"starPoints":5,"starStep":0.085,"dropR":0.016,"dropStep":0.075,"ropeAngle":35,"ropeStep":0.045,"ropeWidth":0.014},"motion":{"speed":1,"seed":1,"loop":false,"hold":2,"whenVisible":false,"lines":[{"start":0,"spread":0.9,"order":"leftToRight"},{"start":0.2,"spread":0.9,"order":"leftToRight"}],"face":{"entrance":"draw","ease":"out","strength":0.5,"duration":0.7,"delay":0},"deco":{"entrance":"draw","anchor":"faceStart","ease":"out","strength":0.5,"duration":0.65,"delay":0.3},"outline":{"entrance":"draw","anchor":"letterStart","ease":"linear","strength":0.5,"duration":0.3,"delay":0},"dropShadow":{"entrance":"finish","anchor":"letterStart","ease":"linear","strength":0.5,"duration":0.3,"delay":0},"extrude":{"anchor":"faceEnd","ease":"back","strength":0.85,"duration":1.75,"delay":-0.45}}};
+const POW_PRESET = {"atypix":2,"canvasColor":"#bccfd6","design":{"lines":[{"text":"ATYPIX","font":"Anton","size":300,"track":-0.012,"align":"centre","styles":["plain","risograph"],"letters":[{"scale":1,"rot":0,"dx":0,"dy":0,"style":"outline","colours":{"face":"#eeeeee","light":"#000000","side":"#ffffff","under":"#000000","dots":"#b5b5b5","face2":"#cccccc","stripes":"#ffffff","drop":"#000000","outline":"#000000","outline2":"#000000"}},{"scale":1,"rot":0,"dx":-6,"dy":0,"style":"plain","colours":{"face":"#ffffff","light":"#ffffff","side":"#ffffff","under":"#000000","dots":"#b5b5b5","face2":"#ffffff","stripes":"#ffffff","drop":"#000000","outline":"#000000","outline2":"#000000"}},{"scale":1,"rot":0,"dx":0,"dy":0,"style":"outline","colours":{"face":"#eeeeee","light":"#000000","side":"#ffffff","under":"#000000","dots":"#b5b5b5","face2":"#cccccc","stripes":"#ffffff","drop":"#000000","outline":"#000000","outline2":"#000000"}},{"scale":1,"rot":0,"dx":0,"dy":0,"style":"plain","colours":{"face":"#ffffff","light":"#ffffff","side":"#ffffff","under":"#000000","dots":"#b5b5b5","face2":"#ffffff","stripes":"#ffffff","drop":"#000000","outline":"#000000","outline2":"#000000"}},{"scale":1,"rot":0,"dx":5,"dy":0,"style":"outline","colours":{"face":"#eeeeee","light":"#000000","side":"#ffffff","under":"#000000","dots":"#b5b5b5","face2":"#cccccc","stripes":"#ffffff","drop":"#000000","outline":"#000000","outline2":"#000000"}},{"scale":1,"rot":0,"dx":7,"dy":0,"style":"plain","colours":{"face":"#ffffff","light":"#ffffff","side":"#ffffff","under":"#000000","dots":"#b5b5b5","face2":"#ffffff","stripes":"#ffffff","drop":"#000000","outline":"#000000","outline2":"#000000"}}]},{"text":"TYPE","font":"Fjalla One","size":150,"track":0.12,"align":"centre","styles":["flat"],"letters":[{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","outline":0,"colours":{"face":"#ffffff","light":"#ffffff","side":"#000000","under":"#000000","dots":"#b5b5b5","face2":"#ffffff","stripes":"#ffffff","drop":"#000000","outline":"#000000","outline2":"#000000"}},{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"face":"#ffffff","light":"#ffffff","side":"#000000","under":"#000000","dots":"#b5b5b5","face2":"#ffffff","stripes":"#ffffff","drop":"#000000","outline":"#000000","outline2":"#000000"},"outline":0},{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"face":"#ffffff","light":"#ffffff","side":"#000000","under":"#000000","dots":"#b5b5b5","face2":"#ffffff","stripes":"#ffffff","drop":"#000000","outline":"#000000","outline2":"#000000"},"outline":0},{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"face":"#ffffff","light":"#ffffff","side":"#000000","under":"#000000","dots":"#b5b5b5","face2":"#ffffff","stripes":"#ffffff","drop":"#000000","outline":"#000000","outline2":"#000000"},"outline":0},{"scale":1,"rot":0,"dx":0,"dy":0,"style":""}]}],"spacing":26,"colourMode":"solid"},"look":{"length":1.1,"direction":229,"shadow":192,"texture":1.8,"grainPreset":"None","wobbleFrequency":0.05,"wobbleJitter":0,"shadowStyle":"Smooth","shadowDotDensity":4.75,"hatching":1,"hatchAngle":30,"wobble":0,"dropDistance":0,"dropDirection":45,"dropSoftness":6,"dropOpacity":1,"outline":3,"outlineStyle":"Dashed","outlineDash":40,"outlineGap":1},"colours":{"face":"#eeeeee","light":"#ffffff","side":"#000000","under":"#000000","dots":"#b5b5b5","face2":"#cccccc","stripes":"#ffffff","drop":"#000000","outline":"#000000","outline2":"#000000"},"face":{"inset":0.013,"line":0.012,"dotR":0.02,"dotStep":0.07,"risoR":0.005,"risoStep":0.024,"risoOpacity":1,"stripeAngle":0,"stripeWidth":0.02,"stripeGap":0.02,"starR":0.026,"starPoints":5,"starStep":0.085,"dropR":0.016,"dropStep":0.075,"ropeAngle":35,"ropeStep":0.045,"ropeWidth":0.014},"motion":{"speed":1,"seed":1,"loop":false,"hold":2,"whenVisible":false,"lines":[{"start":0,"spread":0.9,"order":"leftToRight"},{"start":0.2,"spread":0.9,"order":"leftToRight"}],"face":{"entrance":"draw","ease":"out","strength":0.5,"duration":0.7,"delay":0},"deco":{"entrance":"draw","anchor":"faceStart","ease":"out","strength":0.5,"duration":0.65,"delay":0.3},"outline":{"entrance":"draw","anchor":"letterStart","ease":"linear","strength":0.5,"duration":0.3,"delay":0},"dropShadow":{"entrance":"finish","anchor":"letterStart","ease":"linear","strength":0.5,"duration":0.3,"delay":0},"extrude":{"anchor":"faceEnd","ease":"back","strength":0.85,"duration":1.75,"delay":-0.45}}};
+const LOLLIPOP_PRESET = {"atypix":2,"canvasColor":"#bccfd6","design":{"lines":[{"text":"ATYPIX","font":"Anton","size":300,"track":-0.012,"align":"centre","styles":["plain"],"letters":[{"scale":1.04,"rot":-4.5,"dx":-5,"dy":0,"style":""},{"scale":0.99,"rot":0,"dx":-6,"dy":-35,"style":""},{"scale":1.06,"rot":1,"dx":0,"dy":9,"style":""},{"scale":1.04,"rot":-0.5,"dx":-2,"dy":-27,"style":""},{"scale":1,"rot":0,"dx":5,"dy":0,"style":""},{"scale":0.93,"rot":5.5,"dx":20,"dy":-32,"style":""}],"letterPattern":[{"scale":1.04,"rot":-4.5,"dx":-5,"dy":0,"style":""},{"scale":0.99,"rot":0,"dx":-6,"dy":-35,"style":""},{"scale":1.06,"rot":1,"dx":0,"dy":9,"style":""},{"scale":1.04,"rot":-0.5,"dx":-2,"dy":-27,"style":""},{"scale":1,"rot":0,"dx":5,"dy":0,"style":""},{"scale":0.93,"rot":5.5,"dx":20,"dy":-32,"style":""}]},{"text":"TYPE","font":"Fjalla One","size":150,"track":0.12,"align":"centre","styles":["flat"],"letters":[{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"face":"#000000","face2":"#000000"}},{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"face":"#000000","light":"#fff4dc","side":"#7e609b","under":"#4e426b","dots":"#fff4dc","face2":"#000000","stripes":"#fff4dc","drop":"#161616","outline":"#7e609b","outline2":"#7e609b"}},{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"face":"#000000","light":"#fff4dc","side":"#7e609b","under":"#4e426b","dots":"#fff4dc","face2":"#000000","stripes":"#fff4dc","drop":"#161616","outline":"#7e609b","outline2":"#7e609b"}},{"scale":1,"rot":0,"dx":0,"dy":0,"style":"","colours":{"face":"#000000","light":"#fff4dc","side":"#7e609b","under":"#4e426b","dots":"#fff4dc","face2":"#000000","stripes":"#fff4dc","drop":"#161616","outline":"#7e609b","outline2":"#7e609b"}},{"scale":1,"rot":0,"dx":0,"dy":0,"style":""}]}],"spacing":26,"colourMode":"rainbow"},"look":{"length":1,"direction":40,"shadow":90,"texture":0.85,"grainPreset":"Speck","wobbleFrequency":0.05,"wobbleJitter":0,"shadowStyle":"Hatching","hatching":1,"hatchAngle":30,"wobble":3,"dropDistance":0,"dropDirection":45,"dropSoftness":6,"dropOpacity":1,"outline":0},"colours":{"face":"#eeeeee","light":"#ffffff","side":"#737373","under":"#242424","dots":"#333333","face2":"#cccccc","stripes":"#ffffff","drop":"#161616","outline":"#444444","outline2":"#444444"},"face":{"inset":0.034,"line":0.016,"dotR":0.02,"dotStep":0.07,"risoR":0.005,"risoStep":0.024,"risoOpacity":1,"stripeAngle":0,"stripeWidth":0.02,"stripeGap":0.02,"starR":0.026,"starPoints":5,"starStep":0.085,"dropR":0.016,"dropStep":0.075,"ropeAngle":35,"ropeStep":0.045,"ropeWidth":0.014},"motion":{"speed":1,"seed":1,"loop":false,"hold":2,"whenVisible":false,"lines":[{"start":0,"spread":0.9,"order":"leftToRight"},{"start":0.2,"spread":0.9,"order":"leftToRight"}],"face":{"entrance":"draw","ease":"out","strength":0.5,"duration":0.7,"delay":0},"deco":{"entrance":"draw","anchor":"faceStart","ease":"out","strength":0.5,"duration":0.65,"delay":0.3},"outline":{"entrance":"draw","anchor":"letterStart","ease":"linear","strength":0.5,"duration":0.3,"delay":0},"dropShadow":{"entrance":"finish","anchor":"letterStart","ease":"linear","strength":0.5,"duration":0.3,"delay":0},"extrude":{"anchor":"faceEnd","ease":"back","strength":0.85,"duration":1.75,"delay":-0.45}}};
 function applyStylePreset(name) {
+  if (name === 'Lollipop') { restore(structuredClone(LOLLIPOP_PRESET)); return; }
+  if (name === 'Pow') { restore(structuredClone(POW_PRESET)); return; }
   if (name === 'Bugle') { restore(structuredClone(BUGLE_PRESET)); return; }
   if (name === 'MARQUEE') { restore({ ...structuredClone(MARQUEE_PRESET), canvasColor }); return; }
   if (name === 'Jellybeans') {
@@ -1893,6 +1911,7 @@ function applyStylePreset(name) {
     Object.assign(FACE, { inset: FACE_DEFAULTS.inset, starR: .026, starStep: .085, starPoints: 5 });
   }
   design.lines.forEach((ln, i) => {
+    delete ln.letterPattern;
     ln.styles = i ? ['flat'] : riso ? ['risograph'] : candy ? ['stars'] : [...CYCLE];
     ln.letters.forEach(v => { if (v) { v.style = ''; delete v.colours; delete v.outline; delete v.outlineStyle; delete v.outlineDash; delete v.outlineGap; } });
   });
@@ -1906,8 +1925,8 @@ function applyStylePreset(name) {
 // are two or more), + to add one
 function fillStyles() {
   const p = panel('style');
-  const presets = box('Style presets', el('div', { className: 'buttons' }, ...['Handletter', 'RISO', 'MARQUEE', 'Candy pop', 'Bugle', 'Jellybeans'].map(name => button(name, () => applyStylePreset(name), { title: `Includes ${STYLE_ANIMATIONS[name]} animation${['Jellybeans', 'MARQUEE', 'Bugle'].includes(name) ? '; loads the complete saved example' : ''}` }))),
-    el('p', { className: 'note', textContent: 'Each style includes an animation and replaces face/color/outline overrides. Most keep your words, fonts and placement; Jellybeans, MARQUEE and Bugle load complete saved examples. Candy pop also sets depth and finish. Undo brings your design back.' }));
+  const presets = box('Style presets', el('div', { className: 'buttons' }, ...['Handletter', 'RISO', 'MARQUEE', 'Candy pop', 'Bugle', 'Jellybeans', 'Pow', 'Lollipop'].map(name => button(name, () => applyStylePreset(name), { title: `Includes ${STYLE_ANIMATIONS[name]} animation${['Jellybeans', 'MARQUEE', 'Bugle', 'Pow', 'Lollipop'].includes(name) ? '; loads the complete saved example' : ''}` }))),
+    el('p', { className: 'note', textContent: 'Each style includes an animation and replaces face/color/outline overrides. Most keep your words, fonts and placement; Jellybeans, MARQUEE, Bugle, Pow and Lollipop load complete saved examples. Lollipop repeats its six-letter arrangement as you add letters. Candy pop also sets depth and finish. Undo brings your design back.' }));
   presets.classList.add('style-presets');
   p.replaceChildren(presets);
   design.lines.forEach((ln, li) => {
@@ -2416,7 +2435,7 @@ function normaliseAnimation(m,count) {
  for(const key of ANIMATION_PARTS)m[key]=clean(m[key],key);
  m.scope=m.scope==='lines'?'lines':'shared';m.reverse=m.reverse===true;m.preset=typeof m.preset==='string'?m.preset:'Custom';
  const old=Array.isArray(m.lines)?m.lines:[];m.lines=Array.from({length:count},(_,i)=>{const l={...LETTERING_DEFAULTS.lines[0],...old[i]};l.start=clamp(l.start,0,30,0);l.spread=clamp(l.spread,0,10,.75);if(!ORDERS.some(([v])=>v===l.order))l.order='random';return l;});
- const saved=Array.isArray(m.lineParts)?m.lineParts:[];m.lineParts=Array.from({length:count},(_,i)=>{const value=saved[i]&&typeof saved[i]==='object'?saved[i]:Object.fromEntries(ANIMATION_PARTS.map(k=>[k,structuredClone(m[k])]));return {preset:typeof value.preset==='string'?value.preset:m.preset,...Object.fromEntries(ANIMATION_PARTS.map(k=>[k,clean(value[k]||m[k],k)]))};});
+ const saved=Array.isArray(m.lineParts)?m.lineParts:[];m.lineParts=Array.from({length:count},(_,i)=>{const value=saved[i]&&typeof saved[i]==='object'?saved[i]:Object.fromEntries(ANIMATION_PARTS.map(k=>[k,structuredClone(m[k])]));return {reverse:typeof value.reverse==='boolean'?value.reverse:m.reverse,preset:typeof value.preset==='string'?value.preset:m.preset,...Object.fromEntries(ANIMATION_PARTS.map(k=>[k,clean(value[k]||m[k],k)]))};});
  m.speed=clamp(m.speed,.1,4,1);m.hold=clamp(m.hold,0,10,2);return m;
 }
 let editorLine=0,editorPart='extrude',editorSolo=false;
@@ -2495,16 +2514,16 @@ function fillControls() {
  const tracks=el('div',{className:'ae-tracks'},el('div',{className:'ae-ruler'},el('span',{textContent:'Line / animation'}),el('span',{textContent:'Starts at'}),el('div',{id:'ae-ticks'})));
  design.lines.forEach((l,i)=>{
   const name=motion.scope==='lines'?motion.lineParts[i].preset:motion.preset;
-  const pick=button(l.text.trim()||`Line ${i+1}`,()=>selectEditorLine(i),{className:'ae-track-name'});pick.append(el('small',{textContent:`Line ${i+1} · ${name}`}));pick.setAttribute('aria-pressed',editorLine===i);
+  const pick=button(l.text.trim()||`Line ${i+1}`,()=>selectEditorLine(i),{className:'ae-track-name'});pick.append(el('small',{textContent:`Line ${i+1} · ${name}${(motion.scope==='lines'?motion.lineParts[i].reverse:motion.reverse)?' · OUT':''}`}));pick.setAttribute('aria-pressed',editorLine===i);
   const start=editorNumber(`Line ${i+1} start`,motion.lines[i].start,0,30,.1,v=>{motion.lines[i].start=v;editorChanged(false);},'s');start.firstElementChild.remove();
   const bar=el('span',{className:'ae-track-bar',textContent:name});bar.setAttribute('data-track',i);
   tracks.append(el('div',{className:'ae-track'+(editorLine===i?' selected':'')},pick,start,el('div',{className:'ae-rail'},bar)));
  });
  const playButton=button('Play',()=>toggleEditorPlayback(),{id:'ae-play'}),replay=button('↺ Replay',()=>play(),{className:'ae-secondary'});
- const reverse=button('Reverse',()=>{motion.reverse=!motion.reverse;editorChanged(false);},{id:'ae-reverse',className:'ae-reverse'});reverse.prepend(el('span',{className:'ae-switch'}));reverse.setAttribute('aria-pressed',motion.reverse);
+ const reverse=button('Reverse',()=>{editorScope().reverse=!editorScope().reverse;editorChanged(false);},{id:'ae-reverse',className:'ae-reverse'});reverse.prepend(el('span',{className:'ae-switch'}));reverse.setAttribute('aria-pressed',editorScope().reverse);
  const scrub=el('input',{id:'ae-scrub',type:'range',min:0,max:1,step:.001,value:0});scrub.setAttribute('aria-label','Animation playhead');scrub.addEventListener('input',()=>{if(!timeline)return;timeline.cancelAutoplay?.();timeline.pause().time(+scrub.value,false);measuring++;performanceState('Paused','unavailable');syncEditorPlayer();});
  const solo=el('input',{type:'checkbox',checked:editorSolo});solo.addEventListener('change',()=>{editorSolo=solo.checked;editorSoloPreview();});
- const transport=el('div',{className:'ae-transport'},el('div',{className:'ae-player'},el('div',{className:'ae-player-actions'},playButton,replay,reverse),el('div',{className:'ae-scrub-wrap'},scrub,el('output',{id:'ae-time',textContent:'0.00 / 0.00s'}))),el('div',{className:'ae-player-note'},el('span',{textContent:motion.reverse?'Reverse · lettering animates out':'Forward · lettering animates in'}),el('label',{},solo,'Preview selected line only')));
+ const transport=el('div',{className:'ae-transport'},el('div',{className:'ae-player'},el('div',{className:'ae-player-actions'},playButton,replay,reverse),el('div',{className:'ae-scrub-wrap'},scrub,el('output',{id:'ae-time',textContent:'0.00 / 0.00s'}))),el('div',{className:'ae-player-note'},el('span',{textContent:(motion.scope==='lines'?`Line ${editorLine+1} · `:'')+(editorScope().reverse?'Reverse · lettering animates out':'Forward · lettering animates in')}),el('label',{},solo,'Preview selected line only')));
  const scope=editorScope(),preset=menu([...(!EDITOR_PRESETS.includes(scope.preset)?[['Custom','Custom']]:[]),...EDITOR_PRESETS.map(n=>[n,n])],scope.preset);preset.setAttribute('aria-label','Animation preset');preset.addEventListener('change',()=>{if(preset.value!=='Custom')applyAnimationPreset(preset.value);});
  const head=el('div',{className:'ae-edit-head'},el('strong',{textContent:motion.scope==='lines'?`Editing line ${editorLine+1} · ${design.lines[editorLine].text}`:'Editing all lines'}),el('label',{},'Preset',preset));
  const parts=el('div',{className:'ae-parts',role:'tablist'});parts.setAttribute('aria-label','Animation part');for(const key of ANIMATION_PARTS){const b=button(editorNames[key],()=>{editorPart=key;fillControls();},{role:'tab'});b.setAttribute('aria-selected',editorPart===key);b.dataset.editorPart=key;b.tabIndex=editorPart===key?0:-1;parts.append(b);}
@@ -2541,7 +2560,7 @@ function syncEditorPlayer(){
 }
 function updateEditorTracks(){
  if(!timeline)return;const duration=timeline.duration()||1,contentDuration=timeline.contentDuration||duration,ticks=document.getElementById('ae-ticks');if(ticks){ticks.replaceChildren(...Array.from({length:6},(_,i)=>el('span',{textContent:(duration*i/5).toFixed(1)+'s'})));}
- document.querySelectorAll('[data-track]').forEach(bar=>{const i=+bar.dataset.track,r=timeline.lineRanges?.[i]||{start:motion.lines[i]?.start||0,end:duration};const start=motion.reverse?Math.max(0,contentDuration-r.end):r.start,end=motion.reverse?contentDuration-r.start:r.end;bar.style.left=(Math.min(duration,start)/duration*100)+'%';bar.style.width=Math.max(1,Math.min(duration-start,end-start)/duration*100)+'%';});
+ document.querySelectorAll('[data-track]').forEach(bar=>{const i=+bar.dataset.track,r=timeline.lineRanges?.[i]||{start:motion.lines[i]?.start||0,end:duration};const reversed=motion.scope!=='lines'&&motion.reverse;const start=reversed?Math.max(0,contentDuration-r.end):r.start,end=reversed?contentDuration-r.start:r.end;bar.style.left=(Math.min(duration,start)/duration*100)+'%';bar.style.width=Math.max(1,Math.min(duration-start,end-start)/duration*100)+'%';});
  syncEditorPlayer();
 }
 function toggleEditorPlayback(){
