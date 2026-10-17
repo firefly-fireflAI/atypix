@@ -149,10 +149,12 @@
   .tool-group button:hover { background: #4f6683; }
   .tool-group button:disabled { opacity: .4; cursor: default; }
   .tool-group button:focus-visible { outline: 2px solid #261a57; outline-offset: 2px; }
-  #canvas-color { width:28px; height:27px; padding:2px; border:1px solid #889ba9; border-radius:6px; background:transparent; cursor:pointer; flex:none; }
-  #preview-tools #canvas-eyedropper { display:grid; place-items:center; width:28px; height:27px; padding:3px; background:transparent; border:0; border-radius:6px; flex:none; color:#000; }
+  #canvas-picker { display:flex; align-items:center; gap:3px; padding:2px 3px; border:1px solid #889ba9; border-radius:8px; }
+  #canvas-color { width:21px; height:21px; padding:0; border:0; border-radius:0; background:transparent; cursor:pointer; flex:none; }
+  #canvas-color::-webkit-color-swatch-wrapper { padding:0; }
+  #preview-tools #canvas-eyedropper { display:grid; place-items:center; width:24px; height:21px; padding:2px; background:transparent; border:0; border-radius:6px; flex:none; color:#000; }
   #preview-tools #canvas-eyedropper:hover { background:rgba(62,82,105,.12); }
-  #canvas-eyedropper svg { width:22px; height:22px; }
+  #canvas-eyedropper svg { width:19px; height:19px; }
   #canvas-color:focus-visible { outline:2px solid #261a57; outline-offset:2px; }
   #preview-tools { position: absolute; right: 16px; top: 10px; }
   #preview-tools [aria-pressed=false] { background: transparent; color: #3e5269; box-shadow: inset 0 0 0 1px #889ba9; }
@@ -251,10 +253,12 @@
   <div id="preview-tools" class="tool-group" role="group" aria-label="Preview mode">
     <button id="preview-still" type="button" aria-pressed="true">Still</button>
     <button id="preview-animate" type="button" aria-pressed="false">Animate</button>
+    <div id="canvas-picker" role="group" aria-label="Canvas color tools">
     <input id="canvas-color" type="color" value="#bccfd6" aria-label="Canvas color" title="Canvas color · preview only; artwork exports stay transparent">
     <button id="canvas-eyedropper" type="button" aria-label="Pick canvas color" title="Pick canvas color">
       <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 18 12 9 15 12 6 21H3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="m10 6 8 8" stroke="currentColor" stroke-width="3"/><path d="m13 8 5-5q1-1 2 0l1 1q1 1 0 2l-5 5Z" fill="currentColor"/></svg>
     </button>
+    </div>
   </div>
 </header>
 <main id="stage">
@@ -1007,8 +1011,15 @@ function wallFills(id, pal = PAL) {
   const thin = strokes(7), thick = strokes(4);
   const fills = [], defs = [];
   for (let k = 0; k < SHADES; k++) {
-    const t = k / (SHADES - 1), color = mix(pal.side, pal.under, t);
-    if (t < 0.5) { fills.push({ fill: color, color }); continue; }
+    const t = k / (SHADES - 1), color = HATCH.style === 'None' ? pal.side : mix(pal.side, pal.under, t);
+    if (t < 0.5 || ['None', 'Smooth'].includes(HATCH.style)) { fills.push({ fill: color, color }); continue; }
+    if (HATCH.style === 'Dots') {
+      const step = r1(FACE.risoStep * 300), radius = r1(FACE.risoR * 300);
+      defs.push(`<pattern id="${id}-h${k}" patternUnits="userSpaceOnUse" width="${step}" height="${step}" patternTransform="rotate(45)">`
+        + `<rect width="${step}" height="${step}" fill="${color}"/>`
+        + `<circle cx="${r1(step / 2)}" cy="${r1(step / 2)}" r="${radius}" fill="${pal.side}" opacity="${FACE.risoOpacity}"/></pattern>`);
+      fills.push({ fill: `url(#${id}-h${k})`, color }); continue;
+    }
     defs.push(`<pattern id="${id}-h${k}" patternUnits="userSpaceOnUse" width="${tile}" height="${tile}">`
       + `<rect width="${tile}" height="${tile}" fill="${color}"/>`
       + `<g fill="none" stroke="${pal.side}" stroke-linecap="round" opacity="${Math.min(1, r1(t * 0.9 * HATCH.amount))}">`
@@ -1158,7 +1169,7 @@ function letterSvg(L, id, n, fills, masks) {
   const face = pal.face2 === pal.face ? pal.face : masks ? `url(#${id}-g${n})` : `url(#${shared(fills, 'grad')})`;
   if (it.style === 'lineart') return `<g class="letter flat"><g class="face"></g>${ring}</g>`;
   if (it.flat) return `<g class="letter flat">${faceOf(face)}${ring}</g>`;
-  let svg = `<g class="letter"><g class="block"><path fill="${pal.under}" transform="translate(${r1(EX[0])} ${r1(EX[1])})" d="${d}"/>`;
+  let svg = `<g class="letter"><g class="block"><path fill="${HATCH.style === 'None' ? pal.side : pal.under}" transform="translate(${r1(EX[0])} ${r1(EX[1])})" d="${d}"/>`;
   for (let i = 0; i < walls.length;) {
     let j = i, run = '';
     while (j < walls.length && walls[j].k === walls[i].k) run += walls[j++].d();
@@ -1421,7 +1432,7 @@ async function draw() {
 // glyph is worked out again); letting go of a slider, or picking a colour, also replays the
 // animation. Rows: label, hover text, target, key, min, max, step, unit
 const LOOK_DEFAULTS = { length: 1, direction: Math.round(Math.atan2(EX_BASE[1], EX_BASE[0]) * 180 / Math.PI), shadow: SHADOW,
-  texture: TEXTURE, grainPreset: 'Speck', wobbleFrequency: 0.05, wobbleJitter: 0, hatching: HATCH.amount, hatchAngle: HATCH.angle, wobble: WOBBLE,
+  texture: TEXTURE, grainPreset: 'Speck', wobbleFrequency: 0.05, wobbleJitter: 0, shadowStyle: 'Hatching', hatching: HATCH.amount, hatchAngle: HATCH.angle, wobble: WOBBLE,
   dropDistance: 0, dropDirection: 45, dropSoftness: 6, dropOpacity: 1, outline: OUTLINE };
 const look = { ...LOOK_DEFAULTS };
 const COLOURS = [
@@ -1490,7 +1501,7 @@ function rebuild() {
   EX = [len * Math.cos(a), len * Math.sin(a)];
   SHADOW = look.shadow;
   TEXTURE = look.texture;
-  HATCH = { amount: look.hatching, angle: look.hatchAngle };
+  HATCH = { amount: look.hatching, angle: look.hatchAngle, style: look.shadowStyle };
   WOBBLE = look.wobble;
   const da = look.dropDirection * Math.PI / 180;
   DROP = look.dropDistance > 0 ? { dx: look.dropDistance * Math.cos(da), dy: look.dropDistance * Math.sin(da), soft: look.dropSoftness, opacity: look.dropOpacity } : null;
@@ -1741,12 +1752,13 @@ function fillStyles() {
 let detailKey = null;
 function fillDetail(force = false) {
   const used = new Set(parts.map(L => L.it.style));
+  if (look.shadowStyle === 'Dots') used.add('risograph');
   const groups = DETAIL.filter(([, styles]) => styles.some(s => used.has(s)));
   const key = groups.map(g => g[0]).join();
   if (key === detailKey && !force) return;
   detailKey = key;
   panel('detail').replaceChildren(...(groups.length ? groups.map(([title, , rows]) => box(title, ...rowsOf(rows)))
-    : [el('p', { className: 'note', textContent: 'No letter has a style with measures (the none style has no decoration).' })]));
+    : [el('p', { className: 'note', textContent: 'No letter has a style with measures (flat and line art have no decoration).' })]));
 }
 // Letter: the chosen letter's own size, turn, move and face style (a turn about its middle; its
 // block is still made after, so it runs the design's way)
@@ -1820,7 +1832,16 @@ function fillColours() {
     }, () => { palette.value = paletteOf(); fillLetter(); settled(); })));
 
 }
-const fillSolid = () => panel('3d').replaceChildren(...sets(SOLID));
+const SHADOW_STYLES = ['None', 'Hatching', 'Smooth', 'Dots'];
+function fillSolid() {
+  const groups = SOLID.map(([title, rows]) => [title, rows.filter(row => look.shadowStyle === 'Hatching' || !['hatching', 'hatchAngle'].includes(row[3]))]);
+  const content = sets(groups), shadow = content[1];
+  const style = menu(SHADOW_STYLES.map(s => [s, s]), look.shadowStyle);
+  style.addEventListener('change', () => { look.shadowStyle = style.value; fillSolid(); rebuild(); settled(); });
+  shadow.insertBefore(field('style', 'the shading on the extrusion; None keeps the extrusion color without shading', style), shadow.children[1]);
+  shadow.append(el('p', { className: 'note', textContent: 'None removes extrusion shading. Dots uses Riso-style dots in the extrusion color over the shadow color. Adjust the Riso dot size, spacing and ink in Detail.' }));
+  panel('3d').replaceChildren(...content);
+}
 const GRAIN_PRESETS = {
   'None': { frequency: 1.1, octaves: 1, seed: 3 },
   'Speck': { frequency: 1.1, octaves: 1, seed: 3 },
@@ -2240,6 +2261,7 @@ function restore(p) {
   design.colourMode = ['rainbow', 'risograph'].includes(p.design.colourMode) ? p.design.colourMode : 'solid';
   design.spacing = Number.isFinite(p.design.spacing) ? p.design.spacing : 26;
   Object.assign(look, LOOK_DEFAULTS, p.look);
+  if (!SHADOW_STYLES.includes(look.shadowStyle)) look.shadowStyle = 'Hatching';
   if (look.grainPreset === 'Original') look.grainPreset = 'Speck';
   if (!GRAIN_PRESETS[look.grainPreset]) look.grainPreset = 'Speck';
   for (const [key, min, max] of [['wobbleFrequency', 0.008, 0.18], ['wobbleJitter', 0, 1]])
