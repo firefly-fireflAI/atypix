@@ -581,8 +581,8 @@ for (const palette of Object.values(PALETTES)) palette.outline2 ??= palette.outl
 // stroke; stripes across the face; a rope of slanted dashes down the middle; an open outline;
 // plain (the block and the face, with no decoration); or flat (the face alone in the extrusion
 // colour, with no block)
-const STYLES = ['inline', 'light', 'dots', 'risograph', 'stripes', 'stars', 'teardrops', 'rope', 'outline', 'plain', 'flat'];
-const styleLabel = style => ({ light: 'fill', flat: 'none', outline: 'Glass' }[style] || style);
+const STYLES = ['inline', 'light', 'dots', 'risograph', 'stripes', 'stars', 'teardrops', 'rope', 'outline', 'plain', 'flat', 'lineart'];
+const styleLabel = style => ({ light: 'fill', flat: 'flat', lineart: 'line art', outline: 'Glass' }[style] || style);
 const CYCLE = ['inline', 'light', 'dots'];   // the cycle a new line's letters take
 const SIZE = 300;                          // the reference font size, in SVG units
 const EX_BASE = [0.085 * SIZE, 0.072 * SIZE];   // the block's reach, right and down
@@ -644,7 +644,7 @@ function line(font, ln, li) {
     const v = { ...NO_CHANGE, ...ln.letters[i] }, size = ln.size * v.scale;
     const glyph = font.charToGlyph(ch), blank = !glyph.path?.commands?.length;
     const style = v.style || ln.styles[k % ln.styles.length] || CYCLE[0];
-    const item = { font, ch, x: at, y: 0, size: ln.size, ...v, line: li, index: i, blank, flat: style === 'flat', style };
+    const item = { font, ch, x: at, y: 0, size: ln.size, ...v, line: li, index: i, blank, flat: style === 'flat' || style === 'lineart', style };
     if (!blank) k++;   // (a space takes no turn in the cycle)
     const next = text[i + 1] ? font.charToGlyph(text[i + 1]) : null;
     at += advance(font, ch, size) + ln.track * size
@@ -1142,6 +1142,7 @@ function letterSvg(L, id, n, fills, masks) {
   // the line round the face, if any (in the finished letter only: it comes in with the finish)
   const outlineColor = pal.outline2 === pal.outline ? pal.outline : `url(#${shared(fills, 'outlinegrad')})`;
   const ring = outline && !masks ? `<path class="outline-ring" fill="none" stroke="${outlineColor}" stroke-width="${r1(outline)}" stroke-linejoin="round" d="${d}"/>` : '';
+  if (it.style === 'lineart') return `<g class="letter flat"><g class="face"></g>${ring}</g>`;
   if (it.flat) return `<g class="letter flat">${faceOf(pal.side)}${ring}</g>`;
   let svg = `<g class="letter"><g class="block"><path fill="${pal.under}" transform="translate(${r1(EX[0])} ${r1(EX[1])})" d="${d}"/>`;
   for (let i = 0; i < walls.length;) {
@@ -1264,7 +1265,7 @@ function lettering(parts, id) {
   if (customDrops) [...shadowGroups].forEach(([color, letters], i) => {
     const key = `${id}-shadow${i}`;
     shadowDefs += drop(key, box, { drop: color });
-    const silhouettes = letters.map(L => `<g fill="white">${L.it.flat ? '' : `<path d="${L.d}" transform="translate(${r1(EX[0])} ${r1(EX[1])})"/>${wallsOf(L).map(w => `<path d="${w.d()}"/>`).join('')}`}<path d="${L.d}"${letterOutline(L.it) ? ` stroke="white" stroke-width="${r1(letterOutline(L.it))}" stroke-linejoin="round"` : ''}/></g>`).join('');
+    const silhouettes = letters.map(L => `<g fill="${L.it.style === 'lineart' ? 'none' : 'white'}">${L.it.flat ? '' : `<path d="${L.d}" transform="translate(${r1(EX[0])} ${r1(EX[1])})"/>${wallsOf(L).map(w => `<path d="${w.d()}"/>`).join('')}`}<path d="${L.d}"${letterOutline(L.it) ? ` stroke="white" stroke-width="${r1(letterOutline(L.it))}" stroke-linejoin="round"` : ''}/></g>`).join('');
     shadows += `<g filter="url(#${key}-drop)"><g filter="url(#${id}-finish)">${silhouettes}</g></g>`;
   });
   const art = DROP && !customDrops ? `<use href="#${id}-art" filter="url(#${id}-drop)"/><g id="${id}-art" ` : '<g ';
@@ -1442,7 +1443,7 @@ const FINISH = [
 
 // each style's measures, shown only while some letter has one of the styles that use them
 const DETAIL = [
-  ['Decoration spacing', STYLES.filter(s => s !== 'flat' && s !== 'plain'), [
+  ['Decoration spacing', STYLES.filter(s => s !== 'flat' && s !== 'lineart' && s !== 'plain'), [
     ['edge inset', 'distance between the decoration and the letter’s edge, as a share of its size', FACE, 'inset', 0, 0.1, 0.001, '']]],
   ['Inner stroke', ['inline', 'outline'], [
     ['thickness', 'thickness of the inner line (also used by Glass)', FACE, 'line', 0.002, 0.06, 0.001, '']]],
@@ -1672,7 +1673,7 @@ function fillStyles() {
       const changed = () => { rebuild(); fillLetter(); settled(); };
       styles.replaceChildren(...ln.styles.map((s, k) => {
         const step = menu(STYLES.map(v => [v, styleLabel(v)]), s);
-        step.addEventListener('change', () => { ln.styles[k] = step.value; changed(); });
+        step.addEventListener('change', () => { ln.styles[k] = step.value; if (step.value === 'lineart' && !look.outline) { look.outline = 2; fillStyles(); } changed(); });
         const out = button('×', () => { ln.styles.splice(k, 1); fillCycle(); changed(); },
           { title: 'take this step out of the cycle', disabled: ln.styles.length < 2 });
         return el('span', {}, step, out);
@@ -1682,7 +1683,7 @@ function fillStyles() {
     };
     fillCycle();
     p.append(box(`Line ${li + 1}: ${ln.text.trim() || '(no words)'}`,
-      el('div', { className: 'styles', title: 'the face styles its letters take in turn (a letter given its own face skips it; none: no block)' },
+      el('div', { className: 'styles', title: 'the face styles its letters take in turn (a letter given its own face skips it; flat: no block; line art: outlines only)' },
         el('span', { textContent: 'styles' }), styles)));
   });
   p.append(box('Outline',
@@ -1717,13 +1718,13 @@ function fillLetter() {
   const v = ln.letters[chosen[1]] = { ...NO_CHANGE, ...ln.letters[chosen[1]] };
   const cycle = parts.find(L => L.it.line === chosen[0] && L.it.index === chosen[1]);
   const style = menu([['', `the line’s${cycle && !v.style ? ` (${styleLabel(cycle.it.style)})` : ''}`], ...STYLES.map(s => [s, styleLabel(s)])], v.style);
-  style.addEventListener('change', () => { v.style = style.value; rebuild(); settled(); });
+  style.addEventListener('change', () => { v.style = style.value; if (style.value === 'lineart' && !letterOutline(v)) v.outline = 2; rebuild(); fillLetter(); settled(); });
   set.append(
     field('size', 'a scale on the line’s size', ...slider(v, 'scale', 0.2, 3, 0.01, '×')),
     field('turn', 'about the letter’s middle, in degrees', ...slider(v, 'rot', -180, 180, 0.5, '°')),
     field('left/right', 'in SVG units', ...slider(v, 'dx', -300, 300, 1, '')),
     field('up/down', 'in SVG units', ...slider(v, 'dy', -300, 300, 1, '')),
-    field('face', 'its face style (none: no block)', style),
+    field('face', 'its face style (flat: no block; line art: outlines only)', style),
     el('div', { className: 'buttons' }, button('Reset letter', () => { delete v.outline; delete v.colours; Object.assign(v, NO_CHANGE); fillLetter(); rebuild(); settled(); })));
   const inheritOutline = el('input', { type: 'checkbox', checked: !Number.isFinite(v.outline) });
   const outlineWidth = el('input', { type: 'range', min: 0, max: 12, step: 0.5, value: letterOutline(v) });
