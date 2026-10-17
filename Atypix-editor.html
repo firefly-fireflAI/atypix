@@ -2888,7 +2888,7 @@ function fillControls() {
  const timingTarget=motion.lines[editorLine],timing=el('div',{className:'ae-more-grid'},editorRange('spread',timingTarget,'spread',0,10,.05,'s'),editorMenu('order',ORDERS,timingTarget.order,v=>{timingTarget.order=v;editorChanged(false);}),button('Randomize',()=>{motion.seed=1+Math.floor(Math.random()*9999);editorChanged(false);}));
  const timingBox=editorSection(`Letter timing · line ${editorLine+1}`,'timing',timing,el('p',{className:'note',textContent:'Spread is the time between the first and last letter starting. Individual-letter offsets from Letter still apply.'}));
  const playback=el('div',{className:'ae-more-grid'},editorRange('speed',motion,'speed',.1,4,.05,'×'),editorMenu('play',[[false,'Once'],[true,'Loop']],motion.loop,v=>{motion.loop=v==='true';editorChanged(false);}),editorRange('hold',motion,'hold',0,10,.05,'s'),editorMenu('start',[[false,'On load'],[true,'When in view']],motion.whenVisible,v=>{motion.whenVisible=v==='true';editorChanged(false);}));
- p.append(presetBox,top,tracks,transport,editCard,el('div',{className:'ae-global-grid'},timingBox,editorSection('Playback settings · applies to all lines','playback',playback)));
+ p.append(presetBox,top,tracks,transport,el('div',{className:'ae-global-grid'},timingBox,editorSection('Playback settings · applies to all lines','playback',playback)),editCard);
  card.scrollTop=scroll;syncEditorPlayer();refreshCode();
 }
 let lastEditorPlayerUpdate=0;
