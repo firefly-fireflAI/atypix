@@ -1601,9 +1601,13 @@ const drop = (id, { x0, y0, w, h }, pal = PAL, settings = DROP) => settings ? `<
 // the finish: pale grain over the letters and nowhere else, then everything wobbled by a pixel or two
 const finish = (id, texture = TEXTURE, wobble = WOBBLE) => {
   const grain = look.grainPreset !== 'None' && texture > 0;
+  const preset = GRAIN_PRESETS[look.grainPreset] || GRAIN_PRESETS.Speck;
+  const color = hex(look.grainColor).map(v => v / 255);
+  const grunge = look.grainPreset === 'Grunge';
   return `<filter id="${id}-finish" x="-5%" y="-5%" width="110%" height="110%">`
-  + (grain ? `<feTurbulence type="fractalNoise" baseFrequency="${(GRAIN_PRESETS[look.grainPreset] || GRAIN_PRESETS.Speck).frequency}" numOctaves="${(GRAIN_PRESETS[look.grainPreset] || GRAIN_PRESETS.Speck).octaves}" seed="${(GRAIN_PRESETS[look.grainPreset] || GRAIN_PRESETS.Speck).seed}" result="noise"/>`
-  + `<feColorMatrix in="noise" values="0 0 0 0 1  0 0 0 0 .98  0 0 0 0 .92  ${r1(26 * texture) / 10} 0 0 0 ${-r1(16.2 * texture) / 10}" result="specks"/>`
+  + (grain ? `<feTurbulence type="fractalNoise" baseFrequency="${preset.frequency}" numOctaves="${preset.octaves}" seed="${preset.seed}" result="noise"/>`
+  + (grunge ? `<feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="23" result="fineNoise"/><feComposite in="noise" in2="fineNoise" operator="arithmetic" k2=".8" k3=".2" result="weatheredNoise"/>` : '')
+  + `<feColorMatrix in="${grunge ? 'weatheredNoise' : 'noise'}" values="0 0 0 0 ${color[0]}  0 0 0 0 ${color[1]}  0 0 0 0 ${color[2]}  ${grunge ? 6 * texture : r1(26 * texture) / 10} 0 0 0 ${grunge ? -3.3 * texture : -r1(16.2 * texture) / 10}" result="specks"/>`
   + `<feComposite in="specks" in2="SourceAlpha" operator="in" result="grain"/>`
   + `<feMerge result="grained"><feMergeNode in="SourceGraphic"/><feMergeNode in="grain"/></feMerge>` : '')
   + `<feTurbulence type="fractalNoise" baseFrequency="${look.wobbleFrequency}" numOctaves="2" seed="4" result="edgeBase"/>`
@@ -1768,7 +1772,7 @@ async function draw() {
 // glyph is worked out again); letting go of a slider, or picking a colour, also replays the
 // animation. Rows: label, hover text, target, key, min, max, step, unit
 const LOOK_DEFAULTS = { length: 1, direction: Math.round(Math.atan2(EX_BASE[1], EX_BASE[0]) * 180 / Math.PI), shadow: SHADOW,
-  texture: TEXTURE, grainPreset: 'Speck', wobbleFrequency: 0.05, wobbleJitter: 0, shadowStyle: 'Hatching', shadowDotDensity: 3, hatching: HATCH.amount, hatchAngle: HATCH.angle, wobble: WOBBLE,
+  texture: TEXTURE, grainPreset: 'Speck', grainColor: '#fffaeb', wobbleFrequency: 0.05, wobbleJitter: 0, shadowStyle: 'Hatching', shadowDotDensity: 3, hatching: HATCH.amount, hatchAngle: HATCH.angle, wobble: WOBBLE,
   dropDistance: 0, dropDirection: 45, dropSoftness: 6, dropOpacity: 1, outline: OUTLINE, outlineStyle: 'Solid', outlineDash: 8, outlineGap: 6 };
 const look = { ...LOOK_DEFAULTS };
 const COLOURS = [
@@ -2305,7 +2309,7 @@ function fillLetter() {
     letterOverrideGroup(v,'Letter extrusion',[['extrusionDepth','depth',look.length,0,3,.05,'×'],['extrusionDirection','direction',look.direction,0,359,1,'°']],'Flat and line art stay flat. Other styles can use their own depth and direction.'),
     letterOverrideGroup(v,'Letter animation',[['animationOffset','offset',0,-5,10,.05,'s']],'Negative starts earlier, positive starts later. This shifts all parts of this letter together; playback starts at 0.'),
     letterOverrideGroup(v,'Letter drop shadow',[['dropDistance','distance',look.dropDistance,0,80,1,''],['dropOpacity','opacity',look.dropOpacity,0,1,.05,'']],'Direction and softness follow Finish. Distance 0 removes this letter’s drop shadow.'),
-    letterOverrideGroup(v,'Letter finish',[['texture','grain',look.texture,0,2,.05,'×'],['wobble','edge amount',look.wobble,0,12,.5,'']],'Grain type and edge frequency/jitter follow Finish. Grain type None disables grain for every letter.'));
+    letterOverrideGroup(v,'Letter finish',[['texture','grain',look.texture,0,2,.05,'×'],['wobble','edge amount',look.wobble,0,12,.5,'']],'Grain type/color and edge frequency/jitter follow Finish. Grain type None disables grain for every letter.'));
   const colors = el('fieldset', { className: 'colours' }, el('legend', { textContent: 'Letter colors' }),
     el('p', { className: 'note', textContent: 'Changes apply to this letter only. Unchanged colors follow the Color tab’s palette.' }),
     ...colorEditor(key => letterColours({ ...v, line: chosen[0], index: chosen[1] })[key], (key, color) => {
@@ -2354,14 +2358,21 @@ const GRAIN_PRESETS = {
   'Speck': { frequency: 1.1, octaves: 1, seed: 3 },
   'Fine dust': { frequency: 1.8, octaves: 2, seed: 7 },
   'Coarse paper': { frequency: 0.35, octaves: 3, seed: 11 },
+  'Grunge': { frequency: 0.055, octaves: 3, seed: 17 },
 };
 function fillFinish() {
   const grain = menu(Object.keys(GRAIN_PRESETS).map(n => [n, n]), look.grainPreset);
   const [amount, amountValue] = slider(look, 'texture', 0, 2, 0.05, '×');
-  amount.disabled = look.grainPreset === 'None';
-  grain.addEventListener('change', () => { look.grainPreset = grain.value; amount.disabled = grain.value === 'None'; rebuild(); settled(); });
+  const color = el('input', { type: 'color', value: look.grainColor });
+  grain.setAttribute('aria-label', 'Grain type');
+  color.setAttribute('aria-label', 'Grain color');
+  amount.disabled = color.disabled = look.grainPreset === 'None';
+  color.addEventListener('input', () => { look.grainColor = color.value; rebuild(); });
+  color.addEventListener('change', settled);
+  grain.addEventListener('change', () => { look.grainPreset = grain.value; amount.disabled = color.disabled = grain.value === 'None'; rebuild(); settled(); });
   panel('finish').replaceChildren(box('Texture', field('grain type', 'the pattern of the grain, or None to remove it', grain),
-    field('grain', 'grain strength: 0 none, 1 as designed, 2 twice as strong', amount, amountValue)), ...sets(FINISH));
+    field('grain', 'grain strength: 0 none, 1 as designed, 2 twice as strong', amount, amountValue),
+    field('grain color', 'the color of the specks or grunge patches', color)), ...sets(FINISH));
 }
 // every panel that shows the design's state, written again (after a preset, or a line added or taken away)
 function buildAll() { fillText(); fillFont(); fillStyles(); fillLetter(); fillColours(); fillSolid(); fillFinish(); fillControls(); fillDetail(true); }
@@ -2907,6 +2918,7 @@ function restore(p) {
   look.shadowDotDensity = Number.isFinite(look.shadowDotDensity) ? Math.max(1, Math.min(6, look.shadowDotDensity)) : 3;
   if (look.grainPreset === 'Original') look.grainPreset = 'Speck';
   if (!GRAIN_PRESETS[look.grainPreset]) look.grainPreset = 'Speck';
+  if (!/^#[0-9a-f]{6}$/i.test(look.grainColor)) look.grainColor = LOOK_DEFAULTS.grainColor;
   for (const [key, min, max] of [['wobbleFrequency', 0.008, 0.18], ['wobbleJitter', 0, 1]])
     look[key] = Number.isFinite(look[key]) ? Math.min(max, Math.max(min, look[key])) : LOOK_DEFAULTS[key];
   Object.assign(FACE, FACE_DEFAULTS, p.face);
