@@ -75,6 +75,20 @@
   .panel legend ~ * { clear: both; }
   .panel label { display: grid; grid-template-columns: 76px 1fr 52px; gap: 8px; align-items: center; margin-top: 4px; }
   .panel :is(input[type=range], input[type=text], input[type=number], select) { width: 100%; box-sizing: border-box; min-width: 0; }
+  #tab-font .flow { display:grid; grid-template-columns:minmax(210px, 1fr) minmax(260px, 2fr) minmax(170px, .8fr); gap:12px; align-items:start; }
+  #tab-font .flow > * { margin:0; }
+  #tab-font a { color:var(--ink); }
+  .font-current { font-size:18px; margin:8px 0; overflow-wrap:anywhere; }
+  .panel input.font-search { width:100%; box-sizing:border-box; min-width:0; padding:8px 10px; border:1px solid #889ba9; border-radius:6px; background:#eaf1f4; color:var(--ink); font:inherit; }
+  .font-filters { flex-wrap:wrap; margin-top:8px; }
+  .font-filters button[aria-pressed=true] { background:#25868d; }
+  .font-results { list-style:none; margin:8px 0; padding:0; max-height:180px; overflow:auto; overscroll-behavior:contain; }
+  .font-results li + li { border-top:1px solid rgba(62,82,105,.15); }
+  .panel button.font-result { display:flex; justify-content:space-between; align-items:baseline; gap:10px; width:100%; border-radius:0; padding:9px 10px; text-align:left; background:rgba(255,255,255,.4); color:var(--ink); text-transform:none; font:14px/1.3 system-ui,sans-serif; letter-spacing:0; }
+  .panel button.font-result:hover, .panel button.font-result[aria-pressed=true] { background:#a9dce0; }
+  .font-result-category { font-size:11px; color:var(--muted); text-align:right; }
+  .panel button.text-font-shortcut { text-transform:none; letter-spacing:0; line-height:1.3; text-align:left; }
+  @media(max-width:700px) { #tab-font .flow { grid-template-columns:minmax(0,1fr); } .font-results { max-height:220px; } }
   /* menus and text fields like the buttons: rounded, edged in navy, a navy arrow on the menus */
   .panel :is(select, input[type=text], input[type=number]) { height: 28px; border: 1.5px solid #3e5269; border-radius: 8px;
     background-color: #fff; color: var(--ink); padding: 0 9px; }
@@ -369,6 +383,7 @@
     <button id="toggle-controls" type="button" aria-expanded="true" aria-controls="panels">Hide controls</button>
   </div>
   <div id="panels">
+    <section class="panel" id="tab-text" role="tabpanel"></section>
     <section class="panel" id="tab-font" role="tabpanel"></section>
     <section class="panel" id="tab-style" role="tabpanel"></section>
     <section class="panel" id="tab-detail" role="tabpanel"></section>
@@ -802,7 +817,7 @@ const shift = (items, dx, dy) => items.forEach(it => { it.x += dx; it.y += dy; }
 // its blocks, if any letter has one running down), and each aligned within the widest (a line
 // whose font has not loaded is left out)
 function layout(fonts) {
-  const rows = design.lines.map((ln, li) => fonts[ln.font] && { ln, font: fonts[ln.font], items: line(fonts[ln.font], ln, li) })
+  const rows = design.lines.map((ln, li) => fonts[fontKey(ln)] && { ln, font: fonts[fontKey(ln)], items: line(fonts[fontKey(ln)], ln, li) })
     .filter(r => r?.items.length);
   const full = Math.max(0, ...rows.map(r => width(r.items)));
   let y = 0;
@@ -1597,12 +1612,60 @@ function layered(parts, id) {
 }
 
 // ---------- the page ----------
-const loaded = {}, ready = {};   // each font as it loads, and once it has
-// a font, loaded once; one that fails says so on the page (and is tried again next time)
-const load = name => (loaded[name] ||= opentype.load(FONT_ROOT + FONTS[name]).then(font => (ready[name] = font), e => {
-  delete loaded[name];
-  throw new Error(`${name} did not load from ${FONT_ROOT + FONTS[name]} (${e.message || e})`);
-}));
+// The catalog is metadata only. Outline binaries load after selection, never while browsing.
+let fontCatalog = null, fontCatalogRequest = null;
+const curatedFonts = Object.keys(FONTS);
+const isCuratedFont = name => Object.hasOwn(FONTS, name);
+const staticFontUrl = url => typeof url === 'string' && /^https:\/\/fonts\.gstatic\.com\/s\/[A-Za-z0-9_./-]+\.ttf$/.test(url);
+const fontKey = ln => ln.fontSource ? `${ln.font}\n${ln.fontSource.url}` : ln.font;
+function validFontSource(source, family) {
+  return source?.family === family && staticFontUrl(source.url) && Number.isInteger(source.weight) && source.weight >= 1 && source.weight <= 1000 && ['normal','italic'].includes(source.style);
+}
+async function ensureFontCatalog() {
+  if (fontCatalog) return fontCatalog;
+  if (!fontCatalogRequest) fontCatalogRequest = fetch('assets/google-fonts.json').then(r => {
+    if (!r.ok) throw new Error('The font catalog could not load. Try again.');
+    return r.json();
+  }).then(data => {
+    if (!Array.isArray(data.families)) throw new Error('The font catalog is not valid.');
+    fontCatalog = new Map(data.families.map(f => [f.family, f]));
+    return fontCatalog;
+  }).catch(error => { fontCatalogRequest = null; throw error; });
+  return fontCatalogRequest;
+}
+const loaded = Object.create(null), ready = Object.create(null);
+async function load(ln) {
+  const key = fontKey(ln);
+  if (ready[key]) return ready[key];
+  if (!loaded[key]) loaded[key] = (async () => {
+    let url;
+    if (validFontSource(ln.fontSource, ln.font)) url = ln.fontSource.url;
+    else if (isCuratedFont(ln.font)) url = FONT_ROOT + FONTS[ln.font];
+    else {
+      const family = (await ensureFontCatalog()).get(ln.font);
+      const variant = family?.variants.find(v => v.weight === 400 && v.style === 'normal') || family?.variants[0];
+      if (!variant) throw new Error(`${ln.font}: no compatible outline file is available. Choose another font in Font.`);
+      url = variant.url;
+      // Preserve exact file identity even for older saves that contain only a family name.
+      ln.fontSource = { family: ln.font, ...variant };
+    }
+    const font = await opentype.load(url);
+    if (font.tables.fvar) throw new Error('A static font file is required; variable axes are not supported.');
+    ready[key] = font;
+    ready[fontKey(ln)] = font;
+    return font;
+  })().catch(error => { delete loaded[key]; throw new Error(`${ln.font} could not load. ${error.message || error}`); });
+  return loaded[key];
+}
+function fontGlyphWarnings() {
+  return design.lines.flatMap((ln, li) => {
+    const font = ready[fontKey(ln)];
+    if (!font) return [];
+    const missing = [...new Set([...ln.text].filter(ch => ch.trim() && !font.charToGlyphIndex(ch)))];
+    return missing.length ? [`Line ${li + 1}: ${ln.font} is missing ${missing.slice(0,8).join(' ')}${missing.length > 8 ? '…' : ''}.`] : [];
+  });
+}
+
 const say = text => { document.getElementById('status').textContent = text; };
 const still = document.querySelector('#still .art'), moving = document.querySelector('#moving .art');
 let stillSvg = '', movingSvg = '';
@@ -1622,9 +1685,9 @@ let drawing = 0;
 async function draw() {
   const run = ++drawing;
   document.body.classList.add('loading');
-  const failed = (await Promise.allSettled(design.lines.map(l => load(l.font)))).filter(r => r.status === 'rejected');
+  const failed = (await Promise.allSettled(design.lines.map(l => load(l)))).filter(r => r.status === 'rejected');
   if (run !== drawing) return;           // something else was chosen while these loaded
-  say([...new Set(failed.map(r => r.reason.message))].join('; '));
+  say([...new Set([...failed.map(r => r.reason.message), ...fontGlyphWarnings()])].join('; '));
   document.body.classList.remove('loading');
   rebuild();
   play();
@@ -1785,15 +1848,15 @@ let chosen = null;            // the letter being adjusted: [its line, its place
 
 // Font: each line's words, font, size, letter spacing and alignment; the leading; adding and
 // removing lines
-function fillFont() {
-  const p = panel('font');
+function fillText() {
+  const p = panel('text');
   p.replaceChildren();
   design.lines.forEach((ln, li) => {
     const text = el('input', { type: 'text', value: ln.text, spellcheck: false });
     text.addEventListener('input', () => { ln.text = text.value; rebuild(); });
-    text.addEventListener('change', () => { fillStyles(); fillLetter(); fillControls(); settled(); });
-    const font = menu(Object.keys(FONTS).map(n => [n, n]), ln.font);
-    font.addEventListener('change', () => { ln.font = font.value; draw(); });
+    text.addEventListener('change', () => { fillFont(); fillStyles(); fillLetter(); fillControls(); draw(); settled(); });
+    const font = button(fontLabel(ln) + ' · Change', () => { fontLine = li; showTab('font'); });
+    font.className = 'text-font-shortcut';
     const align = menu(ALIGN, ln.align);
     align.addEventListener('change', () => { ln.align = align.value; rebuild(); settled(); });
     const set = box(`Line ${li + 1}`,
@@ -1803,6 +1866,7 @@ function fillFont() {
       field('spacing', 'letter spacing, as a share of the size', ...slider(ln, 'track', -0.2, 0.6, 0.002, '')),
       field('align', 'where the line sits across the widest one', align));
     if (design.lines.length > 1) set.append(el('div', { className: 'buttons' }, button('Remove line', () => {
+      if (fontLine > li) fontLine--;
       design.lines.splice(li, 1);
       motion.lines.splice(li, 1);
       motion.lineParts?.splice(li,1);
@@ -1816,6 +1880,110 @@ function fillFont() {
     field('leading', 'from a line’s blocks (or baseline) to the tops of the next', ...slider(design, 'spacing', -150, 300, 1, '')),
     el('div', { className: 'buttons' }, button('Add line', () => { design.lines.push(newLine()); buildAll(); draw(); }))));
 }
+let fontLine = 0, fontSearch = '', fontFilter = 'curated', fontResultLimit = 40, fontPickerBusy = false;
+let recentFonts = readFontList('atypix-recent-fonts'), favoriteFonts = readFontList('atypix-favorite-fonts');
+function readFontList(key) {
+  try { const value = JSON.parse(localStorage.getItem(key)); return Array.isArray(value) ? value.filter(v => typeof v === 'string').slice(0,100) : []; } catch { return []; }
+}
+function writeFontList(key, value) { try { localStorage.setItem(key,JSON.stringify(value)); } catch {} }
+function fontLineIndex() { fontLine = Math.max(0,Math.min(fontLine,design.lines.length-1)); return fontLine; }
+function fontLabel(ln) { return ln.font + (ln.fontSource ? ` · ${ln.fontSource.weight}${ln.fontSource.style === 'italic' ? ' Italic' : ''}` : ''); }
+async function chooseCatalogFont(family, variant) {
+  if (fontPickerBusy || !variant) return;
+  const ln = design.lines[fontLineIndex()];
+  const candidate = { ...ln, font: family.family, fontSource: { family: family.family, ...variant } };
+  fontPickerBusy = true; fillFont();
+  try {
+    await load(candidate);
+    if (!design.lines.includes(ln)) return;
+    ln.font = candidate.font; ln.fontSource = candidate.fontSource;
+    recentFonts = [ln.font,...recentFonts.filter(n => n !== ln.font)].slice(0,20);
+    writeFontList('atypix-recent-fonts',recentFonts);
+    await draw(); fillText(); settled();
+  } catch (error) { say(error.message); }
+  finally { fontPickerBusy = false; fillFont(); }
+}
+function fillFont() {
+  const searchFocused = document.activeElement?.classList.contains('font-search');
+  const searchSelection = searchFocused ? document.activeElement.selectionStart : null;
+  const p = panel('font'); p.replaceChildren();
+  const ln = design.lines[fontLineIndex()];
+  const lineSelect = menu(design.lines.map((l,i)=>[String(i),`Line ${i+1}: ${l.text || '(empty)'}`]),String(fontLine));
+  lineSelect.setAttribute('aria-label','Font line'); lineSelect.disabled = fontPickerBusy;
+  lineSelect.addEventListener('change',()=>{fontLine=+lineSelect.value;fillFont();});
+  const current = box('Font for this line',field('line','choose the line to change',lineSelect),
+    el('p',{className:'font-current',textContent:fontLabel(ln)}),
+    el('div',{className:'buttons'},button('Edit text',()=>{showTab('text');})),
+    el('p',{className:'note',textContent:fontPickerBusy ? 'Loading font… Your current font stays until it is ready.' : 'Choose a family below. Only the selected font downloads.'}));
+  const family = fontCatalog?.get(ln.font);
+  if (family?.variants.length) {
+    const active = ln.fontSource || family.variants.find(v=>v.weight===400&&v.style==='normal') || family.variants[0];
+    const styles = [...new Set(family.variants.map(v=>v.style))];
+    const styleSelect = menu(styles.map(s=>[s,s==='normal'?'Normal':'Italic']),active.style);
+    styleSelect.setAttribute('aria-label','Font style');styleSelect.disabled=fontPickerBusy;
+    styleSelect.addEventListener('change',()=>chooseCatalogFont(family,family.variants.find(v=>v.style===styleSelect.value&&v.weight===active.weight)||family.variants.find(v=>v.style===styleSelect.value)));
+    const weightSelect = menu(family.variants.filter(v=>v.style===active.style).map(v=>[String(v.weight),`${({100:'Thin',200:'Extra light',300:'Light',400:'Regular',500:'Medium',600:'Semibold',700:'Bold',800:'Extra bold',900:'Black'})[v.weight] || 'Weight'} ${v.weight}`]),String(active.weight));
+    weightSelect.setAttribute('aria-label','Font weight');weightSelect.disabled=fontPickerBusy;
+    weightSelect.addEventListener('change',()=>chooseCatalogFont(family,family.variants.find(v=>v.style===active.style&&v.weight===+weightSelect.value)));
+    current.append(field('weight','outline weight for this line',weightSelect),field('style','normal or italic outlines',styleSelect));
+  }
+  const favorite = button(favoriteFonts.includes(ln.font)?'Unfavorite':'Favorite',()=>{
+    favoriteFonts=favoriteFonts.includes(ln.font)?favoriteFonts.filter(n=>n!==ln.font):[...favoriteFonts,ln.font];
+    writeFontList('atypix-favorite-fonts',favoriteFonts);fillFont();
+  });favorite.disabled=fontPickerBusy;
+  const link = el('a',{href:family?.licenseUrl || `https://fonts.google.com/specimen/${encodeURIComponent(ln.font)}`,target:'_blank',rel:'noopener noreferrer',textContent:`Font & license${family ? ' · '+family.license : ''} ↗`});
+  current.append(el('div',{className:'buttons'},favorite,link));
+  const search = el('input',{type:'search',value:fontSearch,placeholder:'Search Google Fonts',className:'font-search'});
+  search.setAttribute('aria-label','Search Google Fonts');search.disabled=fontPickerBusy;
+  const filters = el('div',{className:'buttons font-filters'});
+  for(const [value,label] of [['curated','Curated'],['all','All fonts'],['recent','Recent'],['favorites','Favorites']]) {
+    const b=button(label,()=>{fontFilter=value;fontResultLimit=40;fillFont();});b.setAttribute('aria-pressed',String(fontFilter===value));b.disabled=fontPickerBusy;filters.append(b);
+  }
+  const results=el('ul',{className:'font-results','aria-label':'Font search results'});
+  const count=el('p',{className:'note',role:'status'});
+  const more=button('Show more',()=>{fontResultLimit+=40;renderResults();});
+  const browser=box('Find a font',search,filters,count,results,more);
+  function renderResults() {
+    const query=fontSearch.trim().toLocaleLowerCase();
+    const fallback=curatedFonts.map(family=>({family,category:'Curated',variants:[]}));
+    let fonts=fontCatalog?[...fontCatalog.values()]:fallback;
+    // Typing searches the catalog; Curated is the useful starting point before a query.
+    if(fontFilter==='curated'&&!query)fonts=fonts.filter(f=>curatedFonts.includes(f.family));
+    if(fontFilter==='recent')fonts=fonts.filter(f=>recentFonts.includes(f.family));
+    if(fontFilter==='favorites')fonts=fonts.filter(f=>favoriteFonts.includes(f.family));
+    fonts=fonts.filter(f=>f.family.toLocaleLowerCase().includes(query)).sort((a,b)=>a.family.localeCompare(b.family));
+    results.replaceChildren();
+    for(const f of fonts.slice(0,fontResultLimit)) {
+      const pick=button(f.family,()=>{
+        const variant=f.variants.find(v=>v.weight===400&&v.style==='normal')||f.variants[0];
+        if(variant)chooseCatalogFont(f,variant);
+        else if(isCuratedFont(f.family))chooseLegacyFont(f.family);
+      },{className:'font-result'});
+      pick.setAttribute('aria-pressed',String(f.family===ln.font));pick.disabled=fontPickerBusy||(!f.variants.length&&!isCuratedFont(f.family));
+      pick.append(el('span',{className:'font-result-category',textContent:f.unavailable ? 'Unavailable · '+f.unavailable : f.category}));
+      results.append(el('li',{},pick));
+    }
+    count.textContent=fontCatalog?`${fonts.length} ${fonts.length===1?'family':'families'}${fonts.length>fontResultLimit?` · showing ${fontResultLimit}`:''}${!fonts.length?' · Try another search or filter.':''}`:'Curated fonts available. Open All fonts to load the catalog.';
+    more.hidden=fonts.length<=fontResultLimit;more.disabled=fontPickerBusy;
+  }
+  search.addEventListener('input',()=>{fontSearch=search.value;fontResultLimit=40;renderResults();});
+  search.addEventListener('keydown',e=>{if(e.key==='ArrowDown'){e.preventDefault();results.querySelector('button:not(:disabled)')?.focus();}if(e.key==='Escape'){search.value='';fontSearch='';renderResults();}});
+  p.append(current,browser,box('Font support',el('p',{className:'note',textContent:'Weights and styles vary by family. Some fonts do not include every character; we’ll let you know when one is missing. Connected scripts may not display correctly.'})));
+  renderResults();
+  if (searchFocused && !search.disabled) { search.focus({preventScroll:true}); if (searchSelection !== null) search.setSelectionRange(searchSelection,searchSelection); }
+  if(!fontCatalog && (tab==='font'||fontSearch||fontFilter!=='curated')) {
+    count.textContent='Loading font catalog…';
+    ensureFontCatalog().then(()=>{if(p.isConnected&&tab==='font')fillFont();}).catch(error=>{count.textContent=error.message;browser.append(button('Retry catalog',()=>fillFont()));});
+  }
+}
+async function chooseLegacyFont(name) {
+  if(fontPickerBusy)return;
+  const ln=design.lines[fontLineIndex()],candidate={...ln,font:name};delete candidate.fontSource;
+  fontPickerBusy=true;fillFont();
+  try{await load(candidate);if(design.lines.includes(ln)){ln.font=name;delete ln.fontSource;await draw();fillText();settled();}}
+  catch(error){say(error.message);}finally{fontPickerBusy=false;fillFont();}
+}
+
 // Color tools use HEX as the editable representation. Native swatches remain available.
 let copiedColor = null;
 let copiedSwatches = null;
@@ -2114,7 +2282,7 @@ function fillFinish() {
     field('grain', 'grain strength: 0 none, 1 as designed, 2 twice as strong', amount, amountValue)), ...sets(FINISH));
 }
 // every panel that shows the design's state, written again (after a preset, or a line added or taken away)
-function buildAll() { fillFont(); fillStyles(); fillLetter(); fillColours(); fillSolid(); fillFinish(); fillControls(); fillDetail(true); }
+function buildAll() { fillText(); fillFont(); fillStyles(); fillLetter(); fillColours(); fillSolid(); fillFinish(); fillControls(); fillDetail(true); }
 
 // the chosen letter outlined in the static figure, only while the Letter tab is the chosen tab
 // (on the page only: the SVG downloaded has none)
@@ -2631,11 +2799,11 @@ function cleanLetterOverrides(v) {
 function restore(p) {
   if (!Array.isArray(p?.design?.lines)) throw new Error('that is not an Atypix preset');
   setCanvasColor(p.canvasColor);
-  const unknown = [];
   design.lines = p.design.lines.map(l => {
     const ln = newLine('', l);
     ln.text = String(ln.text ?? '');
-    if (!FONTS[ln.font]) { unknown.push(ln.font); ln.font = 'Anton'; }
+    ln.font = typeof ln.font === 'string' && ln.font.trim() ? ln.font : 'Anton';
+    if (!validFontSource(ln.fontSource, ln.font)) delete ln.fontSource;
     ln.styles = (Array.isArray(ln.styles) ? ln.styles : []).filter(s => STYLES.includes(s));
     if (!ln.styles.length) ln.styles = [...CYCLE];
     ln.letters = (Array.isArray(ln.letters) ? ln.letters : []).map(v => cleanLetterOverrides(v && { ...NO_CHANGE, ...v, style: STYLES.includes(v.style) ? v.style : '', ...(v.colours ? { colours: cleanLetterColours(v.colours) } : {}) }));
@@ -2676,7 +2844,7 @@ function restore(p) {
   Object.assign(motion, normaliseAnimation(m,design.lines.length));
   chosen = null;
   buildAll();
-  draw().then(() => { if (unknown.length) say(`Not in the font menu, so Anton instead: ${unknown.join(', ')}`); });
+  draw();
 }
 
 // ---------- edit history and local draft recovery ----------
@@ -2944,7 +3112,7 @@ function fillHelp() {
     el('div', { className: 'buttons' }, button(action, () => showTab(section))));
   const intro = el('p', { className: 'help-intro', textContent: 'Ready? Let’s make some lettering. Start anywhere. You can always Undo.' });
   panel('help').replaceChildren(intro,
-    step('1. Say something', 'Open Font and type your words. Pick a font, change the size, or add another line. Leading is the space between lines.', 'Start with words', 'font'),
+    step('1. Say something', 'Open Text to type your words, adjust size and spacing, or add lines. Leading sets the space between lines. Open Font to search families and choose a weight and style for each line.', 'Start with words', 'text'),
     step('2. Make it yours', 'Try a preset in Style. Play with Color, 3D, and Finish. Want to change just one letter? Open Letter, then click it in the artwork. Detail lets you fine-tune dots, lines, and other decorations.', 'Try a style', 'style'),
     step('3. Make it move', 'Open Animation and choose shared or per-line settings, then edit one part at a time. Use Play, Replay and the scrubber to inspect it. Reverse plays the sequence out. Still shows your design; animated end states can be different.', 'Try animation', 'animation'),
     step('Go! Save and share', 'Download an Atypix Design file to keep everything editable. Load that file here anytime. SVG, PNG, and WebP are still pictures. For a moving version on your website, use the animated HTML snippet.', 'Save your design', 'save'),
@@ -2956,7 +3124,7 @@ function fillHelp() {
 // open and down to close (choosing the open tab again closes it; another tab slides to its
 // panel's height). Preview mode is controlled separately;
 // the stage takes whatever room the panel leaves. Which tab was open is remembered in this browser
-const TABS = [['font', 'Font'], ['style', 'Style'], ['detail', 'Detail'], ['letter', 'Letter'], ['colour', 'Color'],
+const TABS = [['text', 'Text'], ['font', 'Font'], ['style', 'Style'], ['detail', 'Detail'], ['letter', 'Letter'], ['colour', 'Color'],
   ['3d', '3D'], ['finish', 'Finish'], ['animation', 'Animation'], ['save', 'Save & export'], ['help', '?']];
 // Preview is independent of the settings drawer and remembered separately from the design.
 let previewMode = 'animate';
@@ -3040,9 +3208,11 @@ panels.addEventListener('transitionend', e => {
   if (open) panels.style.height = '';
 });
 function showTab(name, again = false, slide = true) {
+  if (name === 'text') fillText();
   if (name === 'letter') { if (previewMode !== 'still') setPreview('still'); fillLetter(); }
   if (name === 'animation' && previewMode !== 'animate') setPreview('animate');
   if (again && name === tab) open = !open; else { tab = name; open = true; }
+  if (name === 'font') fillFont();
   const from = panels.getBoundingClientRect().height;
   for (const [n] of TABS) {
     document.getElementById('tab-' + n).hidden = n !== tab;   // the closing panel stays in place while it slides away
