@@ -2326,6 +2326,18 @@ function letterShadowControls(v) {
 }
 let activeLetterSection = 'Letter outline';
 const letterSectionNames = ['Letter outline','Outline spacing','Letter 3D shadow','Letter extrusion','Letter animation','Letter drop shadow','Letter finish'];
+function selectLetterSection(index) {
+  const name=letterSectionNames[index];activeLetterSection=name;fillLetter();
+  document.getElementById('letter-section-tab-'+index)?.focus({preventScroll:true});
+  requestAnimationFrame(()=>{
+    if(activeLetterSection!==name)return;
+    const card=document.getElementById('tab-letter'),pane=document.getElementById('letter-section-panel-'+index),section=card.querySelector('.letter-sections');
+    if(!pane||pane.hidden||card.hidden)return;
+    const padding=parseFloat(getComputedStyle(card).paddingTop)||12;
+    const target=section.getBoundingClientRect().height<=card.clientHeight-padding*2?section:pane;
+    card.scrollTo({top:card.scrollTop+target.getBoundingClientRect().top-card.getBoundingClientRect().top-padding,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
+  });
+}
 function arrangeLetterSections() {
   const flow=panel('letter'),sections=el('div',{className:'letter-sections'}),tabs=el('div',{className:'letter-section-tabs'}),panes=el('div',{className:'letter-section-panes'});
   tabs.setAttribute('role','tablist');tabs.setAttribute('aria-label','Letter settings');
@@ -2333,12 +2345,12 @@ function arrangeLetterSections() {
     const pane=[...flow.children].find(node=>node.querySelector('legend')?.textContent===name);
     if(!pane)continue;
     const selected=name===activeLetterSection;
-    const pick=button(name,()=>{activeLetterSection=name;fillLetter();document.getElementById('letter-section-tab-'+index)?.focus({preventScroll:true});});
+    const pick=button(name,()=>selectLetterSection(index));
     pick.id='letter-section-tab-'+index;pick.setAttribute('role','tab');pick.setAttribute('aria-selected',String(selected));pick.setAttribute('aria-controls','letter-section-panel-'+index);pick.tabIndex=selected?0:-1;
     pane.id='letter-section-panel-'+index;pane.setAttribute('role','tabpanel');pane.setAttribute('aria-labelledby',pick.id);pane.hidden=!selected;pane.querySelector('legend').hidden=true;
     tabs.append(pick);panes.append(pane);
   }
-  tabs.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();let index=letterSectionNames.indexOf(activeLetterSection);index=event.key==='Home'?0:event.key==='End'?letterSectionNames.length-1:(index+(event.key==='ArrowRight'?1:-1)+letterSectionNames.length)%letterSectionNames.length;activeLetterSection=letterSectionNames[index];fillLetter();document.getElementById('letter-section-tab-'+index)?.focus({preventScroll:true});});
+  tabs.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();let index=letterSectionNames.indexOf(activeLetterSection);index=event.key==='Home'?0:event.key==='End'?letterSectionNames.length-1:(index+(event.key==='ArrowRight'?1:-1)+letterSectionNames.length)%letterSectionNames.length;selectLetterSection(index);});
   sections.append(tabs,panes);flow.append(sections);
 }
 function fillLetter() {
