@@ -259,7 +259,7 @@
 /* Keep letter transforms beside the tabbed per-letter effects. */
 #tab-letter>.flow{display:grid;columns:auto;grid-template-columns:minmax(240px,310px) minmax(0,1fr);gap:12px;align-items:start}
 #tab-letter>.flow>*{margin:0}
-#tab-letter>.flow>.colours{grid-column:1/-1}
+#tab-letter>.flow>.letter-sections{grid-column:1/-1}
 .letter-section-tabs{display:flex;flex-wrap:wrap;gap:3px;border-bottom:1px solid #b9cbd5;margin-bottom:8px}
 #tab-letter .letter-section-tabs button{background:transparent;color:#536c82;border-radius:6px 6px 0 0;border-bottom:3px solid transparent;font-size:11px;padding:7px 9px;white-space:nowrap}
 #tab-letter .letter-section-tabs button[aria-selected=true]{background:#d3e3eb;border-bottom-color:#59abb1;color:#3e5269}
@@ -2159,7 +2159,7 @@ function arrangeLetterSections() {
     tabs.append(pick);panes.append(pane);
   }
   tabs.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();let index=letterSectionNames.indexOf(activeLetterSection);index=event.key==='Home'?0:event.key==='End'?letterSectionNames.length-1:(index+(event.key==='ArrowRight'?1:-1)+letterSectionNames.length)%letterSectionNames.length;activeLetterSection=letterSectionNames[index];fillLetter();document.getElementById('letter-section-tab-'+index)?.focus({preventScroll:true});});
-  sections.append(tabs,panes);flow.insertBefore(sections,flow.querySelector('.colours'));
+  sections.append(tabs,panes);flow.append(sections);
 }
 function fillLetter() {
   const card=document.getElementById('tab-letter'),scroll=card.scrollTop;
