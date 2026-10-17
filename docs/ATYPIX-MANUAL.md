@@ -340,7 +340,7 @@ Removing a part from the design is different from choosing how it enters. Use ou
 
 ### Letter timing
 
-Line start places a line in the overall sequence. Spread distributes letter starts across a period. Order determines which character starts first: for example, left to right, center outward, or random where offered. A per-letter timing offset provides a final exception.
+Line start places a line in the overall sequence. Spread distributes letter starts across a period. **All at once** removes the order-based stagger so letters in that line share the same start cue, regardless of Spread. Other orders determine which character starts first: for example, left to right, center outward, or random where offered. Line start times and explicit per-letter timing offsets still apply; reset those offsets if every letter must begin together. Part anchors and draw durations can still make later layers or completion times differ between letters. A per-letter timing offset provides a final exception.
 
 A spread is not necessarily a delay added in full between every adjacent pair. Think of it as distributing the line's starts over a span. Compare the preview before increasing it by a large amount.
 
