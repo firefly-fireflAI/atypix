@@ -239,7 +239,7 @@
   #tab-help .help-footer { color: var(--muted); font-size: 12px; }
   @media(max-width:600px) { #tab-help .flow { grid-template-columns: minmax(0,1fr); } }
 /* Atypix Editor: one line and one animation part at a time. */
-#tab-animation{max-height:calc(64vh - 36px);padding-bottom:14px}
+#tab-animation{max-height:min(var(--animation-overview-height,380px),calc(52vh - 36px));padding-bottom:14px}
 #tab-animation>.flow{display:block;columns:auto;max-width:1250px;margin:auto}
 #tab-animation>.flow>*{margin:0 0 14px}
 #tab-animation .ae-label{text-transform:uppercase;font:700 11px/1.3 Lato,system-ui,sans-serif;letter-spacing:.05em;color:#3e5269;margin-bottom:6px;display:block}
@@ -312,7 +312,7 @@
 .ae-state input:disabled{background:#e6eef3;color:#6e8497;opacity:1}
 #tab-animation>.flow>details{padding:0;border:0}
 @media(max-width:1050px){.ae-top{align-items:start;flex-wrap:wrap}.ae-basic{grid-template-columns:minmax(0,1fr)}.ae-more-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:600px){#tab-animation{max-height:calc(52vh - 36px)}.ae-top{gap:12px}.ae-scope{width:100%;flex-wrap:wrap}.ae-scope label{flex:1}#tab-animation .ae-scope select{width:100%}.ae-segment button{flex:1}.ae-segment{width:100%}.ae-top>div:first-child{width:100%}.ae-ruler,.ae-track{grid-template-columns:77px 58px minmax(0,1fr);gap:6px}.ae-ruler{font-size:8px}.ae-track .ae-number-wrap>span{right:7px}.ae-track-name small{font-size:9px}.ae-track-bar{font-size:9px;padding-left:5px}#ae-ticks{font-size:8px}#ae-ticks span:nth-child(2),#ae-ticks span:nth-child(4),#ae-ticks span:nth-child(5){display:none}#tab-animation .ae-tracks{padding:9px}.ae-player{flex-wrap:wrap;gap:10px}.ae-scrub-wrap{flex-basis:100%}.ae-player-actions{gap:5px}#tab-animation .ae-player-actions button{font-size:10px;padding:8px 9px}.ae-edit-head{flex-wrap:wrap}.ae-edit-head strong{font-size:10px}#tab-animation .ae-parts button{font-size:10px;padding:8px}.ae-parts{padding-left:5px;padding-right:5px}.ae-content{padding:11px}.ae-more-grid{grid-template-columns:minmax(0,1fr)}.ae-states{gap:6px;grid-template-columns:minmax(0,1fr) 16px minmax(0,1fr)}.ae-state{padding:10px}.ae-state-values{grid-template-columns:minmax(0,1fr)}.ae-state-arrow{font-size:16px}.ae-state-head label{font-size:9px!important}.ae-basic{gap:9px}.ae-player-note{font-size:10px}}
+@media(max-width:600px){.ae-top{gap:12px}.ae-scope{width:100%;flex-wrap:wrap}.ae-scope label{flex:1}#tab-animation .ae-scope select{width:100%}.ae-segment button{flex:1}.ae-segment{width:100%}.ae-top>div:first-child{width:100%}.ae-ruler,.ae-track{grid-template-columns:77px 58px minmax(0,1fr);gap:6px}.ae-ruler{font-size:8px}.ae-track .ae-number-wrap>span{right:7px}.ae-track-name small{font-size:9px}.ae-track-bar{font-size:9px;padding-left:5px}#ae-ticks{font-size:8px}#ae-ticks span:nth-child(2),#ae-ticks span:nth-child(4),#ae-ticks span:nth-child(5){display:none}#tab-animation .ae-tracks{padding:9px}.ae-player{flex-wrap:wrap;gap:10px}.ae-scrub-wrap{flex-basis:100%}.ae-player-actions{gap:5px}#tab-animation .ae-player-actions button{font-size:10px;padding:8px 9px}.ae-edit-head{flex-wrap:wrap}.ae-edit-head strong{font-size:10px}#tab-animation .ae-parts button{font-size:10px;padding:8px}.ae-parts{padding-left:5px;padding-right:5px}.ae-content{padding:11px}.ae-more-grid{grid-template-columns:minmax(0,1fr)}.ae-states{gap:6px;grid-template-columns:minmax(0,1fr) 16px minmax(0,1fr)}.ae-state{padding:10px}.ae-state-values{grid-template-columns:minmax(0,1fr)}.ae-state-arrow{font-size:16px}.ae-state-head label{font-size:9px!important}.ae-basic{gap:9px}.ae-player-note{font-size:10px}}
 
 </style>
 <!-- the tabs' lettering (the page's own; nothing exported uses it) -->
@@ -2493,8 +2493,17 @@ function fillControls() {
  const timingBox=editorDetails(`Letter timing · line ${editorLine+1}`,'timing',timing,el('p',{className:'note',textContent:'Spread is the time between the first and last letter starting. Individual-letter offsets from Letter still apply.'}));
  const playback=el('div',{className:'ae-more-grid'},editorRange('speed',motion,'speed',.1,4,.05,'×'),editorMenu('play',[[false,'Once'],[true,'Loop']],motion.loop,v=>{motion.loop=v==='true';editorChanged(false);}),editorRange('hold',motion,'hold',0,10,.05,'s'),editorMenu('start',[[false,'On load'],[true,'When in view']],motion.whenVisible,v=>{motion.whenVisible=v==='true';editorChanged(false);}));
  p.append(top,tracks,transport,editCard,timingBox,editorDetails('Playback settings · applies to all lines','playback',playback));
- syncEditorPlayer();refreshCode();
+ animationOverviewObserver.observe(p);sizeAnimationOverview();syncEditorPlayer();refreshCode();
 }
+// Keep the overview visible, with a glimpse of the settings below to invite scrolling.
+function sizeAnimationOverview(){
+ const panel=document.getElementById("tab-animation"),card=panel?.querySelector(".ae-edit");
+ if(!card||panel.hidden)return;
+ const height=Math.ceil(card.getBoundingClientRect().top-panel.getBoundingClientRect().top+panel.scrollTop+30);
+ panel.style.setProperty("--animation-overview-height",height+"px");
+}
+const animationOverviewObserver=new ResizeObserver(sizeAnimationOverview);
+window.addEventListener("resize",sizeAnimationOverview);
 function syncEditorPlayer(){
  if(!timeline)return;const scrub=document.getElementById('ae-scrub'),time=document.getElementById('ae-time'),play=document.getElementById('ae-play');if(!scrub)return;
  const duration=timeline.duration(),now=timeline.time();scrub.max=duration;scrub.value=now;time.textContent=now.toFixed(2)+' / '+duration.toFixed(2)+'s';play.textContent=timeline.paused()||timeline.progress()>=1?'Play':'Pause';
@@ -2947,6 +2956,7 @@ function showTab(name, again = false, slide = true) {
     b.setAttribute('aria-selected', n === tab);
     b.setAttribute('aria-expanded', open && n === tab);
   }
+  if (tab === 'animation') sizeAnimationOverview();
   let to = 0;
   if (open) { panels.classList.remove('shut'); panels.style.height = ''; to = panels.getBoundingClientRect().height; }
   const still = !slide || matchMedia('(prefers-reduced-motion: reduce)').matches || Math.abs(to - from) < 1;
