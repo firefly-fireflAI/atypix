@@ -1,6 +1,6 @@
 # Editor font catalog
 
-Only `Atypix-editor.html` uses the new Text / Font split and `assets/google-fonts.json`. The original page retains its nine-family menu.
+Both `Atypix.html` and `Atypix-editor.html` use the Text / Font split and share `assets/google-fonts.json`. Their respective animation interfaces remain separate.
 
 Text contains words, line controls, size, spacing, alignment and leading. Font selects a line, searches family names, and offers the available weight/style combinations, recent choices, favorites and license links. Search results are capped at 40 with Show more. Search and scrolling never request outline files. The metadata catalog loads on first opening Font (or restoring an unfamiliar family); outline files load only after selection. Serve the checkout over HTTP so the relative JSON request works.
 
@@ -24,3 +24,7 @@ python3 scripts/build-font-catalog.py /tmp/atypix-google-fonts
 ```
 
 The JSON records the exact repository revision and generation date. For a specific revision, check it out before generation. The generator reads family/license/axis metadata, requests Google's versioned static TTF links in batches, and caches CSS responses under the system temporary directory. No font binaries are downloaded during generation. HTTP 400 isolates unpublished families; other request failures stop generation without replacing the output. Review the generated diff and test representative fonts before committing an update. Keep TLS verification enabled. Runtime font downloads require `fonts.gstatic.com`; catalog generation requires the GitHub proxy and `fonts.googleapis.com`.
+
+## Overlapping outlines
+
+Some fonts, including Eczar, construct glyphs from overlapping contour components. Filling those paths looks correct, but extruding or stroking each component creates internal walls and seams. Both tools now resolve intersections under the nonzero fill rule before generating letter geometry. A locally vendored Paper.js core preserves Bezier curves; ordinary nonoverlapping contours pass through unchanged. Counters retain their winding and glyph metrics are not altered. The work is cached by font object, character and size, avoiding cache collisions between fonts with identical name metadata. Generated artwork and animation snippets contain the resolved paths and need no Paper.js dependency.
