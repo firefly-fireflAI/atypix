@@ -1,6 +1,6 @@
 # Atypix instruction manual and FAQ
 
-This manual describes the current repository version of Atypix, reviewed on 17 October 2026. It covers the original interface and the newer timeline editor. Controls can differ between those editions; differences are called out below. Saved designs and exported HTML are different deliverables, and this guide explains when to use each.
+This manual describes the current repository version of Atypix, reviewed on 17 October 2026. Both HTML entry points now use the same timeline editor and controls. Saved designs and exported HTML are different deliverables, and this guide explains when to use each.
 
 For website code and the detailed explanation of **On load / When in view**, read the companion [website embedding guide](EMBEDDING.md).
 
@@ -50,9 +50,7 @@ Atypix does not currently provide a built-in animated GIF or video export. Downl
 
 ### Which edition should I open?
 
-Use [Atypix](https://firefly-fireflai.github.io/atypix/Atypix.html) if you prefer the older animation controls. Use [Atypix editor](https://firefly-fireflai.github.io/atypix/Atypix-editor.html) for the timeline, shared versus per-line animation editing, scrubbing, and the newer part controls.
-
-The lettering workflow is shared: Text, Font, Style, Detail, Letter, Color, 3D, Finish, and Save & export. The two pages remain separate while the newer animation interface develops. Do not assume a browser draft saved by one page will automatically appear in the other. Download JSON to move a design deliberately between pages.
+[Atypix](https://firefly-fireflai.github.io/atypix/Atypix.html) and [Atypix editor](https://firefly-fireflai.github.io/atypix/Atypix-editor.html) now contain the same interface, including the timeline, per-line animation editing, and scrubbing. Both use the editor's browser storage keys. An older draft saved under the previous original-interface key is not automatically migrated; keep downloaded JSON backups when moving existing work.
 
 ## Your first design
 
@@ -380,11 +378,7 @@ If playback becomes uneven, simplify one expensive ingredient at a time and repl
 
 ## The original animation interface
 
-The original Atypix page retains its older control arrangement. Animation preset buttons provide Draw in, Paint, Pop, Drop, and Soft fade starting points. Overall controls include speed, playback mode, hold, and start behavior.
-
-Line controls set letter start, spread, and order. Compact groups configure the face entrance, decoration, outline, drop shadow, and extrusion. Choose an animation preset to establish coordinated timing, then change individual values deliberately.
-
-This edition does not expose the newer timeline editor's full per-line part editing and transport interface. If you need independent part sequences for different lines, open the timeline editor and transfer the design with JSON.
+The older animation interface has been replaced in `Atypix.html` by the same timeline editor used in `Atypix-editor.html`. Both pages now support the controls described in the following section.
 
 ## The timeline editor
 
@@ -442,7 +436,7 @@ Loading a design replaces the current working design. Save the current one first
 
 Atypix saves a local browser draft after edits. This helps recover normal local work but is not a durable backup service. Private browsing, cleared site data, another browser, another device, or a different origin can mean that the draft is unavailable.
 
-The original page and the editor use separate draft storage keys. Favorites and recent fonts are also local conveniences. None of these imply cloud account synchronization or a GitHub commit of your design.
+Both pages now use the editor's draft storage key on the same origin; the previous original page's draft key is not automatically migrated. Favorites and recent fonts are also local conveniences. None of these imply cloud account synchronization or a GitHub commit of your design.
 
 ### What cannot restore the editable design?
 
@@ -624,7 +618,7 @@ No. Animation presets establish motion. Style presets establish a broader visual
 
 ### 18. Can each line animate differently?
 
-The timeline editor supports per-line part settings. The original edition has its older timing controls and does not expose the same newer editing interface.
+Both pages now support the timeline editor and per-line part settings.
 
 ### 19. Why are animation settings hidden for some parts?
 

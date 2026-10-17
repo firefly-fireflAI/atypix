@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Atypix</title>
+<title>Atypix · Animation editor</title>
 <style>
   /* the hero's sky blue, painted in any theme, since the lettering sits on it */
   :root {
@@ -262,6 +262,123 @@
   #tab-help .help-intro { font-weight: 600; }
   #tab-help .help-footer { color: var(--muted); font-size: 12px; }
   @media(max-width:600px) { #tab-help .flow { grid-template-columns: minmax(0,1fr); } }
+/* Atypix Editor: shared or per-line animation with compact part cards. */
+#tab-animation{max-height:calc(52vh - 36px);padding-bottom:10px}
+#tab-animation>.flow{display:block;columns:auto;max-width:1250px;margin:auto}
+#tab-animation>.flow>*{margin:0 0 14px}
+#tab-animation .ae-label{text-transform:uppercase;font:700 11px/1.3 Lato,system-ui,sans-serif;letter-spacing:.05em;color:#3e5269;margin-bottom:6px;display:block}
+.ae-top{display:flex;justify-content:space-between;align-items:end;gap:18px}
+.ae-segment{display:flex;gap:3px;background:#c4d5df;border:1px solid #97aebe;border-radius:8px;padding:3px}
+#tab-animation .ae-segment button{font-size:11px;background:transparent;color:#3e5269;padding:8px 12px;white-space:nowrap}
+#tab-animation .ae-segment [aria-pressed=true]{background:#3e5269;color:#fff}
+.ae-scope{display:flex;align-items:end;gap:10px;min-width:0}
+#tab-animation .ae-scope label{display:grid;grid-template-columns:minmax(0,1fr);gap:0;margin:0;min-width:0;max-width:270px}
+#tab-animation .ae-scope select{width:240px;max-width:100%}
+#tab-animation button.ae-secondary{background:transparent;color:#3e5269;box-shadow:inset 0 0 0 1px #91a8b7}
+#tab-animation .ae-tracks{border:1px solid #b2c7d3;background:#e8f0f4;border-radius:10px;padding:12px 14px}
+.ae-ruler,.ae-track{display:grid;grid-template-columns:140px 90px minmax(0,1fr);align-items:center;gap:12px}
+.ae-ruler{padding-bottom:7px;font:700 10px/1.3 Lato,system-ui,sans-serif;text-transform:uppercase;letter-spacing:.04em;color:#536d82}
+#ae-ticks{display:flex;justify-content:space-between;font:10px ui-monospace,monospace;text-transform:none;letter-spacing:0}
+.ae-track{padding:7px;border-radius:7px;margin:2px -7px}
+.ae-track.selected{background:#ccdee5}
+#tab-animation button.ae-track-name{background:none;color:#3e5269;padding:0;text-align:left;font-size:12px;text-transform:none;overflow:hidden;overflow-wrap:anywhere}
+.ae-track-name small{display:block;font:10px/1.4 system-ui,sans-serif;color:#526b80}
+#tab-animation label.ae-number{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;margin:0;font-size:12px;color:#536b80}
+.ae-number-wrap{position:relative;display:block}
+.ae-number-wrap input{padding-right:28px!important;height:32px!important;font-size:12px}
+.ae-number-wrap>span{position:absolute;right:10px;top:6px;pointer-events:none;font-size:12px}
+.ae-track .ae-number-wrap input{height:28px!important;max-width:82px;padding:3px 19px 3px 6px!important;appearance:textfield}
+.ae-track input::-webkit-inner-spin-button,.ae-track input::-webkit-outer-spin-button{appearance:none;margin:0}
+.ae-track .ae-number-wrap>span{right:17px;top:4px}
+.ae-rail{height:26px;position:relative;border-bottom:1px solid #b9cbd5;background:repeating-linear-gradient(to right,#a5bac42b 0,#a5bac42b 1px,transparent 1px,transparent 20%)}
+.ae-track-bar{position:absolute;top:2px;height:21px;border-radius:4px;background:#59abb1;color:#fff;padding:3px 7px;font:700 10px/1.5 Lato,system-ui,sans-serif;white-space:nowrap;overflow:hidden;box-sizing:border-box}
+.ae-track:nth-child(odd) .ae-track-bar{background:#7188a2}
+#tab-animation .ae-transport{position:sticky;top:-12px;z-index:4;background:#d6e3eb;padding:10px 0;border-bottom:1px solid #b2c6d2}
+.ae-player{display:flex;gap:14px;align-items:center}
+.ae-player-actions{display:flex;gap:6px;align-items:center}
+.ae-player-actions button{white-space:nowrap}
+#tab-animation button.ae-reverse{background:transparent;color:#3e5269;box-shadow:inset 0 0 0 1px #91a8b7;display:flex;align-items:center;gap:7px}
+#tab-animation .ae-reverse[aria-pressed=true]{background:#3e5269;color:white}
+.ae-switch{width:23px;height:13px;display:inline-block;background:#a4b9c8;border-radius:8px;padding:2px;box-sizing:border-box}
+.ae-switch:after{content:'';display:block;width:9px;height:9px;border-radius:50%;background:white;transition:transform .15s}
+.ae-reverse[aria-pressed=true] .ae-switch{background:#59abb1}.ae-reverse[aria-pressed=true] .ae-switch:after{transform:translateX(10px)}
+.ae-scrub-wrap{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
+#tab-animation #ae-time{background:none;padding:0;white-space:nowrap;min-width:90px;font-size:11px}
+#tab-animation #ae-scrub{cursor:ew-resize}
+.ae-player-note{display:flex;justify-content:space-between;gap:12px;margin-top:8px;color:#536b80;font-size:11px;flex-wrap:wrap}
+#tab-animation .ae-player-note label{display:flex;align-items:center;gap:5px;font-size:11px;margin:0}
+#tab-animation .ae-edit{border:1px solid #b0c6d3;border-radius:10px;background:#eaf2f6;overflow:hidden}
+.ae-edit-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid #b9cbd5}
+.ae-edit-head strong{color:#3e5269;font:700 11px/1.4 Lato,system-ui,sans-serif;text-transform:uppercase;letter-spacing:.03em;overflow-wrap:anywhere}
+#tab-animation .ae-edit-head label{display:flex;gap:10px;align-items:center;font-size:11px;text-transform:uppercase;margin:0}
+#tab-animation .ae-edit-head select{width:165px;min-width:145px;flex:none;text-transform:none}
+.ae-parts{display:flex;gap:5px;padding:8px 12px 0;overflow-x:auto;border-bottom:1px solid #b9cbd5}
+#tab-animation .ae-parts button{background:transparent;color:#536c82;border-radius:6px 6px 0 0;border-bottom:3px solid transparent;font-size:11px;padding:9px 11px;white-space:nowrap}
+#tab-animation .ae-parts [aria-selected=true]{background:#d3e3eb;border-bottom-color:#59abb1;color:#3e5269}
+.ae-content{padding:14px}
+.ae-basic{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;max-width:620px}
+#tab-animation .ae-basic>label{grid-template-columns:62px minmax(0,1fr) 48px;font-size:12px}
+#tab-animation .ae-basic>label:has(select){grid-template-columns:65px minmax(0,1fr)}
+#tab-animation .ae-basic>label:has(select)>span{display:none}
+.ae-start-details:empty{display:none}
+.ae-start-details{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;margin-top:14px;max-width:620px}
+.ae-start-details .note{grid-column:1/-1;margin:0}
+#tab-animation .ae-start-details>label{font-size:12px;grid-template-columns:70px minmax(0,1fr) 48px}
+#tab-animation .ae-start-details>label:has(select){grid-template-columns:70px minmax(0,1fr)}
+#tab-animation .ae-start-details>label:has(select)>span{display:none}
+@media(max-width:600px){.ae-start-details{grid-template-columns:minmax(0,1fr)}}
+#tab-animation details{border-top:1px solid #bfd0da;padding-top:12px;margin-top:14px}
+#tab-animation summary{font-size:12px;color:#3e5269;font-weight:700;cursor:pointer}
+.ae-more-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;margin-top:12px;max-width:620px}
+#tab-animation .ae-more-grid>label{font-size:12px;grid-template-columns:65px minmax(0,1fr) 46px}
+#tab-animation .ae-more-grid>label:has(select){grid-template-columns:65px minmax(0,1fr)}
+#tab-animation .ae-more-grid>label:has(select)>span{display:none}
+.ae-states{display:grid;grid-template-columns:minmax(0,1fr) 22px minmax(0,1fr);gap:12px;margin-top:12px;max-width:860px}
+.ae-state{border-radius:8px;background:#d8e6ed;padding:12px}
+.ae-state-head{display:flex;justify-content:space-between;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap}
+.ae-state-head strong{font:700 11px/1.3 Lato,system-ui,sans-serif;color:#3e5269;letter-spacing:.04em}
+#tab-animation .ae-state-head label{display:flex;align-items:center;gap:5px;font-size:10px;margin:0;color:#536b80}
+.ae-state-values{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.ae-state-arrow{align-self:center;font-size:22px;color:#6e8799}
+.ae-state input:disabled{background:#e6eef3;color:#6e8497;opacity:1}
+#tab-animation>.flow>details{padding:0;border:0}
+@media(max-width:1050px){.ae-top{align-items:start;flex-wrap:wrap}.ae-basic{grid-template-columns:minmax(0,1fr)}.ae-more-grid{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:600px){.ae-top{gap:12px}.ae-scope{width:100%;flex-wrap:wrap}.ae-scope label{flex:1}#tab-animation .ae-scope select{width:100%}.ae-segment button{flex:1}.ae-segment{width:100%}.ae-top>div:first-child{width:100%}.ae-ruler,.ae-track{grid-template-columns:77px 58px minmax(0,1fr);gap:6px}.ae-ruler{font-size:8px}.ae-track .ae-number-wrap>span{right:7px}.ae-track-name small{font-size:9px}.ae-track-bar{font-size:9px;padding-left:5px}#ae-ticks{font-size:8px}#ae-ticks span:nth-child(2),#ae-ticks span:nth-child(4),#ae-ticks span:nth-child(5){display:none}#tab-animation .ae-tracks{padding:9px}.ae-player{flex-wrap:wrap;gap:10px}.ae-scrub-wrap{flex-basis:100%}.ae-player-actions{gap:5px}#tab-animation .ae-player-actions button{font-size:10px;padding:8px 9px}.ae-edit-head{flex-wrap:wrap}.ae-edit-head strong{font-size:10px}#tab-animation .ae-parts button{font-size:10px;padding:8px}.ae-parts{padding-left:5px;padding-right:5px}.ae-content{padding:11px}.ae-more-grid{grid-template-columns:minmax(0,1fr)}.ae-states{gap:6px;grid-template-columns:minmax(0,1fr) 16px minmax(0,1fr)}.ae-state{padding:10px}.ae-state-values{grid-template-columns:minmax(0,1fr)}.ae-state-arrow{font-size:16px}.ae-state-head label{font-size:9px!important}.ae-basic{gap:9px}.ae-player-note{font-size:10px}}
+
+/* Compact, always-visible animation controls. */
+#tab-animation>.flow>*{margin-bottom:8px}
+#tab-animation .ae-edit{border:0;background:transparent;overflow:visible}
+#tab-animation .ae-edit-head{padding:6px 0;margin-bottom:8px}
+.ae-parts-grid{columns:270px;column-gap:10px}
+.ae-part-card{break-inside:avoid;background:rgba(62,82,105,.07);border-radius:10px;padding:10px 12px;margin-bottom:10px}
+.ae-part-title,.ae-section-title{margin:0 0 5px;color:#3e5269;font:700 11px/1.3 Lato,system-ui,sans-serif;letter-spacing:.04em;text-transform:uppercase}
+.ae-basic,.ae-more-grid,.ae-start-details{gap:4px;max-width:none}
+.ae-more-grid,.ae-start-details{margin-top:5px}
+.ae-section{border-top:1px solid #bfd0da;padding-top:7px;margin-top:8px}
+#tab-animation .ae-basic>label,#tab-animation .ae-more-grid>label,#tab-animation .ae-start-details>label{grid-template-columns:58px minmax(0,1fr) 42px;font-size:12px;margin-top:2px;gap:6px}
+#tab-animation :is(.ae-basic,.ae-more-grid,.ae-start-details)>label:has(select){grid-template-columns:58px minmax(0,1fr)}
+#tab-animation :is(.ae-part-card,.ae-global-grid) select{height:26px;font-size:12px}
+#tab-animation .ae-part-card .note{font-size:11px;line-height:1.35;margin:5px 0 0}
+.ae-states{grid-template-columns:minmax(0,1fr) 12px minmax(0,1fr);gap:5px;margin-top:5px}
+.ae-state{padding:7px}
+.ae-state-head{gap:3px;margin-bottom:5px}
+#tab-animation .ae-state-head label{font-size:9px;line-height:1.2}
+.ae-state-values{grid-template-columns:minmax(0,1fr);gap:3px}
+#tab-animation .ae-state-values>label{grid-template-columns:49px minmax(0,1fr);gap:3px;margin-top:0;font-size:10px}
+.ae-state .ae-number-wrap input{height:25px!important;padding-left:4px!important;padding-right:18px!important;font-size:11px}
+.ae-state .ae-number-wrap>span{right:5px;top:5px;font-size:10px}
+.ae-state-arrow{font-size:15px}
+.ae-global-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
+.ae-global-grid>.ae-section{margin-top:0;padding:10px 12px;border:0;border-radius:10px;background:rgba(62,82,105,.07)}
+@media(max-width:600px){.ae-parts-grid{columns:auto}.ae-global-grid{grid-template-columns:minmax(0,1fr)}#tab-animation .ae-edit-head{gap:6px}.ae-part-card{padding:10px}.ae-states{gap:5px}.ae-basic{gap:4px}}
+
+/* Compact part tabs retain the expanded settings for the selected part. */
+.ae-parts-grid{columns:auto;max-width:350px}
+#tab-animation .ae-parts{padding:0;margin-bottom:8px;flex-wrap:wrap;gap:3px}
+#tab-animation .ae-parts button{padding:7px 10px}
+#tab-animation .ae-preset-buttons{flex-wrap:wrap;gap:5px}
+#tab-animation .ae-preset-buttons button[aria-pressed=true]{background:#25868d}
+@media(max-width:600px){#tab-animation .ae-parts button{padding:7px 8px;font-size:10px}}
 /* Keep letter transforms beside the tabbed per-letter effects. */
 #tab-letter>.flow{display:grid;columns:auto;grid-template-columns:minmax(240px,310px) minmax(0,1fr);gap:12px;align-items:start}
 #tab-letter>.flow>*{margin:0}
@@ -343,6 +460,7 @@
 // over and over, at once or when scrolled into view. All of it is set by `options` (any left out
 // keep the defaults below). Returns the GSAP timeline, which starts itself.
 const LETTERING_DEFAULTS = {
+  scope: 'shared', lineParts: [], preset: 'Draw in', reverse: false,
   speed: 1,                                  // the whole animation's pace: 2 is twice as fast
   seed: 1,                                   // which random order the letters come in
   loop: false,                               // play once, or over and over
@@ -354,9 +472,15 @@ const LETTERING_DEFAULTS = {
   face: { entrance: 'draw', ease: 'out', strength: 0.5, duration: 1, delay: 0 },             // the face coming in: draw, drop, pop or fade
   deco: { entrance: 'draw', anchor: 'faceStart', ease: 'out', strength: 0.5, duration: 1, delay: 0.3 }, // after the face starts (s)
   outline: { entrance: 'finish', anchor: 'letterStart', ease: 'linear', strength: 0.5, duration: 0.3, delay: 0 },
-  dropShadow: { entrance: 'finish', anchor: 'letterStart', ease: 'linear', strength: 0.5, duration: 0.3, delay: 0 },
-  extrude: { anchor: 'faceEnd', ease: 'elastic', strength: 0.5, duration: 1.1, delay: -0.2 },         // after the face is in (s)
+  dropShadow: { startDirection: null, endDirection: null, startDistance: null, endDistance: null, startOpacity: null, endOpacity: null, entrance: 'finish', anchor: 'letterStart', ease: 'linear', strength: 0.5, duration: 0.3, delay: 0 },
+  extrude: { entrance: 'grow', startDirection: null, endDirection: null, startDepth: 0, endDepth: null, anchor: 'faceEnd', ease: 'elastic', strength: 0.5, duration: 1.1, delay: -0.2 },         // after the face is in (s)
 };
+const ANIMATION_PARTS = ['face','deco','outline','extrude','dropShadow'];
+function partsForLine(options, index) {
+  const overrides=options.scope==='lines' ? options.lineParts?.[index] : null;
+  return Object.fromEntries(ANIMATION_PARTS.map(k=>[k,{...LETTERING_DEFAULTS[k],...options[k],...overrides?.[k]}]));
+}
+const shortestTurn=(from,to)=>((to-from+540)%360+360)%360-180;
 // an ease by name, at a strength from 0 (gentle) to 1 (strong)
 function letteringEase(type, s) {
   const power = 1 + Math.round(s * 3);
@@ -371,7 +495,27 @@ function letteringEase(type, s) {
 }
 // Grow the actual extrusion in place. Moving an enlarged copy changes its silhouette at
 // concave corners and moves its texture; swapping it back at the end makes both jump.
-function extrusionShape(rest) {
+function extrusionShape(rest, settings = {}) {
+  if (rest.dataset.extrusion && (settings.entrance==='shrink' || settings.startDirection!=null || settings.endDirection!=null || (settings.startDepth!=null&&settings.startDepth!==0) || settings.endDepth!=null)) {
+    const model=JSON.parse(rest.dataset.extrusion), back=rest.querySelector('path[transform]'), original=back.getAttribute('transform');
+    const walls=[...rest.querySelectorAll('.wall')], holder=document.createElementNS('http://www.w3.org/2000/svg','g');
+    holder.setAttribute('class','animated-walls');back.parentNode.append(holder);
+    const fromDepth=settings.startDepth ?? (settings.entrance==='shrink'?model.depth:0), toDepth=settings.endDepth ?? (settings.entrance==='shrink'?0:model.depth);
+    const fromDirection=settings.startDirection ?? model.direction, toDirection=settings.endDirection ?? model.direction, delta=shortestTurn(fromDirection,toDirection);
+    const round=v=>Math.round(v*1000)/1000;
+    return progress=>{
+      const depth=Math.max(0,fromDepth+(toDepth-fromDepth)*progress),angle=(fromDirection+delta*progress)*Math.PI/180;
+      const ex=model.base*depth*Math.cos(angle),ey=model.base*depth*Math.sin(angle);
+      const atDesign=Math.abs(ex-model.ex[0])<.075&&Math.abs(ey-model.ex[1])<.075;
+      for(const wall of walls)wall.style.display=atDesign?'':'none';
+      holder.style.display=atDesign?'none':'';
+      back.setAttribute('transform',atDesign?original:`translate(${round(ex)} ${round(ey)})`);
+      if(atDesign)return;
+      const length=Math.hypot(ex,ey)||1;
+      const visible=model.edges.filter(e=>e.nx*ex+e.ny*ey>0).sort((a,b)=>((a.a[0]+a.b[0]-b.a[0]-b.b[0])*ex+(a.a[1]+a.b[1]-b.a[1]-b.b[1])*ey)/length);
+      holder.innerHTML=visible.map(e=>{const f=model.fills[e.k],a=e.a,b=e.b;return `<path class="wall-motion" fill="${f.fill}" stroke="${f.color}" stroke-width=".8" d="M${a[0]} ${a[1]}L${b[0]} ${b[1]}l${round(ex)} ${round(ey)}L${round(a[0]+ex)} ${round(a[1]+ey)}Z"/>`;}).join('');
+    };
+  }
   const back = rest.querySelector('path[transform]');
   const transform = back.getAttribute('transform');
   const [ex, ey] = transform.match(/[-\d.]+/g).map(Number);
@@ -391,12 +535,10 @@ function extrusionShape(rest) {
 function animateLettering(root, options = {}) {
   const svg = { getElementById: id => root.querySelector('#' + CSS.escape(id)) };
   const D = LETTERING_DEFAULTS, o = { ...D, ...options };
-  const face = { ...D.face, ...options.face }, deco = { ...D.deco, ...options.deco }, ex = { ...D.extrude, ...options.extrude };
-  const outline = { ...D.outline, ...options.outline };
-  const shadow = { ...D.dropShadow, ...options.dropShadow };
+
   let seed = o.seed * 7919;
   const random = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
-  const tl = gsap.timeline({ paused: true });
+  let tl = gsap.timeline({ paused: true });
   // a part's pen strokes: in its mask (the decoration), or in the part itself (the face, drawn
   // by its strokes directly)
   // (each stroke's length measured once, though the face and its decoration both use it)
@@ -478,11 +620,14 @@ function animateLettering(root, options = {}) {
     else drawIn(part, pens, start, time, ease);
   };
   // each line's letters, left to right, for an order other than random
-  const all = [...root.querySelectorAll('.letter')], count = {}, place = new Map();
+  const lineRanges={};
+  const all = [...root.querySelectorAll('.letter')].filter(letter=>options.onlyLine==null||+letter.dataset.line===options.onlyLine), count = {}, place = new Map();
   for (const letter of all) place.set(letter, count[letter.dataset.line] = (count[letter.dataset.line] ?? -1) + 1);
   const turn = (order, k, n) => n < 2 || order === 'allAtOnce' ? 0 : order === 'leftToRight' ? k / (n - 1) : order === 'rightToLeft' ? 1 - k / (n - 1)
     : order === 'centreOut' ? Math.abs(k - (n - 1) / 2) / ((n - 1) / 2) : null;
-  for (const letter of all) {
+  if(!(o.scope==='lines'&&!options.lineChild)) for (const letter of all) {
+    const settings=partsForLine(o,+letter.dataset.line);
+    const {face,deco,extrude:ex,outline,dropShadow:shadow}=settings;
     const line = { ...D.lines[0], ...(o.lines[+letter.dataset.line] || o.lines[0]) };
     // (a random number taken for every letter, whatever its line's order, so one line's order
     // leaves the others' random starts as they were)
@@ -539,14 +684,25 @@ function animateLettering(root, options = {}) {
       } else wholeIn(ring, outline.entrance === 'finish' ? 'fade' : outline.entrance, at, outline.duration, ease);
     }
     // a drop shadow, if the letter has one, fades in once the letter has settled
+    const range=lineRanges[letter.dataset.line] ||= {start,end:start};range.start=Math.min(range.start,start);range.end=Math.max(range.end,drawn+.3,rest?settled:0,ring?(outline.entrance==='finish'?drawn+outline.delay:atFor(outline,'letterStart'))+outline.duration:0);
     const shade = letter.querySelector('.shadow');
     const shadeIn = finish => {
-      if (shade) wholeIn(shade, shadow.entrance === 'finish' ? 'fade' : shadow.entrance,
-        shadow.entrance === 'finish' ? finish + shadow.delay : atFor(shadow, 'letterStart'), shadow.duration, letteringEase(shadow.ease, shadow.strength));
+      if (!shade) return;
+      const at=shadow.entrance==='finish'?finish+shadow.delay:atFor(shadow,'letterStart');
+      range.end=Math.max(range.end,at+shadow.duration);
+      wholeIn(shade,shadow.entrance==='finish'?'fade':shadow.entrance,at,shadow.duration,letteringEase(shadow.ease,shadow.strength));
+      const filter=svg.getElementById(shade.dataset.shadowFilter+'-drop'),offset=filter?.querySelector('feOffset'),flood=filter?.querySelector('feFlood');
+      if(offset&&[shadow.startDirection,shadow.endDirection,shadow.startDistance,shadow.endDistance,shadow.startOpacity,shadow.endOpacity].some(v=>v!=null)) {
+        const direction=+shade.dataset.shadowDirection,distance=+shade.dataset.shadowDistance,opacity=+shade.dataset.shadowOpacity;
+        const from={direction:shadow.startDirection??direction,distance:shadow.startDistance??distance,opacity:shadow.startOpacity??opacity};
+        const to={direction:from.direction+shortestTurn(from.direction,shadow.endDirection??direction),distance:shadow.endDistance??distance,opacity:shadow.endOpacity??opacity};
+        const paint=()=>{const a=from.direction*Math.PI/180;offset.setAttribute('dx',from.distance*Math.cos(a));offset.setAttribute('dy',from.distance*Math.sin(a));flood.setAttribute('flood-opacity',Math.max(0,Math.min(1,from.opacity)));};
+        paint();tl.to(from,{...to,duration:shadow.duration,ease:letteringEase(shadow.ease,shadow.strength),onUpdate:paint},at);
+      }
     };
     // Grow the actual walls, with their patterns anchored to the lettering coordinates.
     if (!rest) { shadeIn(drawn + 0.3); continue; }
-    const paintDepth = extrusionShape(rest), depth = { value: 0 };
+    const paintDepth = extrusionShape(rest, ex), depth = { value: 0 };
     paintDepth(0);
     tl.set(rest, { opacity: WAITING }, 0)
       .set(rest, { opacity: 1 }, out)
@@ -555,6 +711,20 @@ function animateLettering(root, options = {}) {
         onUpdate: () => paintDepth(depth.value) }, out);
     shadeIn(Math.max(settled, drawn + 0.3));
   }
+  if(o.scope==='lines'&&!options.lineChild){
+    for(const index of [...new Set(all.map(letter=>+letter.dataset.line))]){
+      const start=o.lines[index]?.start||0,lines=o.lines.map((line,i)=>i===index?{...line,start:0}:line);
+      const child=animateLettering(root,{...o,lines,speed:1,loop:false,whenVisible:false,manual:true,lineChild:true,onlyLine:index,reverse:o.lineParts?.[index]?.reverse??o.reverse});
+      child.cancelAutoplay();tl.add(child,start);child.paused(false);
+      lineRanges[index]={start,end:start+child.contentDuration};
+    }
+  }
+  if(o.reverse&&!(o.scope==='lines'&&!options.lineChild)) {
+    const forward=tl,duration=forward.duration(),cursor={time:duration};
+    tl=gsap.timeline({paused:true});tl.add(forward,0);forward.pause();forward.time(duration,false);
+    tl.fromTo(cursor,{time:duration},{time:0,duration,ease:'none',immediateRender:false,onUpdate:()=>forward.time(cursor.time,false)},0);
+  }
+  const contentDuration=tl.duration();
   // looping: the finished lettering stays for `hold` seconds, fades, and plays again (going back
   // to the start puts every letter back as it was before it came in)
   if (o.loop === 'pingpong') tl.repeat(-1).yoyo(true).repeatDelay(Math.max(0, o.hold));
@@ -564,7 +734,7 @@ function animateLettering(root, options = {}) {
   // looping, it pauses while it is off screen). Once it has started, a pause by the caller is left
   // alone
   let ready = false, seen = !o.whenVisible, ours = true;
-  const go = () => { if (ready && seen && ours && root.isConnected) { ours = false; tl.play(); } };
+  const go = () => { if (ready && seen && ours && root.isConnected && !options.manual) { ours = false; tl.play(); } };
   requestAnimationFrame(() => requestAnimationFrame(() => { ready = true; go(); }));
   if (o.whenVisible && window.IntersectionObserver) {
     const watch = new IntersectionObserver(([e]) => {
@@ -576,10 +746,13 @@ function animateLettering(root, options = {}) {
     }, { threshold: 0.25 });
     watch.observe(root);
   } else seen = true;
+  tl.contentDuration=contentDuration;
+  tl.lineRanges=lineRanges;
+  tl.cancelAutoplay=()=>{ours=false;};
   return tl.timeScale(o.speed);
 }
 </script>
-<script id="export-runtime" type="application/json" data-source-sha256="cfee7f8b24379250d82c3bf0b9420668ef23526213b3f9d4ddae6bf1e7642c21">"const LETTERING_DEFAULTS={speed:1,seed:1,loop:!1,hold:2,whenVisible:!1,lines:[{start:0,spread:.75,order:\"random\"},{start:0,spread:.75,order:\"random\"}],face:{entrance:\"draw\",ease:\"out\",strength:.5,duration:1,delay:0},deco:{entrance:\"draw\",anchor:\"faceStart\",ease:\"out\",strength:.5,duration:1,delay:.3},outline:{entrance:\"finish\",anchor:\"letterStart\",ease:\"linear\",strength:.5,duration:.3,delay:0},dropShadow:{entrance:\"finish\",anchor:\"letterStart\",ease:\"linear\",strength:.5,duration:.3,delay:0},extrude:{anchor:\"faceEnd\",ease:\"elastic\",strength:.5,duration:1.1,delay:-.2}};function letteringEase(e,t){const a=1+Math.round(3*t);if(\"in\"===e||\"out\"===e||\"inOut\"===e)return`power${a}.${e}`;if(\"back\"===e)return`back.out(${(.5+3.5*t).toFixed(2)})`;if(\"elastic\"===e)return`elastic.out(${(1+1.2*t).toFixed(2)}, ${(.6-.45*t).toFixed(2)})`;if(\"bounce\"===e){const e=gsap.parseEase(\"bounce.out\"),a=gsap.parseEase(\"power2.out\");return r=>a(r)+(e(r)-a(r))*t}return\"none\"}function extrusionShape(e){const t=e.querySelector(\"path[transform]\"),a=t.getAttribute(\"transform\"),[r,n]=a.match(/[-\\d.]+/g).map(Number),o=[...e.querySelectorAll(\".wall\")].map(e=>({el:e,d:e.getAttribute(\"d\")})),s=e=>Math.round(1e3*e)/1e3;let i;return e=>{const d=Math.max(0,e);if(d!==i){i=d,t.setAttribute(\"transform\",1===d?a:`translate(${s(r*d)} ${s(n*d)})`);for(const{el:e,d:t}of o)e.setAttribute(\"d\",1===d?t:t.replace(/M([-\\d.]+) ([-\\d.]+)L([-\\d.]+) ([-\\d.]+)l([-\\d.]+) ([-\\d.]+)L([-\\d.]+) ([-\\d.]+)Z/g,(e,t,a,r,n,o,i,l,c)=>`M${t} ${a}L${r} ${n}l${s(+o*d)} ${s(+i*d)}L${s(+t+(+l-+t)*d)} ${s(+a+(+c-+a)*d)}Z`))}}}function animateLettering(e,t={}){const a=t=>e.querySelector(\"#\"+CSS.escape(t)),r=LETTERING_DEFAULTS,n={...r,...t},o={...r.face,...t.face},s={...r.deco,...t.deco},i={...r.extrude,...t.extrude},d={...r.outline,...t.outline},l={...r.dropShadow,...t.dropShadow};let c=7919*n.seed;const u=()=>(c=16807*c%2147483647,c/2147483647),p=gsap.timeline({paused:!0}),h=new Map,m=e=>[...(e.dataset.mask?a(e.dataset.mask):e).querySelectorAll(\".pen\")].map(e=>{if(e.hasAttribute(\"data-reveal-at\"))return{el:e,at:+e.dataset.revealAt,len:+e.dataset.revealSpan,region:!0,axis:e.dataset.revealAxis,points:JSON.parse(e.dataset.revealPoints),k:-1};const t=e.getAttribute(\"href\").slice(1);if(!h.has(t)){const e=a(t);h.set(t,{at:+e.dataset.at,len:e.getTotalLength()||.1})}return{el:e,...h.get(t),k:-1}}),f=.0015,g=(e,t,a,r,n)=>{if(\"drop\"===t){const t=e.getBBox();p.fromTo(e,{y:-1.2*t.height},{y:0,duration:r,ease:n,immediateRender:!0},a).fromTo(e,{opacity:0},{opacity:1,duration:Math.min(.15,.25*r),ease:\"none\",immediateRender:!0},a)}else\"pop\"===t?p.fromTo(e,{scale:0,transformOrigin:\"50% 50%\"},{scale:1,duration:r,ease:n,immediateRender:!0},a):p.fromTo(e,{opacity:0},{opacity:1,duration:r,ease:n,immediateRender:!0},a)},y=(e,t,a,r,n)=>{const o=letteringEase(a.ease,a.strength);[\"drop\",\"pop\",\"fade\"].includes(a.entrance)?g(e,a.entrance,r,n,o):((e,t,a,r,n)=>{const o=Math.max(1,...t.map(e=>e.at+e.len)),s={s:0};let i;t.some(e=>e.region)&&(i=document.createElementNS(\"http://www.w3.org/2000/svg\",\"path\"),i.setAttribute(\"fill\",\"white\"),t[0].el.parentNode.append(i));const d=()=>{const e=[];for(const a of t){const t=Math.round(2e3*Math.min(1,Math.max(0,(s.s-a.at)/a.len)))/2e3;if(a.region){if(t>0){const[r,n,o,s]=a.points,i=(e,a)=>e.map((e,r)=>e+(a[r]-e)*t),d=\"up\"===a.axis?[i(s,r),i(o,n),o,s]:\"right\"===a.axis?[r,i(r,n),i(s,o),s]:[r,n,i(n,o),i(r,s)];e.push(\"M\"+d.map(e=>e.map(e=>Math.round(1e3*e)/1e3).join(\" \")).join(\"L\")+\"Z\")}a.k=t}else t!==a.k&&((a.k\u003c0||t>0!=a.k>0)&&a.el.setAttribute(\"visibility\",t>0?\"visible\":\"hidden\"),1===t?a.el.setAttribute(\"stroke-dasharray\",\"none\"):((1===a.k||a.k\u003c0)&&a.el.setAttribute(\"stroke-dasharray\",\"1 2\"),a.el.setAttribute(\"stroke-dashoffset\",1-t)),a.k=t)}i&&i.setAttribute(\"d\",e.join(\"\"))};d(),p.to(s,{s:o,duration:r,ease:n,onUpdate:d},a),e.dataset.mask&&p.set(e,{attr:{mask:`url(#${e.dataset.mask})`}},0).set(e,{attr:{mask:\"none\"}},a+r)})(e,t,r,n,o)},b=[...e.querySelectorAll(\".letter\")],S={},w=new Map;for(const e of b)w.set(e,S[e.dataset.line]=(S[e.dataset.line]??-1)+1);const k=(e,t,a)=>a\u003c2||\"allAtOnce\"===e?0:\"leftToRight\"===e?t/(a-1):\"rightToLeft\"===e?1-t/(a-1):\"centreOut\"===e?Math.abs(t-(a-1)/2)/((a-1)/2):null;for(const e of b){const t={...r.lines[0],...n.lines[+e.dataset.line]||n.lines[0]},a=u(),c=k(t.order,w.get(e),S[e.dataset.line]+1),h=Math.max(0,t.start+(c??a)*t.spread+(+e.dataset.animationOffset||0)),b=e.querySelector(\".faces .face\"),A=m(b),x=Math.min(1.4,Math.max(.7,Math.max(...A.map(e=>e.at+e.len))/550)),M=e=>e.duration*([\"drop\",\"pop\",\"fade\"].includes(e.entrance)?1:x),v=M(o),E=h+(o.delay||0),$=(e,t)=>({letterStart:h,faceStart:E,faceEnd:E+v}[e.anchor||t]??h),T=e.querySelector(\".block\"),q=Math.max(h,$(i,\"faceEnd\")+i.delay),L=q+i.duration,N=(e,t)=>Math.max(h,\"extrusionEnd\"===e.anchor?(T?L:E+v)+e.delay:$(e,t)+e.delay);y(b,A,o,E,v);const O=b.querySelector(\".whole\");if(O){const e=letteringEase(o.ease,o.strength),t=\"function\"==typeof e?e:gsap.parseEase(e),a=Math.min(E+v,q),r=[\"drop\",\"pop\",\"fade\"].includes(o.entrance)?E:a>E&&t((a-E)/v)>=.95?a:E+v;p.set(O,{opacity:f},0).set(O,{opacity:1},r)}const R=e.querySelector(\".faces .deco\");R&&y(R,m(R),s,N(s,\"faceStart\"),M(s));const F=e.querySelector(\".faces\"),U=e.querySelector(\".finished\"),I=Math.max(E+v,R?N(s,\"faceStart\")+M(s):0);p.set(F,{visibility:\"visible\"},h).fromTo(U,{opacity:f},{opacity:1,duration:.3,ease:\"none\",immediateRender:!0},I).set(F,{visibility:\"hidden\"},I+.3);const j=e.querySelector(\".letter-outline\");if(j){const e=\"finish\"===d.entrance?I+d.delay:N(d,\"letterStart\"),t=letteringEase(d.ease,d.strength);if(\"draw\"===d.entrance){const a=j.querySelector(\".outline-ring\"),r=a.getTotalLength(),n=\"http://www.w3.org/2000/svg\",o=document.createElementNS(n,\"defs\"),s=document.createElementNS(n,\"mask\"),i=a.cloneNode(),l=\"outline-reveal-\"+Math.random().toString(36).slice(2),[c,u,h,m]=j.getAttribute(\"viewBox\").split(\" \").map(Number),f=+a.getAttribute(\"stroke-width\")+2;s.id=l,s.setAttribute(\"maskUnits\",\"userSpaceOnUse\");for(const[e,t]of Object.entries({x:c-f,y:u-f,width:h+2*f,height:m+2*f}))s.setAttribute(e,t);i.removeAttribute(\"class\"),i.removeAttribute(\"id\"),i.setAttribute(\"stroke\",\"white\"),i.setAttribute(\"stroke-width\",f),i.setAttribute(\"stroke-linecap\",\"round\"),i.setAttribute(\"stroke-dasharray\",`${r} ${2*r}`),s.append(i),o.append(s),j.prepend(o),p.set(a,{attr:{mask:`url(#${l})`}},0).fromTo(i,{attr:{\"stroke-dashoffset\":r}},{attr:{\"stroke-dashoffset\":0},duration:d.duration,ease:t,immediateRender:!0},e).set(a,{attr:{mask:\"none\"}},e+d.duration)}else g(j,\"finish\"===d.entrance?\"fade\":d.entrance,e,d.duration,t)}const B=e.querySelector(\".shadow\"),C=e=>{B&&g(B,\"finish\"===l.entrance?\"fade\":l.entrance,\"finish\"===l.entrance?e+l.delay:N(l,\"letterStart\"),l.duration,letteringEase(l.ease,l.strength))};if(!T){C(I+.3);continue}const D=extrusionShape(T),V={value:0};D(0),p.set(T,{opacity:f},0).set(T,{opacity:1},q).fromTo(V,{value:0},{value:1,duration:i.duration,ease:letteringEase(i.ease,i.strength),immediateRender:!0,onUpdate:()=>D(V.value)},q),C(Math.max(L,I+.3))}\"pingpong\"===n.loop?p.repeat(-1).yoyo(!0).repeatDelay(Math.max(0,n.hold)):n.loop&&p.to(e,{opacity:0,duration:.4,ease:\"none\"},p.duration()+Math.max(0,n.hold)).repeat(-1);let A=!1,x=!n.whenVisible,M=!0;const v=()=>{A&&x&&M&&e.isConnected&&(M=!1,p.play())};if(requestAnimationFrame(()=>requestAnimationFrame(()=>{A=!0,v()})),n.whenVisible&&window.IntersectionObserver){const t=new IntersectionObserver(([a])=>{if(!e.isConnected)return t.disconnect();x=a.isIntersecting,x?v():!n.loop&&p.progress()>0?t.disconnect():n.loop&&A&&!M&&!p.paused()&&(p.pause(),M=!0)},{threshold:.25});t.observe(e)}else x=!0;return p.timeScale(n.speed)}"</script>
+<script id="export-runtime" type="application/json" data-source-sha256="28e5ddbfd70dbc69798b4b22a0b4a6a7f722226e721f0efed2f5bda1726f3ab9">"const LETTERING_DEFAULTS={scope:\"shared\",lineParts:[],preset:\"Draw in\",reverse:!1,speed:1,seed:1,loop:!1,hold:2,whenVisible:!1,lines:[{start:0,spread:.75,order:\"random\"},{start:0,spread:.75,order:\"random\"}],face:{entrance:\"draw\",ease:\"out\",strength:.5,duration:1,delay:0},deco:{entrance:\"draw\",anchor:\"faceStart\",ease:\"out\",strength:.5,duration:1,delay:.3},outline:{entrance:\"finish\",anchor:\"letterStart\",ease:\"linear\",strength:.5,duration:.3,delay:0},dropShadow:{startDirection:null,endDirection:null,startDistance:null,endDistance:null,startOpacity:null,endOpacity:null,entrance:\"finish\",anchor:\"letterStart\",ease:\"linear\",strength:.5,duration:.3,delay:0},extrude:{entrance:\"grow\",startDirection:null,endDirection:null,startDepth:0,endDepth:null,anchor:\"faceEnd\",ease:\"elastic\",strength:.5,duration:1.1,delay:-.2}},ANIMATION_PARTS=[\"face\",\"deco\",\"outline\",\"extrude\",\"dropShadow\"];function partsForLine(e,t){const a=\"lines\"===e.scope?e.lineParts?.[t]:null;return Object.fromEntries(ANIMATION_PARTS.map(t=>[t,{...LETTERING_DEFAULTS[t],...e[t],...a?.[t]}]))}const shortestTurn=(e,t)=>((t-e+540)%360+360)%360-180;function letteringEase(e,t){const a=1+Math.round(3*t);if(\"in\"===e||\"out\"===e||\"inOut\"===e)return`power${a}.${e}`;if(\"back\"===e)return`back.out(${(.5+3.5*t).toFixed(2)})`;if(\"elastic\"===e)return`elastic.out(${(1+1.2*t).toFixed(2)}, ${(.6-.45*t).toFixed(2)})`;if(\"bounce\"===e){const e=gsap.parseEase(\"bounce.out\"),a=gsap.parseEase(\"power2.out\");return n=>a(n)+(e(n)-a(n))*t}return\"none\"}function extrusionShape(e,t={}){if(e.dataset.extrusion&&(\"shrink\"===t.entrance||null!=t.startDirection||null!=t.endDirection||null!=t.startDepth&&0!==t.startDepth||null!=t.endDepth)){const a=JSON.parse(e.dataset.extrusion),n=e.querySelector(\"path[transform]\"),r=n.getAttribute(\"transform\"),s=[...e.querySelectorAll(\".wall\")],i=document.createElementNS(\"http://www.w3.org/2000/svg\",\"g\");i.setAttribute(\"class\",\"animated-walls\"),n.parentNode.append(i);const o=t.startDepth??(\"shrink\"===t.entrance?a.depth:0),d=t.endDepth??(\"shrink\"===t.entrance?0:a.depth),l=t.startDirection??a.direction,c=t.endDirection??a.direction,u=shortestTurn(l,c),p=e=>Math.round(1e3*e)/1e3;return e=>{const t=Math.max(0,o+(d-o)*e),c=(l+u*e)*Math.PI/180,h=a.base*t*Math.cos(c),m=a.base*t*Math.sin(c),f=Math.abs(h-a.ex[0])\u003c.075&&Math.abs(m-a.ex[1])\u003c.075;for(const e of s)e.style.display=f?\"\":\"none\";if(i.style.display=f?\"none\":\"\",n.setAttribute(\"transform\",f?r:`translate(${p(h)} ${p(m)})`),f)return;const y=Math.hypot(h,m)||1,g=a.edges.filter(e=>e.nx*h+e.ny*m>0).sort((e,t)=>((e.a[0]+e.b[0]-t.a[0]-t.b[0])*h+(e.a[1]+e.b[1]-t.a[1]-t.b[1])*m)/y);i.innerHTML=g.map(e=>{const t=a.fills[e.k],n=e.a,r=e.b;return`\u003cpath class=\"wall-motion\" fill=\"${t.fill}\" stroke=\"${t.color}\" stroke-width=\".8\" d=\"M${n[0]} ${n[1]}L${r[0]} ${r[1]}l${p(h)} ${p(m)}L${p(n[0]+h)} ${p(n[1]+m)}Z\"/>`}).join(\"\")}}const a=e.querySelector(\"path[transform]\"),n=a.getAttribute(\"transform\"),[r,s]=n.match(/[-\\d.]+/g).map(Number),i=[...e.querySelectorAll(\".wall\")].map(e=>({el:e,d:e.getAttribute(\"d\")})),o=e=>Math.round(1e3*e)/1e3;let d;return e=>{const t=Math.max(0,e);if(t!==d){d=t,a.setAttribute(\"transform\",1===t?n:`translate(${o(r*t)} ${o(s*t)})`);for(const{el:e,d:a}of i)e.setAttribute(\"d\",1===t?a:a.replace(/M([-\\d.]+) ([-\\d.]+)L([-\\d.]+) ([-\\d.]+)l([-\\d.]+) ([-\\d.]+)L([-\\d.]+) ([-\\d.]+)Z/g,(e,a,n,r,s,i,d,l,c)=>`M${a} ${n}L${r} ${s}l${o(+i*t)} ${o(+d*t)}L${o(+a+(+l-+a)*t)} ${o(+n+(+c-+n)*t)}Z`))}}}function animateLettering(e,t={}){const a=t=>e.querySelector(\"#\"+CSS.escape(t)),n=LETTERING_DEFAULTS,r={...n,...t};let s=7919*r.seed;const i=()=>(s=16807*s%2147483647,s/2147483647);let o=gsap.timeline({paused:!0});const d=new Map,l=e=>[...(e.dataset.mask?a(e.dataset.mask):e).querySelectorAll(\".pen\")].map(e=>{if(e.hasAttribute(\"data-reveal-at\"))return{el:e,at:+e.dataset.revealAt,len:+e.dataset.revealSpan,region:!0,axis:e.dataset.revealAxis,points:JSON.parse(e.dataset.revealPoints),k:-1};const t=e.getAttribute(\"href\").slice(1);if(!d.has(t)){const e=a(t);d.set(t,{at:+e.dataset.at,len:e.getTotalLength()||.1})}return{el:e,...d.get(t),k:-1}}),c=.0015,u=(e,t,a,n,r)=>{if(\"drop\"===t){const t=e.getBBox();o.fromTo(e,{y:-1.2*t.height},{y:0,duration:n,ease:r,immediateRender:!0},a).fromTo(e,{opacity:0},{opacity:1,duration:Math.min(.15,.25*n),ease:\"none\",immediateRender:!0},a)}else\"pop\"===t?o.fromTo(e,{scale:0,transformOrigin:\"50% 50%\"},{scale:1,duration:n,ease:r,immediateRender:!0},a):o.fromTo(e,{opacity:0},{opacity:1,duration:n,ease:r,immediateRender:!0},a)},p=(e,t,a,n,r)=>{const s=letteringEase(a.ease,a.strength);[\"drop\",\"pop\",\"fade\"].includes(a.entrance)?u(e,a.entrance,n,r,s):((e,t,a,n,r)=>{const s=Math.max(1,...t.map(e=>e.at+e.len)),i={s:0};let d;t.some(e=>e.region)&&(d=document.createElementNS(\"http://www.w3.org/2000/svg\",\"path\"),d.setAttribute(\"fill\",\"white\"),t[0].el.parentNode.append(d));const l=()=>{const e=[];for(const a of t){const t=Math.round(2e3*Math.min(1,Math.max(0,(i.s-a.at)/a.len)))/2e3;if(a.region){if(t>0){const[n,r,s,i]=a.points,o=(e,a)=>e.map((e,n)=>e+(a[n]-e)*t),d=\"up\"===a.axis?[o(i,n),o(s,r),s,i]:\"right\"===a.axis?[n,o(n,r),o(i,s),i]:[n,r,o(r,s),o(n,i)];e.push(\"M\"+d.map(e=>e.map(e=>Math.round(1e3*e)/1e3).join(\" \")).join(\"L\")+\"Z\")}a.k=t}else t!==a.k&&((a.k\u003c0||t>0!=a.k>0)&&a.el.setAttribute(\"visibility\",t>0?\"visible\":\"hidden\"),1===t?a.el.setAttribute(\"stroke-dasharray\",\"none\"):((1===a.k||a.k\u003c0)&&a.el.setAttribute(\"stroke-dasharray\",\"1 2\"),a.el.setAttribute(\"stroke-dashoffset\",1-t)),a.k=t)}d&&d.setAttribute(\"d\",e.join(\"\"))};l(),o.to(i,{s:s,duration:n,ease:r,onUpdate:l},a),e.dataset.mask&&o.set(e,{attr:{mask:`url(#${e.dataset.mask})`}},0).set(e,{attr:{mask:\"none\"}},a+n)})(e,t,n,r,s)},h={},m=[...e.querySelectorAll(\".letter\")].filter(e=>null==t.onlyLine||+e.dataset.line===t.onlyLine),f={},y=new Map;for(const e of m)y.set(e,f[e.dataset.line]=(f[e.dataset.line]??-1)+1);const g=(e,t,a)=>a\u003c2||\"allAtOnce\"===e?0:\"leftToRight\"===e?t/(a-1):\"rightToLeft\"===e?1-t/(a-1):\"centreOut\"===e?Math.abs(t-(a-1)/2)/((a-1)/2):null;if(\"lines\"!==r.scope||t.lineChild)for(const e of m){const t=partsForLine(r,+e.dataset.line),{face:s,deco:d,extrude:m,outline:b,dropShadow:S}=t,w={...n.lines[0],...r.lines[+e.dataset.line]||r.lines[0]},A=i(),M=g(w.order,y.get(e),f[e.dataset.line]+1),k=Math.max(0,w.start+(M??A)*w.spread+(+e.dataset.animationOffset||0)),x=e.querySelector(\".faces .face\"),D=l(x),$=Math.min(1.4,Math.max(.7,Math.max(...D.map(e=>e.at+e.len))/550)),v=e=>e.duration*([\"drop\",\"pop\",\"fade\"].includes(e.entrance)?1:$),T=v(s),E=k+(s.delay||0),L=(e,t)=>({letterStart:k,faceStart:E,faceEnd:E+T}[e.anchor||t]??k),O=e.querySelector(\".block\"),q=Math.max(k,L(m,\"faceEnd\")+m.delay),N=q+m.duration,R=(e,t)=>Math.max(k,\"extrusionEnd\"===e.anchor?(O?N:E+T)+e.delay:L(e,t)+e.delay);p(x,D,s,E,T);const F=x.querySelector(\".whole\");if(F){const e=letteringEase(s.ease,s.strength),t=\"function\"==typeof e?e:gsap.parseEase(e),a=Math.min(E+T,q),n=[\"drop\",\"pop\",\"fade\"].includes(s.entrance)?E:a>E&&t((a-E)/T)>=.95?a:E+T;o.set(F,{opacity:c},0).set(F,{opacity:1},n)}const I=e.querySelector(\".faces .deco\");I&&p(I,l(I),d,R(d,\"faceStart\"),v(d));const U=e.querySelector(\".faces\"),P=e.querySelector(\".finished\"),C=Math.max(E+T,I?R(d,\"faceStart\")+v(d):0);o.set(U,{visibility:\"visible\"},k).fromTo(P,{opacity:c},{opacity:1,duration:.3,ease:\"none\",immediateRender:!0},C).set(U,{visibility:\"hidden\"},C+.3);const j=e.querySelector(\".letter-outline\");if(j){const e=\"finish\"===b.entrance?C+b.delay:R(b,\"letterStart\"),t=letteringEase(b.ease,b.strength);if(\"draw\"===b.entrance){const a=j.querySelector(\".outline-ring\"),n=a.getTotalLength(),r=\"http://www.w3.org/2000/svg\",s=document.createElementNS(r,\"defs\"),i=document.createElementNS(r,\"mask\"),d=a.cloneNode(),l=\"outline-reveal-\"+Math.random().toString(36).slice(2),[c,u,p,h]=j.getAttribute(\"viewBox\").split(\" \").map(Number),m=+a.getAttribute(\"stroke-width\")+2;i.id=l,i.setAttribute(\"maskUnits\",\"userSpaceOnUse\");for(const[e,t]of Object.entries({x:c-m,y:u-m,width:p+2*m,height:h+2*m}))i.setAttribute(e,t);d.removeAttribute(\"class\"),d.removeAttribute(\"id\"),d.setAttribute(\"stroke\",\"white\"),d.setAttribute(\"stroke-width\",m),d.setAttribute(\"stroke-linecap\",\"round\"),d.setAttribute(\"stroke-dasharray\",`${n} ${2*n}`),i.append(d),s.append(i),j.prepend(s),o.set(a,{attr:{mask:`url(#${l})`}},0).fromTo(d,{attr:{\"stroke-dashoffset\":n}},{attr:{\"stroke-dashoffset\":0},duration:b.duration,ease:t,immediateRender:!0},e).set(a,{attr:{mask:\"none\"}},e+b.duration)}else u(j,\"finish\"===b.entrance?\"fade\":b.entrance,e,b.duration,t)}const _=h[e.dataset.line]||={start:k,end:k};_.start=Math.min(_.start,k),_.end=Math.max(_.end,C+.3,O?N:0,j?(\"finish\"===b.entrance?C+b.delay:R(b,\"letterStart\"))+b.duration:0);const V=e.querySelector(\".shadow\"),Z=e=>{if(!V)return;const t=\"finish\"===S.entrance?e+S.delay:R(S,\"letterStart\");_.end=Math.max(_.end,t+S.duration),u(V,\"finish\"===S.entrance?\"fade\":S.entrance,t,S.duration,letteringEase(S.ease,S.strength));const n=a(V.dataset.shadowFilter+\"-drop\"),r=n?.querySelector(\"feOffset\"),s=n?.querySelector(\"feFlood\");if(r&&[S.startDirection,S.endDirection,S.startDistance,S.endDistance,S.startOpacity,S.endOpacity].some(e=>null!=e)){const e=+V.dataset.shadowDirection,a=+V.dataset.shadowDistance,n=+V.dataset.shadowOpacity,i={direction:S.startDirection??e,distance:S.startDistance??a,opacity:S.startOpacity??n},d={direction:i.direction+shortestTurn(i.direction,S.endDirection??e),distance:S.endDistance??a,opacity:S.endOpacity??n},l=()=>{const e=i.direction*Math.PI/180;r.setAttribute(\"dx\",i.distance*Math.cos(e)),r.setAttribute(\"dy\",i.distance*Math.sin(e)),s.setAttribute(\"flood-opacity\",Math.max(0,Math.min(1,i.opacity)))};l(),o.to(i,{...d,duration:S.duration,ease:letteringEase(S.ease,S.strength),onUpdate:l},t)}};if(!O){Z(C+.3);continue}const B=extrusionShape(O,m),G={value:0};B(0),o.set(O,{opacity:c},0).set(O,{opacity:1},q).fromTo(G,{value:0},{value:1,duration:m.duration,ease:letteringEase(m.ease,m.strength),immediateRender:!0,onUpdate:()=>B(G.value)},q),Z(Math.max(N,C+.3))}if(\"lines\"===r.scope&&!t.lineChild)for(const t of[...new Set(m.map(e=>+e.dataset.line))]){const a=r.lines[t]?.start||0,n=r.lines.map((e,a)=>a===t?{...e,start:0}:e),s=animateLettering(e,{...r,lines:n,speed:1,loop:!1,whenVisible:!1,manual:!0,lineChild:!0,onlyLine:t,reverse:r.lineParts?.[t]?.reverse??r.reverse});s.cancelAutoplay(),o.add(s,a),s.paused(!1),h[t]={start:a,end:a+s.contentDuration}}if(r.reverse&&(\"lines\"!==r.scope||t.lineChild)){const e=o,t=e.duration(),a={time:t};o=gsap.timeline({paused:!0}),o.add(e,0),e.pause(),e.time(t,!1),o.fromTo(a,{time:t},{time:0,duration:t,ease:\"none\",immediateRender:!1,onUpdate:()=>e.time(a.time,!1)},0)}const b=o.duration();\"pingpong\"===r.loop?o.repeat(-1).yoyo(!0).repeatDelay(Math.max(0,r.hold)):r.loop&&o.to(e,{opacity:0,duration:.4,ease:\"none\"},o.duration()+Math.max(0,r.hold)).repeat(-1);let S=!1,w=!r.whenVisible,A=!0;const M=()=>{S&&w&&A&&e.isConnected&&!t.manual&&(A=!1,o.play())};if(requestAnimationFrame(()=>requestAnimationFrame(()=>{S=!0,M()})),r.whenVisible&&window.IntersectionObserver){const t=new IntersectionObserver(([a])=>{if(!e.isConnected)return t.disconnect();w=a.isIntersecting,w?M():!r.loop&&o.progress()>0?t.disconnect():r.loop&&S&&!A&&!o.paused()&&(o.pause(),A=!0)},{threshold:.25});t.observe(e)}else w=!0;return o.contentDuration=b,o.lineRanges=h,o.cancelAutoplay=()=>{A=!1},o.timeScale(r.speed)}"</script>
 <script>
 // Block lettering as SVG, from sketches/curious-lettering.html's version 3: any words, on any
 // number of lines. Each letter is built from its real outline: a front face, and behind it a block
@@ -1258,8 +1431,9 @@ function letterExtrusion(it) {
   const angle = letterValue(it, 'extrusionDirection', look.direction) * Math.PI / 180;
   return [length * Math.cos(angle), length * Math.sin(angle)];
 }
-function letterDrop(it) {
-  const distance = letterValue(it, 'dropDistance', look.dropDistance), opacity = letterValue(it, 'dropOpacity', look.dropOpacity);
+function letterDrop(it, animated = false) {
+  let distance = letterValue(it, 'dropDistance', look.dropDistance), opacity = letterValue(it, 'dropOpacity', look.dropOpacity);
+  if(animated){const m=partsForLine(motion,it.line).dropShadow;distance=Math.max(distance,m.startDistance??0,m.endDistance??0);opacity=Math.max(opacity,m.startOpacity??0,m.endOpacity??0);}
   const angle = look.dropDirection * Math.PI / 180;
   return distance > 0 && opacity > 0 ? { dx:distance*Math.cos(angle),dy:distance*Math.sin(angle),soft:look.dropSoftness,opacity } : null;
 }
@@ -1274,7 +1448,7 @@ function outlinePath(L, color, className = '') {
   const width = letterOutline(L.it);
   return width ? `<path${className ? ` class="${className}"` : ''} fill="none" stroke="${color}" stroke-width="${r1(width)}" stroke-linejoin="round"${outlinePattern(L.it)} d="${L.d}"/>` : '';
 }
-function letterEffects(parts, id, box) {
+function letterEffects(parts, id, box, animated = false) {
   const finishes = new Map(), drops = new Map(), definitions = [];
   return {
     finish(L) {
@@ -1283,8 +1457,8 @@ function letterEffects(parts, id, box) {
       return finishes.get(key);
     },
     drop(L) {
-      const settings = letterDrop(L.it); if (!settings) return null;
-      const color = letterColours(L.it).drop, key = JSON.stringify([settings,color]);
+      const settings = letterDrop(L.it,animated); if (!settings) return null;
+      const color = letterColours(L.it).drop, key = JSON.stringify([settings,color,animated?L.it.line:null,animated?L.it.index:null]);
       if (!drops.has(key)) { const tag = `${id}-ds${drops.size}`; drops.set(key,tag); definitions.push(drop(tag,box,{drop:color},settings)); }
       return drops.get(key);
     },
@@ -1455,13 +1629,17 @@ function lettering(parts, id) {
     + `<defs>${paints.defs()}${effects.defs()}</defs>${shadows}${blocks}${faces}</svg>`;
 }
 // the whole lettering's box, with room for the blocks, the drop shadow and the wobble
-function bounds(parts, pad = 24) {
+function bounds(parts, pad = 24, animated = false) {
   const boxes = parts.map(L=> {
-    const pts=L.rings.flat(), ex=letterExtrusion(L.it), shade=letterDrop(L.it);
+    const pts=L.rings.flat(), ex=letterExtrusion(L.it), shade=letterDrop(L.it,animated);
+    const cfg=animated?partsForLine(motion,L.it.line):null;
+    const turning=cfg&&[cfg.extrude.startDirection,cfg.extrude.endDirection,cfg.extrude.startDepth,cfg.extrude.endDepth].some(v=>v!=null&&v!==0);
+    const radius=turning&&!L.it.flat?Math.hypot(...EX_BASE)*Math.max(letterValue(L.it,'extrusionDepth',look.length),cfg.extrude.startDepth??0,cfg.extrude.endDepth??0):0;
+    const shadowTurning=cfg&&[cfg.dropShadow.startDirection,cfg.dropShadow.endDirection].some(v=>v!=null);
     const margin=Math.max(pad,letterOutline(L.it)/2+letterValue(L.it,'wobble',look.wobble)*2+2);
-    const low=k=>Math.min(...pts.map(p=>p[k]))+Math.min(0,ex[k]);
-    const high=k=>Math.max(...pts.map(p=>p[k]))+Math.max(0,ex[k]);
-    const reach=(k,lowSide)=>shade ? (lowSide?Math.min(0,(k?shade.dy:shade.dx)-2*shade.soft):Math.max(0,(k?shade.dy:shade.dx)+2*shade.soft)) : 0;
+    const low=k=>Math.min(...pts.map(p=>p[k]))+Math.min(0,ex[k],-radius);
+    const high=k=>Math.max(...pts.map(p=>p[k]))+Math.max(0,ex[k],radius);
+    const reach=(k,lowSide)=>shade && shadowTurning ? (lowSide?-1:1)*(Math.hypot(shade.dx,shade.dy)+2*shade.soft) : shade ? (lowSide?Math.min(0,(k?shade.dy:shade.dx)-2*shade.soft):Math.max(0,(k?shade.dy:shade.dx)+2*shade.soft)) : 0;
     return [low(0)+reach(0,true)-margin,low(1)+reach(1,true)-margin,high(0)+reach(0,false)+margin,high(1)+reach(1,false)+margin];
   });
   const x0=Math.floor(Math.min(...boxes.map(b=>b[0]))),y0=Math.floor(Math.min(...boxes.map(b=>b[1])));
@@ -1499,8 +1677,8 @@ const finish = (id, texture = TEXTURE, wobble = WOBBLE) => {
 // the hatching line up across layers as in the single SVG
 function layered(parts, id) {
   const paints = letterPaints(id);
-  const { x0, y0, w, h } = bounds(parts);
-  const effects = letterEffects(parts,id,{x0,y0,w,h});
+  const { x0, y0, w, h } = bounds(parts,24,true);
+  const effects = letterEffects(parts,id,{x0,y0,w,h},true);
   const pct = v => r1(v * 1000) / 1000 + '%';
   // an SVG layer showing the box (bx, by, bw, bh) of the lettering, placed where that box is
   const layer = (cls, bx, by, bw, bh, inner, extra = '') =>
@@ -1510,7 +1688,7 @@ function layered(parts, id) {
   const order=extrusionOrder(parts),rank=new Map(order.map((n,i)=>[n,i]));
   const body = parts.map((L, n) => {
     const masks = [], fills = paints.forLetter(L);
-    const dropId = effects.drop(L), shade = letterDrop(L.it), ex = letterExtrusion(L.it), finishId = effects.finish(L);
+    const dropId = effects.drop(L), shade = letterDrop(L.it,true), ex = letterExtrusion(L.it), finishId = effects.finish(L);
     const svg = letterSvg(L, id, n, fills, masks);
     const xs = L.rings.flat().map(p => p[0]), ys = L.rings.flat().map(p => p[1]), m = 8;
     const bx = Math.min(...xs) - m, by = Math.min(...ys) - m, bw = Math.max(...xs) - bx + m, bh = Math.max(...ys) - by + m;
@@ -1524,7 +1702,9 @@ function layered(parts, id) {
       // the block, exactly as in the static SVG (its layer the letter's box stretched along the
       // block's direction); the animation grows these walls in place
       const blockSvg = svg.slice(svg.indexOf('<g class="block"'), svg.indexOf('<g class="face"')).replace(/^<g class="block"[^>]*>/, '<g>');
-      out += layer('block', kx, ky, kw, kh, `<g${tag('k')} filter="url(#${finishId}-finish)">${blockSvg}</g>`, `;z-index:${rank.get(n)}`);
+      const shadowAngle=letterValue(L.it,'shadow',look.shadow)*Math.PI/180;
+      const model={base:Math.hypot(...EX_BASE),depth:letterValue(L.it,'extrusionDepth',look.length),direction:letterValue(L.it,'extrusionDirection',look.direction),ex:ex.map(r1),fills:Array.from(fills,f=>({fill:f.fill,color:f.color})),edges:L.edges.map(e=>({a:e.a.map(r1),b:e.b.map(r1),nx:Math.round(e.nx*1000)/1000,ny:Math.round(e.ny*1000)/1000,k:Math.round(smooth(.15,.75,e.nx*Math.cos(shadowAngle)+e.ny*Math.sin(shadowAngle))*(SHADES-1))}))};
+      out += layer('block', kx, ky, kw, kh, `<g${tag('k')} filter="url(#${finishId}-finish)">${blockSvg}</g>`).replace('class="block"',`class="block" data-extrusion='${JSON.stringify(model)}'`).replace('overflow:visible;',`overflow:visible;z-index:${rank.get(n)};`);
     }
     // the letter's drop shadow: its finished block and face again, through the shadow filter,
     // under every block (z-index -1); it never changes, so it is painted once, and shown as the
@@ -1532,7 +1712,7 @@ function layered(parts, id) {
     if (shade) {
       const sx = kx + Math.min(0, shade.dx) - 2 * shade.soft, sy = ky + Math.min(0, shade.dy) - 2 * shade.soft;
       out += layer('shadow', sx, sy, kw + Math.abs(shade.dx) + 4 * shade.soft, kh + Math.abs(shade.dy) + 4 * shade.soft,
-        `<g filter="url(#${dropId}-drop)">${L.it.flat ? '' : `<g filter="url(#${finishId}-finish)">${svg.slice(svg.indexOf('<g class="block"'), svg.indexOf('<g class="face"')).replace('<g class="block">', '<g>')}</g>`}${L.it.style === 'lineart' ? outlinePath(L,'white') : `<use href="#${id}-f${n}"/>`}</g>`, ';z-index:-1');
+        `<g filter="url(#${dropId}-drop)">${L.it.flat ? '' : `<g filter="url(#${finishId}-finish)">${svg.slice(svg.indexOf('<g class="block"'), svg.indexOf('<g class="face"')).replace('<g class="block">', '<g>')}</g>`}${L.it.style === 'lineart' ? outlinePath(L,'white') : `<use href="#${id}-f${n}"/>`}</g>`, ';z-index:-1').replace('class="shadow"',`class="shadow" data-shadow-filter="${dropId}" data-shadow-direction="${look.dropDirection}" data-shadow-distance="${letterValue(L.it,'dropDistance',look.dropDistance)}" data-shadow-opacity="${letterValue(L.it,'dropOpacity',look.dropOpacity)}"`);
     }
     // the face and its decoration twice: drawn in along the pen, crisp (the grain and wobble
     // filter is costly to redo every frame, so this layer has none), hidden until the animation
@@ -1714,8 +1894,8 @@ function animationPartsPresent(line = null) {
     face: visible.some(L => L.it.style !== 'lineart'),
     deco: visible.some(L => !L.it.flat && L.it.style !== 'plain'),
     outline: visible.some(L => letterOutline(L.it) > 0),
-    extrude: visible.some(({it}) => { if (it.flat) return false; return Math.hypot(...letterExtrusion(it))>.01; }),
-    dropShadow: visible.some(L => !!letterDrop(L.it, false))
+    extrude: visible.some(({it}) => { if (it.flat) return false; const states=partsForLine(motion,it.line).extrude; return Math.hypot(...letterExtrusion(it))>.01 || (states.startDepth??0)>0 || (states.endDepth??0)>0; }),
+    dropShadow: visible.some(L => !!letterDrop(L.it, true))
   };
 }
 
@@ -2343,6 +2523,8 @@ function play() {
   // (it starts itself, two frames after setup, or once in view; the readout times it from then)
   const tl = timeline = animateLettering(root, motion);
   tl.eventCallback('onStart', () => { if (timeline === tl) measure(); });
+  configureEditorPlayerUpdates();
+  editorSoloPreview();updateEditorTracks();
 }
 // Sample only a visible, uninterrupted playback. This is a practical 60fps target,
 // not a hardware benchmark: green at 50fps with steady frames, orange for
@@ -2371,7 +2553,7 @@ function performanceResult(times) {
 }
 function measure() {
   const run = ++measuring, times = [];
-  const length = timeline ? timeline.duration() / timeline.timeScale() : 0;
+  const length = timeline ? (timeline.duration()-timeline.time()) / timeline.timeScale() : 0;
   let start = null, last = null;
   performanceState('Measuring…');
   document.getElementById('performance-fill').style.width = '';
@@ -2610,8 +2792,8 @@ const CUSTOM_ANIMATION_PRESETS = {
   }
 };
 function animationPreset(name) {
-  if (CUSTOM_ANIMATION_PRESETS[name]) {
-    const saved = structuredClone(CUSTOM_ANIMATION_PRESETS[name]);
+  if (CUSTOM_ANIMATION_PRESETS[name] || EXTRA_ANIMATION_PRESETS[name]) {
+    const saved = structuredClone(CUSTOM_ANIMATION_PRESETS[name] || EXTRA_ANIMATION_PRESETS[name]);
     for (const key of ['face', 'deco', 'outline', 'extrude', 'dropShadow']) saved[key] = { ...LETTERING_DEFAULTS[key], ...saved[key] };
     const timings = saved.lines;
     saved.lines = design.lines.map((_, i) => ({ ...(timings[i] || timings[timings.length - 1]),
@@ -2622,60 +2804,178 @@ function animationPreset(name) {
   m.lines = design.lines.map(() => ({ ...LETTERING_DEFAULTS.lines[0], start: 0 }));
   return m;
 }
+const EDITOR_PRESETS=['Draw in','Paint','Pop','Drop','Soft fade','Bloom','Swing'];
+const EXTRA_ANIMATION_PRESETS=(()=>{
+ const bloom=structuredClone(LETTERING_DEFAULTS);Object.assign(bloom.face,{entrance:'pop',duration:.7,ease:'back',strength:.4});Object.assign(bloom.deco,{entrance:'fade',delay:.2,duration:.4});Object.assign(bloom.extrude,{anchor:'letterStart',delay:.2,duration:.85,ease:'out'});Object.assign(bloom.outline,{entrance:'draw',duration:.55,delay:.1});Object.assign(bloom.dropShadow,{entrance:'fade',anchor:'faceEnd',delay:.1,duration:.5});bloom.lines.forEach(l=>Object.assign(l,{spread:.55,order:'centreOut'}));
+ const swing=structuredClone(LETTERING_DEFAULTS);Object.assign(swing.face,{entrance:'fade',duration:.6,delay:.15});Object.assign(swing.deco,{entrance:'fade',delay:.15,duration:.45});Object.assign(swing.extrude,{anchor:'letterStart',delay:0,duration:1.2,ease:'inOut',startDirection:130});Object.assign(swing.dropShadow,{entrance:'fade',anchor:'letterStart',delay:.1,duration:1.2,startDirection:160});Object.assign(swing.outline,{entrance:'fade',delay:.2,duration:.5});swing.lines.forEach(l=>Object.assign(l,{spread:.7,order:'leftToRight'}));
+ return {Bloom:bloom,Swing:swing};
+})();
+function normaliseAnimation(m,count) {
+ const clamp=(v,min,max,fallback)=>Number.isFinite(v)?Math.max(min,Math.min(max,v)):fallback;
+ const clean=(value,key)=>{const p={...LETTERING_DEFAULTS[key],...(value&&typeof value==='object'?value:{})};
+  p.duration=clamp(p.duration,.1,10,LETTERING_DEFAULTS[key].duration);p.delay=clamp(p.delay,key==='extrude'?-5:0,30,LETTERING_DEFAULTS[key].delay||0);p.strength=clamp(p.strength,0,1,.5);
+  if(!EASES.some(([v])=>v===p.ease))p.ease='out';if(!TIMING_ANCHORS.some(([v])=>v===p.anchor)||key==='extrude'&&p.anchor==='extrusionEnd')p.anchor=LETTERING_DEFAULTS[key].anchor||'letterStart';
+  const entrances=key==='extrude'?['grow','shrink']:key==='dropShadow'?['fade','drop','pop','finish']:key==='outline'?['draw','fade','drop','pop','finish']:['draw','fade','drop','pop'];
+  if(!entrances.includes(p.entrance))p.entrance=LETTERING_DEFAULTS[key].entrance;
+  for(const field of ['startDirection','endDirection','startDepth','endDepth','startDistance','endDistance','startOpacity','endOpacity'])if(field in p){const max=field.includes('Direction')?359:field.includes('Depth')?3:field.includes('Opacity')?1:80;p[field]=p[field]==null?null:clamp(p[field],0,max,null);}
+  return p;};
+ for(const key of ANIMATION_PARTS)m[key]=clean(m[key],key);
+ m.scope=m.scope==='lines'?'lines':'shared';m.reverse=m.reverse===true;m.preset=typeof m.preset==='string'?m.preset:'Custom';
+ const old=Array.isArray(m.lines)?m.lines:[];m.lines=Array.from({length:count},(_,i)=>{const l={...LETTERING_DEFAULTS.lines[0],...old[i]};l.start=clamp(l.start,0,30,0);l.spread=clamp(l.spread,0,10,.75);if(!ORDERS.some(([v])=>v===l.order))l.order='random';return l;});
+ const saved=Array.isArray(m.lineParts)?m.lineParts:[];m.lineParts=Array.from({length:count},(_,i)=>{const value=saved[i]&&typeof saved[i]==='object'?saved[i]:Object.fromEntries(ANIMATION_PARTS.map(k=>[k,structuredClone(m[k])]));return {reverse:typeof value.reverse==='boolean'?value.reverse:m.reverse,preset:typeof value.preset==='string'?value.preset:m.preset,...Object.fromEntries(ANIMATION_PARTS.map(k=>[k,clean(value[k]||m[k],k)]))};});
+ m.speed=clamp(m.speed,.1,4,1);m.hold=clamp(m.hold,0,10,2);return m;
+}
+let editorLine=0,editorSolo=false,editorActivePart='face';
+const editorPartOrder=['face','outline','extrude','dropShadow','deco'];
+const editorNames={face:'Face',deco:'Decoration',outline:'Outline',extrude:'Extrusion',dropShadow:'Drop shadow'};
+const editorScope=()=>motion.scope==='lines'?motion.lineParts[editorLine]:motion;
+function editorChanged(custom=true) {
+ if(custom)editorScope().preset='Custom';
+ normaliseAnimation(motion,design.lines.length);rebuild();fillControls();refreshCode();play();commitEdit();
+}
+function selectEditorLine(index) {editorLine=Math.max(0,Math.min(design.lines.length-1,+index));fillControls();editorSoloPreview();}
+function editorSoloPreview(){moving.querySelectorAll('.letter').forEach(l=>l.style.opacity=editorSolo&&+l.dataset.line!==editorLine?'0':'1');}
+function editorRange(label,target,key,min,max,step,unit='') {
+ const input=el('input',{type:'range',min,max,step,value:target[key]??min}),value=el('output',{textContent:(target[key]??min)+unit});
+ input.addEventListener('input',()=>{target[key]=+input.value;value.textContent=input.value+unit;refreshCode();});input.addEventListener('change',()=>editorChanged());
+ const part=ANIMATION_PARTS.find(key=>editorScope()[key]===target);editableSliderValue(input,value,unit,part?`${editorNames[part]}: ${label}`:label);return field(label,null,input,value);
+}
+function editorMenu(label,choices,current,change) {const select=menu(choices,current);select.setAttribute('aria-label',label);select.addEventListener('change',()=>change(select.value));return field(label,null,select,el('span'));}
+function editorNumber(label,value,min,max,step,change,unit='') {const input=el('input',{type:'number',min,max,step,value});input.setAttribute('aria-label',label);input.addEventListener('change',()=>{if(!Number.isFinite(+input.value)||input.value===''){fillControls();return;}input.value=Math.max(min,Math.min(max,+input.value));change(+input.value);});return el('label',{className:'ae-number'},el('span',{textContent:label}),el('span',{className:'ae-number-wrap'},input,el('span',{textContent:unit})));}
+function editorSection(title,key,...children){const section=el('section',{className:'ae-section'},el('h4',{className:'ae-section-title',textContent:title}),...children);section.setAttribute('aria-label',title);return section;}
+// Friendly timing choices are a view of the existing anchors and offsets.
+// Rendering these controls never changes a preset or an imported design.
+function editorStarts(target,part){
+ const face=part==='face',finish=target.entrance==='finish';
+ const mode=finish?'finished':(target.delay||0)!==0?'custom':!face&&target.anchor==='faceEnd'?'after':face||target.anchor==='faceStart'||target.anchor==='letterStart'&&!(editorScope().face.delay||0)?'with':'custom';
+ const choices=[['with',face?'With the line’s letters':'With the letters'],...(!face?[['after','After the letters']]:[]),['custom','At a specific time'],...(['outline','dropShadow'].includes(part)?[['finished','After all parts finish']]:[])];
+ const starts=editorMenu('Starts',choices,mode,value=>{
+  if(target.entrance==='finish'&&value!=='finished')target.entrance='fade';
+  if(value==='finished'){target.entrance='finish';target.delay=0;}
+  else if(value==='with'){target.anchor=face?'letterStart':'faceStart';target.delay=0;}
+  else if(value==='after'){target.anchor='faceEnd';target.delay=0;}
+  else {if(mode!=='custom')target.delay=.1;}
+  editorChanged();
+ });
+ const extra=el('div',{className:'ae-start-details'});
+ if(mode==='custom'){
+  const references=[['letterStart','Each letter’s timeline cue'],['faceStart','Its face starts'],['faceEnd','Its face finishes'],['extrusionEnd','Its extrusion finishes']].filter(([key])=>part!=='extrude'||key!=='extrusionEnd');
+  if(!face)extra.append(editorMenu('Count from',references,target.anchor,value=>{target.anchor=value;editorChanged();}));
+  extra.append(editorRange('Offset',target,'delay',part==='extrude'?-5:0,30,.05,'s'),el('p',{className:'note',textContent:'Seconds from '+(face?'each letter’s timeline cue':'the selected reference')+'. Line start times and letter spread still apply.'}));
+ }else if(finish&&target.delay)extra.append(editorRange('Extra wait',target,'delay',0,30,.05,'s'));
+ return {starts,extra};
+}
+function renderEditorStates(target,part){
+ const extrusion=part==='extrude',kind=extrusion?'Depth':'Distance',distanceKey=extrusion?'Depth':'Distance',globalDistance=extrusion?look.length:look.dropDistance;
+ const boxes=['start','end'].map(which=>{
+  const design=target[which+'Direction']==null&&target[which+distanceKey]==null&&(extrusion||target[which+'Opacity']==null);
+  const use=el('input',{type:'checkbox',checked:design});use.setAttribute('aria-label',`${which}: Match current design`);
+  const box=el('div',{className:'ae-state'},el('div',{className:'ae-state-head'},el('strong',{textContent:which.toUpperCase()}),el('label',{},use,'Match current design')));
+  use.addEventListener('change',()=>{for(const [key,fallback] of [['Direction',extrusion?look.direction:look.dropDirection],[distanceKey,globalDistance],...(!extrusion?[['Opacity',look.dropOpacity]]:[])])target[which+key]=use.checked?null:fallback;editorChanged();});
+  const values=el('div',{className:'ae-state-values'});
+  for(const [key,label,fallback,min,max,step,unit] of [['Direction','Direction',extrusion?look.direction:look.dropDirection,0,359,1,'°'],[distanceKey,kind,globalDistance,0,extrusion?3:80,extrusion?.05:1,extrusion?'×':'px'],...(!extrusion?[['Opacity','Opacity',look.dropOpacity,0,1,.05,'']]:[])]){
+    const row=editorNumber(`${which} ${label.toLowerCase()}`,target[which+key]??fallback,min,max,step,v=>{target[which+key]=v;editorChanged();},unit);row.firstElementChild.textContent=label;
+    row.querySelector('input').disabled=design;values.append(row);
+  }
+  box.append(values);return box;
+ });
+ return editorSection(extrusion?'Animate depth/direction':'Animate shadow movement','states',el('div',{className:'ae-states'},boxes[0],el('span',{className:'ae-state-arrow',textContent:'→','aria-hidden':'true'}),boxes[1]),el('p',{className:'note',textContent:'Match current design follows your 3D, Finish and individual-letter settings. Directions take the shortest turn. Changes affect animation; Still and static exports show the design.'}));
+}
 function applyAnimationPreset(name) {
-  Object.assign(motion, animationPreset(name));
-  fillControls();
-  play();
+ const m=animationPreset(name),target=editorScope();
+ for(const key of ANIMATION_PARTS)target[key]=structuredClone(m[key]);target.preset=name;
+ if(motion.scope==='lines'){Object.assign(motion.lines[editorLine],{spread:m.lines[editorLine]?.spread??.75,order:m.lines[editorLine]?.order??'leftToRight'});}else motion.lines.forEach((l,i)=>Object.assign(l,{spread:m.lines[i]?.spread??.75,order:m.lines[i]?.order??'leftToRight'}));
+ editorChanged(false);
 }
 function fillControls() {
-  motion.outline ||= structuredClone(LETTERING_DEFAULTS.outline);
-  motion.dropShadow ||= structuredClone(LETTERING_DEFAULTS.dropShadow);
-  motion.face.delay ??= 0;
-  motion.deco.anchor ??= 'faceStart';
-  motion.extrude.anchor ??= 'faceEnd';
-  motion.outline.anchor ??= 'letterStart';
-  const p = panel('animation');
-  p.replaceChildren(box('Animation presets',
-    el('div', { className: 'buttons' }, ...['Draw in', 'Paint', 'Pop', 'Drop', 'Soft fade'].map(name =>
-      button(name, () => applyAnimationPreset(name)))),
-    el('p', { className: 'note', textContent: 'Changes animation only. Timing starts when playback begins, not when the page loads. Each line schedules its letters; each part can then start independently. To show extrusion first, time it from letter start and add a delay under Letters coming in.' })));
-  p.firstElementChild.classList.add('animation-presets');
-  // a timing for every line, and none for lines that are gone
-  while (motion.lines.length < design.lines.length) motion.lines.push({ ...LETTERING_DEFAULTS.lines[0] });
-  motion.lines.length = design.lines.length;
-  const present = animationPartsPresent();
-  const partTitles = {'Letters coming in':'face','Face decoration':'deco',Outline:'outline',Extrusion:'extrude','Drop shadow':'dropShadow'};
-  for (const [title, rows] of controlRows()) {
-    if (partTitles[title] && !present[partTitles[title]]) continue;
-    const set = box(title);
-    if (title === 'Drop shadow') set.append(el('p', { className: 'note', textContent: 'Set a drop-shadow distance above 0 in Finish to see it.' }));
-    for (const [label, hint, target, key, min, max, step, unit] of rows) {
-      const row = el('label');
-      if (hint) row.title = hint;
-      // a menu: of eases, or of the row's own choices (whose values need not be strings)
-      if (min === undefined || Array.isArray(min)) {
-        const choices = min || EASES, pick = el('select');
-        choices.forEach(([value, text], i) => pick.append(new Option(text, i, false, target[key] === value)));
-        pick.addEventListener('change', () => { target[key] = choices[pick.value][0]; refreshCode(); play(); });
-        row.append(label, pick, el('span'));
-      } else {
-        const input = el('input', { type: 'range', min, max, step, value: target[key] });
-        const value = el('output', { textContent: target[key] + unit });
-        input.addEventListener('input', () => { target[key] = +input.value; value.textContent = input.value + unit; refreshCode(); });
-        input.addEventListener('change', play);
-        editableSliderValue(input, value, unit, `${title}: ${label}`);
-        row.append(label, input, value);
-      }
-      set.append(row);
-    }
-    p.append(set);
-  }
-  p.append(box('Order', el('p', { className: 'note', textContent: 'The random order the letters come in.' }),
-    el('div', { className: 'buttons' }, button('Randomize', () => { motion.seed = 1 + Math.floor(Math.random() * 9999); refreshCode(); play(); }))));
-  refreshCode();
+ normaliseAnimation(motion,design.lines.length);editorLine=Math.max(0,Math.min(editorLine,design.lines.length-1));
+ const card=document.getElementById('tab-animation'),scroll=card.scrollTop;
+ const p=panel('animation');p.replaceChildren();
+ const mode=el('div',{className:'ae-segment',role:'group'});mode.setAttribute('aria-label','Animation scope');
+ for(const [key,label] of [['shared','Same for all lines'],['lines','Per line']]){const b=button(label,()=>{motion.scope=key;editorChanged(false);},{'aria-pressed':motion.scope===key});b.setAttribute('aria-pressed',motion.scope===key);mode.append(b);}
+ const top=el('div',{className:'ae-top'},el('div',{},el('div',{className:'ae-label',textContent:'Animation settings'}),mode));
+ if(motion.scope==='lines'){
+  const edit=menu(design.lines.map((l,i)=>[String(i),`Line ${i+1} — ${l.text.trim()||'(empty)'}`]),String(editorLine));edit.setAttribute('aria-label','Edit line');edit.addEventListener('change',()=>selectEditorLine(edit.value));
+  top.append(el('div',{className:'ae-scope'},el('label',{},el('span',{className:'ae-label',textContent:'Edit line'}),edit),button('Copy to other lines',()=>{const current=structuredClone(motion.lineParts[editorLine]);motion.lineParts=motion.lineParts.map((v,i)=>i===editorLine?v:structuredClone(current));editorChanged(false);},{className:'ae-secondary'})));
+ }
+ const tracks=el('div',{className:'ae-tracks'},el('div',{className:'ae-ruler'},el('span',{textContent:'Line / animation'}),el('span',{textContent:'Starts at'}),el('div',{id:'ae-ticks'})));
+ design.lines.forEach((l,i)=>{
+  const name=motion.scope==='lines'?motion.lineParts[i].preset:motion.preset;
+  const pick=button(l.text.trim()||`Line ${i+1}`,()=>selectEditorLine(i),{className:'ae-track-name'});pick.append(el('small',{textContent:`Line ${i+1} · ${name}${(motion.scope==='lines'?motion.lineParts[i].reverse:motion.reverse)?' · OUT':''}`}));pick.setAttribute('aria-pressed',editorLine===i);
+  const start=editorNumber(`Line ${i+1} start`,motion.lines[i].start,0,30,.1,v=>{motion.lines[i].start=v;editorChanged(false);},'s');start.firstElementChild.remove();
+  const bar=el('span',{className:'ae-track-bar',textContent:name});bar.setAttribute('data-track',i);
+  tracks.append(el('div',{className:'ae-track'+(editorLine===i?' selected':'')},pick,start,el('div',{className:'ae-rail'},bar)));
+ });
+ const playButton=button('Play',()=>toggleEditorPlayback(),{id:'ae-play'}),replay=button('↺ Replay',()=>play(),{className:'ae-secondary'});
+ const reverse=button('Reverse',()=>{editorScope().reverse=!editorScope().reverse;editorChanged(false);},{id:'ae-reverse',className:'ae-reverse'});reverse.prepend(el('span',{className:'ae-switch'}));reverse.setAttribute('aria-pressed',editorScope().reverse);
+ const scrub=el('input',{id:'ae-scrub',type:'range',min:0,max:1,step:.001,value:0});scrub.setAttribute('aria-label','Animation playhead');scrub.addEventListener('input',()=>{if(!timeline)return;timeline.cancelAutoplay?.();timeline.pause().time(+scrub.value,false);measuring++;performanceState('Paused','unavailable');syncEditorPlayer();});
+ const solo=el('input',{type:'checkbox',checked:editorSolo});solo.addEventListener('change',()=>{editorSolo=solo.checked;editorSoloPreview();});
+ const transport=el('div',{className:'ae-transport'},el('div',{className:'ae-player'},el('div',{className:'ae-player-actions'},playButton,replay,reverse),el('div',{className:'ae-scrub-wrap'},scrub,el('output',{id:'ae-time',textContent:'0.00 / 0.00s'}))),el('div',{className:'ae-player-note'},el('span',{textContent:(motion.scope==='lines'?`Line ${editorLine+1} · `:'')+(editorScope().reverse?'Reverse · lettering animates out':'Forward · lettering animates in')}),el('label',{},solo,'Preview selected line only')));
+ const scope=editorScope();
+ const presetButtons=el('div',{className:'buttons ae-preset-buttons'});
+ for(const name of EDITOR_PRESETS){const pick=button(name,()=>applyAnimationPreset(name));pick.setAttribute('aria-pressed',String(scope.preset===name));presetButtons.append(pick);}
+ const presetBox=box('Animation presets',presetButtons);
+ const head=el('div',{className:'ae-edit-head'},el('strong',{textContent:(motion.scope==='lines'?`Editing line ${editorLine+1} · ${design.lines[editorLine].text}`:'Editing all lines')+` · ${scope.preset}`}));
+ const cards=el('div',{className:'ae-parts-grid'});
+ const present=animationPartsPresent(motion.scope==='lines'?editorLine:null);
+ const available=editorPartOrder.filter(part=>present[part]);
+ if(!available.includes(editorActivePart))editorActivePart=available[0]||'face';
+ const partTabs=el('div',{className:'ae-parts'});partTabs.setAttribute('role','tablist');partTabs.setAttribute('aria-label','Animation part');
+ for(const part of available){const pick=button(editorNames[part],()=>{editorActivePart=part;fillControls();document.getElementById('ae-part-tab-'+part)?.focus({preventScroll:true});});pick.id='ae-part-tab-'+part;pick.setAttribute('role','tab');pick.setAttribute('aria-selected',String(part===editorActivePart));pick.setAttribute('aria-controls','ae-part-panel-'+part);pick.tabIndex=part===editorActivePart?0:-1;partTabs.append(pick);}
+ partTabs.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();let index=available.indexOf(editorActivePart);index=event.key==='Home'?0:event.key==='End'?available.length-1:(index+(event.key==='ArrowRight'?1:-1)+available.length)%available.length;editorActivePart=available[index];fillControls();document.getElementById('ae-part-tab-'+editorActivePart)?.focus({preventScroll:true});});
+ for(const part of editorPartOrder){
+  if(!present[part])continue;
+  const target=scope[part],content=el('section',{className:'ae-part-card'});
+  content.setAttribute('aria-label',`${editorNames[part]} settings`);content.dataset.editorPart=part;
+  content.id='ae-part-panel-'+part;content.setAttribute('role','tabpanel');content.setAttribute('aria-labelledby','ae-part-tab-'+part);content.hidden=part!==editorActivePart;
+  const entrances=part==='extrude'?[['grow','Grow'],['shrink','Shrink']]:part==='dropShadow'?[['finish','Finish fade'],['fade','Fade'],['pop','Pop'],['drop','Drop']]:part==='outline'?[['finish','Finish fade'],...ENTRANCES]:ENTRANCES;
+  const entrance=editorMenu('Animation',entrances,target.entrance,v=>{target.entrance=v;if(part==='extrude'){target.startDepth=v==='shrink'?null:0;target.endDepth=v==='shrink'?0:null;}editorChanged();});
+  const timingControls=editorStarts(target,part);
+  content.append(el('div',{className:'ae-basic'},entrance,editorRange('Duration',target,'duration',.1,10,.05,'s'),timingControls.starts),timingControls.extra);
+  const more=el('div',{className:'ae-more-grid'},editorMenu('Easing',EASES,target.ease,v=>{target.ease=v;editorChanged();}));
+  if(target.ease!=='linear')more.append(editorRange('Strength',target,'strength',0,1,.05,''));
+  content.append(editorSection('Motion feel','more',more));
+  if(['extrude','dropShadow'].includes(part))content.append(renderEditorStates(target,part));
+  if(part==='dropShadow')content.append(el('p',{className:'note',textContent:'Set the design shadow in Finish and its color in Color or Letter. Start/end values below control its movement.'}));
+  cards.append(content);
+ }
+ const editCard=el('div',{className:'ae-edit'},head,partTabs,cards);
+ const timingTarget=motion.lines[editorLine],timing=el('div',{className:'ae-more-grid'},editorRange('spread',timingTarget,'spread',0,10,.05,'s'),editorMenu('order',ORDERS,timingTarget.order,v=>{timingTarget.order=v;editorChanged(false);}),button('Randomize',()=>{motion.seed=1+Math.floor(Math.random()*9999);editorChanged(false);}));
+ const timingBox=editorSection(`Letter timing · line ${editorLine+1}`,'timing',timing,el('p',{className:'note',textContent:'Spread is the time between the first and last letter starting. Individual-letter offsets from Letter still apply.'}));
+ const playback=el('div',{className:'ae-more-grid'},editorRange('speed',motion,'speed',.1,4,.05,'×'),editorMenu('play',[[false,'Once'],[true,'Loop'],['pingpong','Ping-pong']],motion.loop,v=>{motion.loop=v==='pingpong'?'pingpong':v==='true';editorChanged(false);}),editorRange('hold',motion,'hold',0,10,.05,'s'),editorMenu('start',[[false,'On load'],[true,'When in view']],motion.whenVisible,v=>{motion.whenVisible=v==='true';editorChanged(false);}));
+ p.append(presetBox,top,tracks,transport,el('div',{className:'ae-global-grid'},timingBox,editorSection('Playback settings · applies to all lines','playback',playback)),editCard);
+ card.scrollTop=scroll;syncEditorPlayer();refreshCode();
+}
+let lastEditorPlayerUpdate=0;
+function editorPlayerVisible(){
+ return !document.hidden&&!document.getElementById('tab-animation').hidden&&!document.getElementById('panels').classList.contains('shut');
+}
+function tickEditorPlayer(){
+ const now=performance.now();if(now-lastEditorPlayerUpdate<1000/30)return;
+ lastEditorPlayerUpdate=now;syncEditorPlayer();
+}
+function configureEditorPlayerUpdates(){
+ if(!timeline)return;
+ const visible=editorPlayerVisible();
+ timeline.eventCallback('onUpdate',visible?tickEditorPlayer:null);
+ timeline.eventCallback('onComplete',visible?syncEditorPlayer:null);
+ if(visible){lastEditorPlayerUpdate=0;syncEditorPlayer();}
+}
+document.addEventListener('visibilitychange',configureEditorPlayerUpdates);
+function syncEditorPlayer(){
+ if(!timeline||!editorPlayerVisible())return;const scrub=document.getElementById('ae-scrub'),time=document.getElementById('ae-time'),play=document.getElementById('ae-play');if(!scrub)return;
+ const duration=timeline.duration(),now=timeline.time();scrub.max=duration;scrub.value=now;const readout=now.toFixed(2)+' / '+duration.toFixed(2)+'s',label=timeline.paused()||timeline.repeat()!==-1&&timeline.progress()>=1?'Play':'Pause';if(time.textContent!==readout)time.textContent=readout;if(play.textContent!==label)play.textContent=label;
+}
+function updateEditorTracks(){
+ if(!timeline)return;const duration=timeline.duration()||1,contentDuration=timeline.contentDuration||duration,ticks=document.getElementById('ae-ticks');if(ticks){ticks.replaceChildren(...Array.from({length:6},(_,i)=>el('span',{textContent:(duration*i/5).toFixed(1)+'s'})));}
+ document.querySelectorAll('[data-track]').forEach(bar=>{const i=+bar.dataset.track,r=timeline.lineRanges?.[i]||{start:motion.lines[i]?.start||0,end:duration};const reversed=motion.scope!=='lines'&&motion.reverse;const start=reversed?Math.max(0,contentDuration-r.end):r.start,end=reversed?contentDuration-r.start:r.end;bar.style.left=(Math.min(duration,start)/duration*100)+'%';bar.style.width=Math.max(1,Math.min(duration-start,end-start)/duration*100)+'%';});
+ syncEditorPlayer();
+}
+function toggleEditorPlayback(){
+ if(!timeline||document.getElementById('moving').hidden){setPreview('animate');return;}
+ timeline.cancelAutoplay?.();if(!timeline.paused()&&timeline.isActive()){timeline.pause();measuring++;performanceState('Paused','unavailable');}else{if(timeline.repeat()!==-1&&timeline.progress()>=1)timeline.time(0,false);timeline.play();measure();}syncEditorPlayer();
 }
 
-// ---------- presets ----------
 // the whole design (the words and lines, every letter's adjustments, the colours, the design's
 // settings and the animation's) as a JSON file to keep or
 // share. The browser's storage may be missing or refuse (a private window): the page works without
@@ -2744,7 +3044,7 @@ function restore(p) {
   m.loop = m.loop === 'pingpong' ? 'pingpong' : m.loop === true; m.whenVisible = m.whenVisible === true;
   if (!Number.isFinite(m.hold)) m.hold = LETTERING_DEFAULTS.hold;
   for (const k of Object.keys(motion)) delete motion[k];
-  Object.assign(motion, m);
+  Object.assign(motion, normaliseAnimation(m,design.lines.length));
   chosen = null;
   buildAll();
   draw();
@@ -2753,7 +3053,7 @@ function restore(p) {
 // ---------- edit history and local draft recovery ----------
 // One history step per completed gesture; typing is grouped after a short pause.
 // Draft writes also happen during a drag, so a refresh need not lose an unfinished gesture.
-const DRAFT_KEY = 'atypix-draft-v1';
+const DRAFT_KEY = 'atypix-editor-draft-v1';
 const HISTORY_LIMIT = 100;
 let history = [], historyIndex = -1, historyTimer = null, draftTimer = null;
 const draftStatus = document.getElementById('draft-status');
@@ -3017,7 +3317,7 @@ function fillHelp() {
   panel('help').replaceChildren(intro,
     step('1. Say something', 'Open Text to type your words, adjust size and spacing, or add lines. Leading sets the space between lines. Open Font to search families and choose a weight and style for each line.', 'Start with words', 'text'),
     step('2. Make it yours', 'Try a preset in Style. Play with Color, 3D, and Finish. Want to change just one letter? Open Letter, then click it in the artwork. Detail lets you fine-tune dots, lines, and other decorations.', 'Try a style', 'style'),
-    step('3. Make it move', 'Open Animation and pick a preset. Press Replay to watch it again. Still shows the finished design; Animate shows it moving.', 'Try animation', 'animation'),
+    step('3. Make it move', 'Open Animation and choose shared or per-line settings, then edit one part at a time. Use Play, Replay and the scrubber to inspect it. Reverse plays the sequence out. Still shows your design; animated end states can be different.', 'Try animation', 'animation'),
     step('Go! Save and share', 'Download an Atypix Design file to keep everything editable. Load that file here anytime. SVG, PNG, and WebP are still pictures. For a moving version on your website, use the animated HTML snippet.', 'Save your design', 'save'),
     el('p', { className: 'help-footer', textContent: 'Your latest draft saves automatically in this browser. Download a design file to keep a copy. Reset starts fresh; Undo brings your design back. On a phone, use the section menu and Hide controls to give the artwork more room.' }));
 }
@@ -3030,8 +3330,8 @@ function fillHelp() {
 const TABS = [['text', 'Text'], ['font', 'Font'], ['style', 'Style'], ['detail', 'Detail'], ['letter', 'Letter'], ['colour', 'Color'],
   ['3d', '3D'], ['finish', 'Finish'], ['animation', 'Animation'], ['save', 'Save & export'], ['help', '?']];
 // Preview is independent of the settings drawer and remembered separately from the design.
-let previewMode = 'still';
-try { if (localStorage.getItem('atypix-preview') === 'animate') previewMode = 'animate'; } catch {}
+let previewMode = 'animate';
+try { if (localStorage.getItem('atypix-editor-preview') === 'animate') previewMode = 'animate'; } catch {}
 function setPreview(mode) {
   previewMode = mode;
   const animated = mode === 'animate';
@@ -3042,7 +3342,7 @@ function setPreview(mode) {
   measuring++;  // stop the previous playback's performance readout
   document.getElementById('fps').hidden = true;
   play();       // also kills and clears a playback when returning to Still
-  try { localStorage.setItem('atypix-preview', mode); } catch {}
+  try { localStorage.setItem('atypix-editor-preview', mode); } catch {}
 }
 document.getElementById('canvas-eyedropper').addEventListener('click', async () => {
   const picker = document.getElementById('canvas-color');
@@ -3057,8 +3357,8 @@ document.getElementById('canvas-color').addEventListener('input', e => setCanvas
 document.getElementById('canvas-color').addEventListener('change', commitEdit);
 document.getElementById('preview-still').addEventListener('click', () => setPreview('still'));
 document.getElementById('preview-animate').addEventListener('click', () => setPreview('animate'));
-const TAB_KEY = 'atypix-tab';
-let tab = 'text', open = true;
+const TAB_KEY = 'atypix-editor-tab';
+let tab = 'animation', open = true;
 const tabs = document.getElementById('tabs'), panels = document.getElementById('panels');
 const sectionPicker = document.getElementById('section-picker'), controlsToggle = document.getElementById('toggle-controls');
 for (const [name, text] of TABS) sectionPicker.append(new Option(name === 'help' ? '? How to use' : text, name));
@@ -3071,7 +3371,12 @@ function updateScrollHint() {
 }
 for (const card of panels.children) card.addEventListener('scroll', updateScrollHint, { passive: true });
 new ResizeObserver(updateScrollHint).observe(panels);
-new MutationObserver(() => requestAnimationFrame(updateScrollHint)).observe(panels, { childList: true, subtree: true });
+let scrollHintFrame = 0;
+new MutationObserver(records => {
+  // Playback changes the time readout, not the panel's scrollable layout.
+  if (records.every(record => record.target.closest?.('.ae-transport'))) return;
+  if (!scrollHintFrame) scrollHintFrame = requestAnimationFrame(() => { scrollHintFrame = 0; updateScrollHint(); });
+}).observe(panels, { childList: true, subtree: true });
 tabs.append(...TABS.map(([name, text], i) => {
   const b = button(text, () => showTab(name, true), { role: 'tab', id: 'tab-button-' + name });
   if (name === 'help') { b.setAttribute('aria-label', 'How to use Atypix'); b.title = 'How to use Atypix'; }
@@ -3130,6 +3435,7 @@ function showTab(name, again = false, slide = true) {
     panels.style.height = to + 'px';
   }
   panels.classList.toggle('shut', !open);
+  configureEditorPlayerUpdates();
   if (name === 'save') updateArtworkSize?.();
   sectionPicker.value = tab;
   controlsToggle.textContent = open ? 'Hide controls' : 'Show controls';

@@ -336,7 +336,7 @@ If an outer entrance must complete first, call `startLettering()` from that entr
 
 The normal export runs an initialization call inside a function scope and discards the returned timeline. There is no documented universal `window.atypix.play()` command available after pasting it.
 
-For custom control, edit the final call inside that same script scope. **The following manual-start pattern applies specifically to the current `Atypix-editor.html` runtime.** The original edition's runtime does not implement the same `manual` option or `cancelAutoplay` helper.
+For custom control, edit the final call inside that same script scope. **The following manual-start pattern applies to current exports from both pages**, which now share the timeline-editor runtime. Older exports made before this replacement may not implement the same `manual` option or `cancelAutoplay` helper.
 
 ```js
 const artworkRoot = document.getElementById('YOUR-GENERATED-ATYPIX-ID');
