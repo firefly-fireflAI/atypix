@@ -365,6 +365,7 @@ function animateLettering(root, options = {}) {
   // (each stroke's length measured once, though the face and its decoration both use it)
   const lengths = new Map();
   const pensOf = part => [...(part.dataset.mask ? svg.getElementById(part.dataset.mask) : part).querySelectorAll('.pen')].map(el => {
+    if (el.hasAttribute('data-reveal-at')) return { el, at: +el.dataset.revealAt, len: +el.dataset.revealSpan, region: true, axis: el.dataset.revealAxis, points: JSON.parse(el.dataset.revealPoints), k: -1 };
     const ref = el.getAttribute('href').slice(1);
     if (!lengths.has(ref)) {
       const path = svg.getElementById(ref);
@@ -383,11 +384,27 @@ function animateLettering(root, options = {}) {
   const drawIn = (part, pens, start, draw, ease) => {
     const end = Math.max(1, ...pens.map(p => p.at + p.len));
     const pen = { s: 0 };
+    const regions = pens.some(p => p.region);
+    let reveal;
+    if (regions) {
+      reveal = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      reveal.setAttribute('fill', 'white');
+      pens[0].el.parentNode.append(reveal);
+    }
     // a stroke not yet reached is hidden; one being drawn is a dash run along it; one finished is a
     // plain line (a dash is costly for the browser to redraw every frame, a plain line is not)
     const paint = () => {
+      const revealed = [];
       for (const p of pens) {
         const k = Math.round(Math.min(1, Math.max(0, (pen.s - p.at) / p.len)) * 2000) / 2000;
+        if (p.region) {
+          if (k > 0) {
+            const [a,b,c,d] = p.points, mix = (a,b) => a.map((v,i) => v+(b[i]-v)*k);
+            const pts = p.axis === 'up' ? [mix(d,a),mix(c,b),c,d] : p.axis === 'right' ? [a,mix(a,b),mix(d,c),d] : [a,b,mix(b,c),mix(a,d)];
+            revealed.push('M'+pts.map(p=>p.map(v=>Math.round(v*1000)/1000).join(' ')).join('L')+'Z');
+          }
+          p.k = k; continue;
+        }
         if (k === p.k) continue;
         if (p.k < 0 || (k > 0) !== (p.k > 0)) p.el.setAttribute('visibility', k > 0 ? 'visible' : 'hidden');
         if (k === 1) p.el.setAttribute('stroke-dasharray', 'none');
@@ -398,6 +415,7 @@ function animateLettering(root, options = {}) {
         }
         p.k = k;
       }
+      if (reveal) reveal.setAttribute('d', revealed.join(''));
     };
     paint();
     tl.to(pen, { s: end, duration: draw, ease, onUpdate: paint }, start);
@@ -908,6 +926,25 @@ function penStrokes(map, ch) {
   return { lines: lines.filter((l, i) => !i || length(l.pts) >= map.deepest * 0.6), width: 2 * map.deepest + 8 };
 }
 
+// Clean, connected drawing sections for glyphs whose broad pen caps cross open gaps
+// or leave a bite between branches. The mask always reveals the font's actual outline.
+function letterReveal(ch, pen, rings) {
+  const vertices = rings.flat(), x0 = Math.min(...vertices.map(p => p[0])), x1 = Math.max(...vertices.map(p => p[0]));
+  const y0 = Math.min(...vertices.map(p => p[1])), y1 = Math.max(...vertices.map(p => p[1]));
+  const total = Math.max(1, ...pen.lines.map(l => l.at + l.pts.reduce((n,p,i) => i ? n + Math.hypot(p[0]-l.pts[i-1][0],p[1]-l.pts[i-1][1]) : n, 0)));
+  const section = (left, top, right, bottom, start, end, axis) => ({
+    pts: [[left,top],[right,top],[right,bottom],[left,bottom]], at: total*start, span: total*(end-start), axis });
+  if (ch.toUpperCase() === 'U') {
+    const middle = (x0+x1)/2, turn = y1 - Math.min((y1-y0)*.3,pen.width);
+    return [section(x0,y0,middle,turn,0,.4,'down'), section(x0,turn,x1,y1,.4,.65,'right'), section(middle,y0,x1,turn,.65,1,'up')];
+  }
+  const area = r => Math.abs(r.reduce((a,p,i) => { const q = r[(i+1)%r.length]; return a+p[0]*q[1]-q[0]*p[1]; },0));
+  const outer = rings.reduce((a,b) => area(a)>area(b)?a:b);
+  const holes = rings.filter(r=>r!==outer).flat(), stem = holes.length ? Math.min(...holes.map(p=>p[0])) : x0+(x1-x0)*.36;
+  const junction = y0+(y1-y0)*.52;
+  return [section(x0,y0,stem,y1,0,.35,'down'), section(stem,y0,x1,junction,.25,.65,'down'), section(stem,junction,x1,y1,.65,1,'down')];
+}
+
 // ---------- the SVG ----------
 // the same scatter every time
 function seeded(seed) {
@@ -973,7 +1010,7 @@ function wallFills(id, pal = PAL) {
     const t = k / (SHADES - 1), color = ['None', 'Dots'].includes(HATCH.style) ? pal.side : mix(pal.side, pal.under, t);
     if ((t < 0.5 && HATCH.style !== 'Dots') || ['None', 'Smooth'].includes(HATCH.style)) { fills.push({ fill: color, color }); continue; }
     if (HATCH.style === 'Dots') {
-      const step = r1(FACE.risoStep * 300), radius = r1(FACE.risoR * 300);
+      const step = r1(FACE.risoStep * 300 / Math.sqrt(look.shadowDotDensity)), radius = r1(FACE.risoR * 300);
       defs.push(`<pattern id="${id}-h${k}" patternUnits="userSpaceOnUse" width="${step}" height="${step}" patternTransform="rotate(45)">`
         + `<rect width="${step}" height="${step}" fill="${color}"/>`
         + `<circle cx="${r1(step / 2)}" cy="${r1(step / 2)}" r="${radius}" fill="${pal.under}" opacity="${r1(t * FACE.risoOpacity)}"/></pattern>`);
@@ -1020,7 +1057,8 @@ function glyphWork(font, ch, size) {
     if (!placed.has(k)) placed.set(k, alongStrokes(map, pen, step, min));
     return placed.get(k);
   };
-  const work = { cmds, rings, pen, edges, along };
+  const regions = /^[UR]$/.test(ch) ? letterReveal(ch, pen, rings) : null;
+  const work = { cmds, rings, pen, edges, along, regions };
   worked.set(key, work);
   return work;
 }
@@ -1054,7 +1092,8 @@ function letter(it) {
   else if (it.style === 'stars') mark = { r: FACE.starR * one * s, at: marks(FACE.starStep * one, inset + FACE.starR * one * 0.8 + 2) };
   else if (it.style === 'teardrops') mark = { r: FACE.dropR * one * s, at: marks(FACE.dropStep * one, inset + FACE.dropR * one + 2) };
   else if (it.style === 'rope') mark = { r: FACE.ropeWidth * one * s, at: marks(FACE.ropeStep * one, inset + FACE.ropeWidth * one + 2) };
-  return { it: { ...it, size }, d: pathData(cmds), rings, pen, edges, mark };
+  return { it: { ...it, size }, d: pathData(cmds), rings, pen, edges, mark,
+    regions: w.regions?.map(r => ({ at: r.at * s, span: r.span * s, axis: r.axis, pts: r.pts.map(([x,y]) => at(x,y)) })) };
 }
 
 // a letter's walls, for the block's direction (EX) and the shadow's (SHADOW, an angle: the way the
@@ -1105,7 +1144,9 @@ function letterSvg(L, id, n, fills, masks) {
       (pts.length > 1 ? simplify(pts, 0.8) : [pts[0], [pts[0][0] + 0.1, pts[0][1]]]).map(([px, py]) => `${r1(px)} ${r1(py)}`).join('L')}"/>`).join(''));
     const uses = L.pen.lines.map((_, i) => `<use class="pen" href="#${id}-p${n}-${i}"/>`).join('');
     const pen = `<g fill="none" stroke="#fff" stroke-width="${r1(L.pen.width)}" stroke-linecap="round" stroke-linejoin="round">${uses}</g>`;
-    if (!it.flat) masks.push(`<mask id="${id}-d${n}" ${box}>${pen}</mask>`);
+    const regionPen = L.regions?.map(r => `<path class="pen" data-reveal-at="${r1(r.at)}" data-reveal-span="${r1(r.span)}" data-reveal-axis="${r.axis}" data-reveal-points='${JSON.stringify(r.pts)}' display="none"/>`).join('');
+    if (regionPen) masks.push(`<mask id="${id}-rf${n}" ${box}>${regionPen}</mask>`);
+    if (!it.flat) masks.push(`<mask id="${id}-d${n}" ${box}>${regionPen || pen}</mask>`);
     if (it.style !== 'lineart' && pal.face2 !== pal.face)
       masks.push(`<linearGradient id="${id}-g${n}" gradientUnits="userSpaceOnUse" x1="0" y1="${r1(Math.min(...ys))}" x2="0" y2="${r1(Math.max(...ys))}">`
         + `<stop offset="0" stop-color="${pal.face}"/><stop offset="1" stop-color="${pal.face2}"/></linearGradient>`);
@@ -1116,7 +1157,9 @@ function letterSvg(L, id, n, fills, masks) {
   // The strokes' round ends fall short of the letter's sharp corners, so the whole face, hidden,
   // comes on once they are drawn: without it, the corners stayed open (the block showing through
   // them, or the sky) until the finished layer faded in
-  const faceOf = color => masks
+  const faceOf = color => masks && L.regions
+    ? `<g class="face" data-mask="${id}-rf${n}"><path fill="${color}" d="${d}"/></g>`
+    : masks
     ? `<g class="face"><clipPath id="${id}-fc${n}"><path d="${d}"/></clipPath><g clip-path="url(#${id}-fc${n})" fill="none" `
       + `stroke="${color}" stroke-width="${r1(L.pen.width)}" stroke-linecap="round" stroke-linejoin="round">`
       + L.pen.lines.map((_, i) => `<use class="pen" href="#${id}-p${n}-${i}"/>`).join('') + '</g>'
@@ -1391,7 +1434,7 @@ async function draw() {
 // glyph is worked out again); letting go of a slider, or picking a colour, also replays the
 // animation. Rows: label, hover text, target, key, min, max, step, unit
 const LOOK_DEFAULTS = { length: 1, direction: Math.round(Math.atan2(EX_BASE[1], EX_BASE[0]) * 180 / Math.PI), shadow: SHADOW,
-  texture: TEXTURE, grainPreset: 'Speck', wobbleFrequency: 0.05, wobbleJitter: 0, shadowStyle: 'Hatching', hatching: HATCH.amount, hatchAngle: HATCH.angle, wobble: WOBBLE,
+  texture: TEXTURE, grainPreset: 'Speck', wobbleFrequency: 0.05, wobbleJitter: 0, shadowStyle: 'Hatching', shadowDotDensity: 3, hatching: HATCH.amount, hatchAngle: HATCH.angle, wobble: WOBBLE,
   dropDistance: 0, dropDirection: 45, dropSoftness: 6, dropOpacity: 1, outline: OUTLINE };
 const look = { ...LOOK_DEFAULTS };
 const COLOURS = [
@@ -1798,6 +1841,7 @@ function fillSolid() {
   const style = menu(SHADOW_STYLES.map(s => [s, s]), look.shadowStyle);
   style.addEventListener('change', () => { look.shadowStyle = style.value; fillSolid(); rebuild(); settled(); });
   shadow.insertBefore(field('style', 'the shading on the extrusion; None keeps the extrusion color without shading', style), shadow.children[1]);
+  if (look.shadowStyle === 'Dots') shadow.append(field('dot density', '3× gives three times as many shadow dots without changing face dots', ...slider(look, 'shadowDotDensity', 1, 6, .25, '×')));
   shadow.append(el('p', { className: 'note', textContent: 'None removes extrusion shading. Dots forms the shadow from Riso-style dots, with the extrusion color between them. Adjust the Riso dot size, spacing and ink in Detail.' }));
   panel('3d').replaceChildren(...content);
 }
@@ -2221,6 +2265,7 @@ function restore(p) {
   design.spacing = Number.isFinite(p.design.spacing) ? p.design.spacing : 26;
   Object.assign(look, LOOK_DEFAULTS, p.look);
   if (!SHADOW_STYLES.includes(look.shadowStyle)) look.shadowStyle = 'Hatching';
+  look.shadowDotDensity = Number.isFinite(look.shadowDotDensity) ? Math.max(1, Math.min(6, look.shadowDotDensity)) : 3;
   if (look.grainPreset === 'Original') look.grainPreset = 'Speck';
   if (!GRAIN_PRESETS[look.grainPreset]) look.grainPreset = 'Speck';
   for (const [key, min, max] of [['wobbleFrequency', 0.008, 0.18], ['wobbleJitter', 0, 1]])
