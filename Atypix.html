@@ -1515,11 +1515,44 @@ const menu = (options, current) => {
 };
 // a slider for target[key]; `live`, it rebuilds as it moves, otherwise once let go (a line's size,
 // since a new size works every letter out again); letting go replays
+// Edit the existing value pill without changing its layout or appearance.
+function editableSliderValue(input, value, unit = '', name = 'Slider value') {
+  value.contentEditable = 'plaintext-only';
+  value.inputMode = 'decimal';
+  value.setAttribute('role', 'textbox');
+  value.setAttribute('aria-label', name);
+  value.setAttribute('title', 'Type a number. Enter applies; Escape cancels.');
+  value.spellcheck = false;
+  const display = () => { value.textContent = input.value + unit; };
+  value.addEventListener('focus', () => {
+    const selection = window.getSelection(), range = document.createRange();
+    range.selectNodeContents(value); selection.removeAllRanges(); selection.addRange(range);
+  });
+  value.addEventListener('blur', () => {
+    let text = value.textContent.trim();
+    if (unit && text.endsWith(unit)) text = text.slice(0, -unit.length).trim();
+    const number = Number(text), previous = input.value;
+    if (text && Number.isFinite(number)) {
+      // The range itself clamps and rounds to its supported bounds and step.
+      input.value = String(number);
+      if (input.value !== previous) {
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }
+    display();
+  });
+  value.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); value.blur(); }
+    else if (e.key === 'Escape') { e.preventDefault(); display(); value.blur(); }
+  });
+}
 function slider(target, key, min, max, step, unit, live = true) {
   const input = el('input', { type: 'range', min, max, step, value: target[key] });
   const value = el('output', { textContent: target[key] + unit });
   input.addEventListener('input', () => { target[key] = +input.value; value.textContent = input.value + unit; if (live) rebuild(); });
   input.addEventListener('change', () => { if (!live) rebuild(); settled(); });
+  editableSliderValue(input, value, unit, key);
   return [input, value];
 }
 const rowsOf = rows => rows.map(([label, hint, target, key, min, max, step, unit]) => field(label, hint, ...slider(target, key, min, max, step, unit)));
@@ -1740,6 +1773,7 @@ function fillLetter() {
     v.outline = +outlineWidth.value; inheritOutline.checked = false; outlineValue.textContent = outlineWidth.value; rebuild();
   });
   outlineWidth.addEventListener('change', settled);
+  editableSliderValue(outlineWidth, outlineValue, '', 'Letter outline width');
   inheritOutline.addEventListener('change', () => {
     if (inheritOutline.checked) delete v.outline; else v.outline = +outlineWidth.value;
     outlineWidth.value = letterOutline(v); outlineValue.textContent = outlineWidth.value; rebuild(); settled();
@@ -2151,6 +2185,7 @@ function fillControls() {
         const value = el('output', { textContent: target[key] + unit });
         input.addEventListener('input', () => { target[key] = +input.value; value.textContent = input.value + unit; refreshCode(); });
         input.addEventListener('change', play);
+        editableSliderValue(input, value, unit, `${title}: ${label}`);
         row.append(label, input, value);
       }
       set.append(row);
@@ -2299,7 +2334,7 @@ document.addEventListener('click', e => {
 document.addEventListener('keydown', e => {
   if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
   // Leave native text editing undo/redo and clipboard shortcuts to the browser.
-  if (e.target.closest('input:not([type=range]):not([type=color]), textarea, [contenteditable=true]')) return;
+  if (e.target.closest('input:not([type=range]):not([type=color]), textarea, [contenteditable]:not([contenteditable=false])')) return;
   if (e.key.toLowerCase() === 'z') { e.preventDefault(); stepHistory(e.shiftKey ? 1 : -1); }
   else if (e.ctrlKey && e.key.toLowerCase() === 'y') { e.preventDefault(); stepHistory(1); }
 });
