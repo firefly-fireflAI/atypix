@@ -304,10 +304,11 @@ const LETTERING_DEFAULTS = {
   lines: [{ start: 0, spread: 0.75, order: 'random' },   // each line (its letters' data-line): when its first letter
           { start: 0, spread: 0.75, order: 'random' }],  //   can start, the window its letters' starts are spread across
                                                          //   (s), and their order: random, leftToRight, rightToLeft, centreOut
-  face: { entrance: 'draw', ease: 'out', strength: 0.5, duration: 1 },             // the face coming in: draw, drop, pop or fade
-  deco: { entrance: 'draw', ease: 'out', strength: 0.5, duration: 1, delay: 0.3 }, // after the face starts (s)
-  outline: { entrance: 'finish', ease: 'linear', strength: 0.5, duration: 0.3, delay: 0 },
-  extrude: { ease: 'elastic', strength: 0.5, duration: 1.1, delay: -0.2 },         // after the face is in (s)
+  face: { entrance: 'draw', ease: 'out', strength: 0.5, duration: 1, delay: 0 },             // the face coming in: draw, drop, pop or fade
+  deco: { entrance: 'draw', anchor: 'faceStart', ease: 'out', strength: 0.5, duration: 1, delay: 0.3 }, // after the face starts (s)
+  outline: { entrance: 'finish', anchor: 'letterStart', ease: 'linear', strength: 0.5, duration: 0.3, delay: 0 },
+  dropShadow: { entrance: 'finish', anchor: 'letterStart', ease: 'linear', strength: 0.5, duration: 0.3, delay: 0 },
+  extrude: { anchor: 'faceEnd', ease: 'elastic', strength: 0.5, duration: 1.1, delay: -0.2 },         // after the face is in (s)
 };
 // an ease by name, at a strength from 0 (gentle) to 1 (strong)
 function letteringEase(type, s) {
@@ -374,6 +375,7 @@ function animateLettering(root, options = {}) {
   const D = LETTERING_DEFAULTS, o = { ...D, ...options };
   const face = { ...D.face, ...options.face }, deco = { ...D.deco, ...options.deco }, ex = { ...D.extrude, ...options.extrude };
   const outline = { ...D.outline, ...options.outline };
+  const shadow = { ...D.dropShadow, ...options.dropShadow };
   let seed = o.seed * 7919;
   const random = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
   const tag = Math.random().toString(36).slice(2, 7);
@@ -454,32 +456,36 @@ function animateLettering(root, options = {}) {
     const f = letter.querySelector('.faces .face'), fPens = pensOf(f);
     const scale = Math.min(1.4, Math.max(0.7, Math.max(...fPens.map(p => p.at + p.len)) / 550));
     const timeOf = how => how.duration * (['drop', 'pop', 'fade'].includes(how.entrance) ? 1 : scale);
-    const draw = timeOf(face);
-    comeIn(f, fPens, face, start, draw);
+    const draw = timeOf(face), faceStart = start + (face.delay || 0);
+    const anchorAt = (how, fallback) => ({ letterStart: start, faceStart, faceEnd: faceStart + draw }[how.anchor || fallback] ?? start);
+    const rest = letter.querySelector('.block');
+    const out = Math.max(start, anchorAt(ex, 'faceEnd') + ex.delay), settled = out + ex.duration;
+    const atFor = (how, fallback) => Math.max(start, how.anchor === 'extrusionEnd' ? (rest ? settled : faceStart + draw) + how.delay : anchorAt(how, fallback) + how.delay);
+    comeIn(f, fPens, face, faceStart, draw);
     // the whole face, corners and all, once the pen has drawn it (or at once, coming in whole); and
     // if the block springs out before the pen is done (a negative delay), already then, provided
     // the pen has drawn nearly all of it by that moment, so the block never shows through a corner
     const whole = f.querySelector('.whole');
     if (whole) {
       const faceEase = letteringEase(face.ease, face.strength), e = typeof faceEase === 'function' ? faceEase : gsap.parseEase(faceEase);
-      const early = start + draw + Math.min(0, ex.delay);
-      const at = ['drop', 'pop', 'fade'].includes(face.entrance) ? start
-        : early > start && e((early - start) / draw) >= 0.95 ? early : start + draw;
+      const early = Math.min(faceStart + draw, out);
+      const at = ['drop', 'pop', 'fade'].includes(face.entrance) ? faceStart
+        : early > faceStart && e((early - faceStart) / draw) >= 0.95 ? early : faceStart + draw;
       // (waiting, like the other later layers, so its one first paint is at setup)
       tl.set(whole, { opacity: WAITING }, 0).set(whole, { opacity: 1 }, at);
     }
     const d = letter.querySelector('.faces .deco');
-    if (d) comeIn(d, pensOf(d), deco, start + deco.delay, timeOf(deco));
+    if (d) comeIn(d, pensOf(d), deco, atFor(deco, 'faceStart'), timeOf(deco));
     // the drawing layer shows when the letter starts; once face and decoration are in, the
     // finished layer (with the grain and wobble) fades in over it, and the drawing layer goes
     const drawing = letter.querySelector('.faces'), finished = letter.querySelector('.finished');
-    const drawn = Math.max(start + draw, d ? start + deco.delay + timeOf(deco) : 0);
+    const drawn = Math.max(faceStart + draw, d ? atFor(deco, 'faceStart') + timeOf(deco) : 0);
     tl.set(drawing, { visibility: 'visible' }, start)
       .fromTo(finished, { opacity: WAITING }, { opacity: 1, duration: 0.3, ease: 'none', immediateRender: true }, drawn)
       .set(drawing, { visibility: 'hidden' }, drawn + 0.3);
     const ring = letter.querySelector('.letter-outline');
     if (ring) {
-      const at = Math.max(0, (outline.entrance === 'finish' ? drawn : start) + outline.delay);
+      const at = outline.entrance === 'finish' ? drawn + outline.delay : atFor(outline, 'letterStart');
       const ease = letteringEase(outline.ease, outline.strength);
       if (outline.entrance === 'draw') {
         const path = ring.querySelector('path'), length = path.getTotalLength();
@@ -491,13 +497,14 @@ function animateLettering(root, options = {}) {
     }
     // a drop shadow, if the letter has one, fades in once the letter has settled
     const shade = letter.querySelector('.shadow');
-    const shadeIn = at => shade && tl.fromTo(shade, { opacity: WAITING }, { opacity: 1, duration: 0.3, ease: 'none', immediateRender: true }, at);
+    const shadeIn = finish => {
+      if (shade) wholeIn(shade, shadow.entrance === 'finish' ? 'fade' : shadow.entrance,
+        shadow.entrance === 'finish' ? finish + shadow.delay : atFor(shadow, 'letterStart'), shadow.duration, letteringEase(shadow.ease, shadow.strength));
+    };
     // the extrusion: a sliding copy of the block springs out (a move the graphics card makes, with
     // nothing repainted), then hands back to the block itself, exactly as designed
-    const rest = letter.querySelector('.block');
     if (!rest) { shadeIn(drawn + 0.3); continue; }
     const s = springCopy(rest, tag, all.indexOf(letter));
-    const out = Math.max(start, start + draw + ex.delay), settled = out + ex.duration;
     // (an overshoot past full depth eases into the spare depth rather than stopping dead at its
     // end, which held a deeper block still for a moment; and the copy is shown whole the moment it
     // starts, tucked behind the face: faded in, an elastic ease had already sprung it out while it
@@ -1158,7 +1165,7 @@ function letterSvg(L, id, n, fills, masks) {
   // box), but while drawing, the letter's own, since the pen's strokes each have a smaller box
   const inside = `<clipPath id="${clip}"><path d="${d}"/></clipPath>`;
   // the face's border, over a decoration filling the face
-  const border = `<path clip-path="url(#${clip})" fill="none" stroke-linejoin="miter" stroke="${face}" stroke-width="${inset}" d="${d}"/>`;
+  const border = `<path clip-path="url(#${clip})" fill="none" stroke-linejoin="miter" stroke-miterlimit="20" stroke="${face}" stroke-width="${inset}" d="${d}"/>`;
   // marks down the strokes: each a shape kept once in the defs, placed (and turned) by a <use>
   const uses = (shape, turn) => `<g fill="${pal.dots}">` + L.mark.at.map(([x, y, way]) => {
     const t = r1(turn(way));
@@ -1166,7 +1173,7 @@ function letterSvg(L, id, n, fills, masks) {
   }).join('') + '</g>';
   svg += `</g>${faceOf(face)}<g class="deco"${tie('d')}>`;
   if (it.style === 'inline')
-    svg += `${inside}<g clip-path="url(#${clip})" fill="none" stroke-linejoin="miter">`
+    svg += `${inside}<g clip-path="url(#${clip})" fill="none" stroke-linejoin="miter" stroke-miterlimit="20">`
       + `<path stroke="${pal.light}" stroke-width="${r1(2 * (FACE.inset + FACE.line) * it.size)}" d="${d}"/>`
       + `<path stroke="${face}" stroke-width="${inset}" d="${d}"/></g>`;
   else if (it.style === 'light')
@@ -1175,7 +1182,7 @@ function letterSvg(L, id, n, fills, masks) {
     svg += `${inside}<path fill="url(#${shared(fills, 'stripes', it.size, deg)})" d="${d}"/>${border}`;
   // open: the face in the decoration colour, its edge drawn in the face colour just inside it
   else if (it.style === 'outline')
-    svg += `${inside}<path fill="${pal.light}" d="${d}"/><path clip-path="url(#${clip})" fill="none" stroke-linejoin="miter" `
+    svg += `${inside}<path fill="${pal.light}" d="${d}"/><path clip-path="url(#${clip})" fill="none" stroke-linejoin="miter" stroke-miterlimit="20" `
       + `stroke="${face}" stroke-width="${r1(2 * FACE.line * it.size)}" d="${d}"/>`;
   else if (it.style === 'stars') svg += uses(shared(fills, 'star', L.mark.r), () => it.rot);
   else if (it.style === 'teardrops') svg += uses(shared(fills, 'drop', L.mark.r), way => way * 180 / Math.PI);
@@ -1419,7 +1426,7 @@ const COLOURS = [
   ['decoration', 'the inline, fill and Glass decoration', 'light'],
   ['stripes', 'the stripes', 'stripes'],
   ['dots', 'the dots, stars, teardrops and rope', 'dots'],
-  ['extrusion', 'the block, where it faces away from the shadow, and flat letters', 'side'],
+  ['extrusion', 'the block, where it faces away from the shadow', 'side'],
   ['shadow', 'the block, where it faces into the shadow', 'under'],
   ['drop shadow', 'the shadow behind the whole lettering (its distance is in Finish)', 'drop']];
 const SOLID = [
@@ -1884,6 +1891,7 @@ const EASES = [['linear', 'linear'], ['in', 'ease in'], ['out', 'ease out'], ['i
   ['back', 'overshoot'], ['elastic', 'elastic'], ['bounce', 'bounce']];
 const ORDERS = [['random', 'random'], ['leftToRight', 'left to right'], ['rightToLeft', 'right to left'], ['centreOut', 'center out']];
 const ENTRANCES = [['draw', 'draw in'], ['drop', 'drop'], ['pop', 'pop'], ['fade', 'fade']];
+const TIMING_ANCHORS = [['letterStart', 'letter start'], ['faceStart', 'face starts'], ['faceEnd', 'face finishes'], ['extrusionEnd', 'extrusion finishes']];
 const controlRows = () => [
   ['Overall', [
     ['speed', 'the whole animation: 2 is twice as fast', motion, 'speed', 0.1, 4, 0.05, '×'],
@@ -1898,26 +1906,37 @@ const controlRows = () => [
       motion.lines[i], 'order', ORDERS]]]),
   ['Letters coming in', [
     ['comes in', 'drawn along the pen, dropped from above, popped up from its middle, or faded in', motion.face, 'entrance', ENTRANCES],
+    ['delay', 'after this letter’s scheduled start; does not delay its extrusion', motion.face, 'delay', 0, 10, 0.05, 's'],
     ['ease', null, motion.face, 'ease'],
     ['duration', 'how long a letter takes to come in', motion.face, 'duration', 0.1, 10, 0.05, 's'],
     ['strength', 'how strong the ease is', motion.face, 'strength', 0, 1, 0.05, '']]],
   ['Face decoration', [
     ['comes in', 'drawn along the pen, dropped from above, popped up from its middle, or faded in', motion.deco, 'entrance', ENTRANCES],
+    ['timed from', 'what the decoration delay is measured from', motion.deco, 'anchor', TIMING_ANCHORS],
     ['ease', null, motion.deco, 'ease'],
     ['duration', 'how long the decoration takes to come in', motion.deco, 'duration', 0.1, 10, 0.05, 's'],
     ['strength', 'how strong the ease is', motion.deco, 'strength', 0, 1, 0.05, ''],
-    ['delay', 'after its face starts drawing', motion.deco, 'delay', 0, 10, 0.05, 's']]],
+    ['delay', 'after the selected timing reference', motion.deco, 'delay', 0, 10, 0.05, 's']]],
   ['Outline', [
     ['comes in', 'Finish fade keeps the original timing. Other entrances start with each letter, plus the delay.', motion.outline, 'entrance', [['finish', 'finish fade'], ...ENTRANCES]],
+    ['timed from', 'used by draw, drop, pop and fade; finish fade follows the finished face', motion.outline, 'anchor', TIMING_ANCHORS],
     ['ease', null, motion.outline, 'ease'],
     ['duration', 'how long the outline takes to appear', motion.outline, 'duration', 0.1, 10, 0.05, 's'],
     ['strength', 'how strong the ease is', motion.outline, 'strength', 0, 1, 0.05, ''],
-    ['delay', 'after each letter starts; finish fade measures from its finished face', motion.outline, 'delay', 0, 10, 0.05, 's']]],
+    ['delay', 'after the selected timing reference; finish fade measures from its finished face', motion.outline, 'delay', 0, 10, 0.05, 's']]],
+  ['Drop shadow', [
+    ['comes in', 'finish fade follows the settled letter; other entrances use the timing reference', motion.dropShadow, 'entrance', [['finish', 'finish fade'], ['fade', 'fade'], ['pop', 'pop'], ['drop', 'drop']]],
+    ['timed from', 'used by fade, pop and drop', motion.dropShadow, 'anchor', TIMING_ANCHORS],
+    ['ease', null, motion.dropShadow, 'ease'],
+    ['duration', 'how long the shadow takes to appear', motion.dropShadow, 'duration', 0.1, 10, 0.05, 's'],
+    ['strength', 'how strong the ease is', motion.dropShadow, 'strength', 0, 1, 0.05, ''],
+    ['delay', 'after the selected timing reference; finish fade follows the settled letter', motion.dropShadow, 'delay', 0, 10, 0.05, 's']]],
   ['Extrusion', [
+    ['timed from', 'choose letter start to let extrusion arrive before the face', motion.extrude, 'anchor', TIMING_ANCHORS.filter(([v]) => v !== 'extrusionEnd')],
     ['ease', null, motion.extrude, 'ease'],
     ['duration', 'how long it takes to spring out', motion.extrude, 'duration', 0.1, 10, 0.05, 's'],
     ['strength', 'how strong the ease is', motion.extrude, 'strength', 0, 1, 0.05, ''],
-    ['delay', 'after its face is in (below 0: before)', motion.extrude, 'delay', -5, 10, 0.05, 's']]],
+    ['delay', 'relative to the selected timing reference (below 0: before)', motion.extrude, 'delay', -5, 10, 0.05, 's']]],
 ];
 // Animation starting points replace motion only, preserving the artwork and preview mode.
 const CUSTOM_ANIMATION_PRESETS = {
@@ -2084,7 +2103,7 @@ const CUSTOM_ANIMATION_PRESETS = {
 function animationPreset(name) {
   if (CUSTOM_ANIMATION_PRESETS[name]) {
     const saved = structuredClone(CUSTOM_ANIMATION_PRESETS[name]);
-    saved.outline = { ...LETTERING_DEFAULTS.outline, ...saved.outline };
+    for (const key of ['face', 'deco', 'outline', 'extrude', 'dropShadow']) saved[key] = { ...LETTERING_DEFAULTS[key], ...saved[key] };
     const timings = saved.lines;
     saved.lines = design.lines.map((_, i) => ({ ...(timings[i] || timings[timings.length - 1]),
       start: timings[i]?.start ?? timings[0].start + i * .2 }));
@@ -2101,17 +2120,23 @@ function applyAnimationPreset(name) {
 }
 function fillControls() {
   motion.outline ||= structuredClone(LETTERING_DEFAULTS.outline);
+  motion.dropShadow ||= structuredClone(LETTERING_DEFAULTS.dropShadow);
+  motion.face.delay ??= 0;
+  motion.deco.anchor ??= 'faceStart';
+  motion.extrude.anchor ??= 'faceEnd';
+  motion.outline.anchor ??= 'letterStart';
   const p = panel('animation');
   p.replaceChildren(box('Animation presets',
     el('div', { className: 'buttons' }, ...['Draw in', 'Paint', 'Pop', 'Drop', 'Soft fade'].map(name =>
       button(name, () => applyAnimationPreset(name)))),
-    el('p', { className: 'note', textContent: 'Changes animation only. Choose Animate to preview; fine-tune below.' })));
+    el('p', { className: 'note', textContent: 'Changes animation only. Timing starts when playback begins, not when the page loads. Each line schedules its letters; each part can then start independently. To show extrusion first, time it from letter start and add a delay under Letters coming in.' })));
   p.firstElementChild.classList.add('animation-presets');
   // a timing for every line, and none for lines that are gone
   while (motion.lines.length < design.lines.length) motion.lines.push({ ...LETTERING_DEFAULTS.lines[0] });
   motion.lines.length = design.lines.length;
   for (const [title, rows] of controlRows()) {
     const set = box(title);
+    if (title === 'Drop shadow') set.append(el('p', { className: 'note', textContent: 'Set a drop-shadow distance above 0 in Finish to see it.' }));
     for (const [label, hint, target, key, min, max, step, unit] of rows) {
       const row = el('label');
       if (hint) row.title = hint;
