@@ -1123,7 +1123,7 @@ function letterSvg(L, id, n, fills, masks) {
     const uses = L.pen.lines.map((_, i) => `<use class="pen" href="#${id}-p${n}-${i}"/>`).join('');
     const pen = `<g fill="none" stroke="#fff" stroke-width="${r1(L.pen.width)}" stroke-linecap="round" stroke-linejoin="round">${uses}</g>`;
     if (!it.flat) masks.push(`<mask id="${id}-d${n}" ${box}>${pen}</mask>`);
-    if (!it.flat && pal.face2 !== pal.face)
+    if (it.style !== 'lineart' && pal.face2 !== pal.face)
       masks.push(`<linearGradient id="${id}-g${n}" gradientUnits="userSpaceOnUse" x1="0" y1="${r1(Math.min(...ys))}" x2="0" y2="${r1(Math.max(...ys))}">`
         + `<stop offset="0" stop-color="${pal.face}"/><stop offset="1" stop-color="${pal.face2}"/></linearGradient>`);
   }
@@ -1142,8 +1142,9 @@ function letterSvg(L, id, n, fills, masks) {
   // the line round the face, if any (in the finished letter only: it comes in with the finish)
   const outlineColor = pal.outline2 === pal.outline ? pal.outline : `url(#${shared(fills, 'outlinegrad')})`;
   const ring = outline && !masks ? `<path class="outline-ring" fill="none" stroke="${outlineColor}" stroke-width="${r1(outline)}" stroke-linejoin="round" d="${d}"/>` : '';
+  const face = pal.face2 === pal.face ? pal.face : masks ? `url(#${id}-g${n})` : `url(#${shared(fills, 'grad')})`;
   if (it.style === 'lineart') return `<g class="letter flat"><g class="face"></g>${ring}</g>`;
-  if (it.flat) return `<g class="letter flat">${faceOf(pal.side)}${ring}</g>`;
+  if (it.flat) return `<g class="letter flat">${faceOf(face)}${ring}</g>`;
   let svg = `<g class="letter"><g class="block"><path fill="${pal.under}" transform="translate(${r1(EX[0])} ${r1(EX[1])})" d="${d}"/>`;
   for (let i = 0; i < walls.length;) {
     let j = i, run = '';
@@ -1155,7 +1156,6 @@ function letterSvg(L, id, n, fills, masks) {
   const clip = `${id}-c${n}`, inset = r1(2 * FACE.inset * it.size), deg = r1(it.rot);
   // the face's colour, or its gradient, top to bottom: one shared by every face (by each one's own
   // box), but while drawing, the letter's own, since the pen's strokes each have a smaller box
-  const face = pal.face2 === pal.face ? pal.face : masks ? `url(#${id}-g${n})` : `url(#${shared(fills, 'grad')})`;
   const inside = `<clipPath id="${clip}"><path d="${d}"/></clipPath>`;
   // the face's border, over a decoration filling the face
   const border = `<path clip-path="url(#${clip})" fill="none" stroke-linejoin="miter" stroke="${face}" stroke-width="${inset}" d="${d}"/>`;
