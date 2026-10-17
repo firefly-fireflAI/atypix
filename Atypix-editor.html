@@ -255,8 +255,8 @@
   #tab-help .help-intro { font-weight: 600; }
   #tab-help .help-footer { color: var(--muted); font-size: 12px; }
   @media(max-width:600px) { #tab-help .flow { grid-template-columns: minmax(0,1fr); } }
-/* Atypix Editor: one line and one animation part at a time. */
-#tab-animation{max-height:min(var(--animation-overview-height,380px),calc(52vh - 36px));padding-bottom:14px}
+/* Atypix Editor: shared or per-line animation with compact part cards. */
+#tab-animation{max-height:calc(52vh - 36px);padding-bottom:10px}
 #tab-animation>.flow{display:block;columns:auto;max-width:1250px;margin:auto}
 #tab-animation>.flow>*{margin:0 0 14px}
 #tab-animation .ae-label{text-transform:uppercase;font:700 11px/1.3 Lato,system-ui,sans-serif;letter-spacing:.05em;color:#3e5269;margin-bottom:6px;display:block}
@@ -337,6 +337,33 @@
 #tab-animation>.flow>details{padding:0;border:0}
 @media(max-width:1050px){.ae-top{align-items:start;flex-wrap:wrap}.ae-basic{grid-template-columns:minmax(0,1fr)}.ae-more-grid{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:600px){.ae-top{gap:12px}.ae-scope{width:100%;flex-wrap:wrap}.ae-scope label{flex:1}#tab-animation .ae-scope select{width:100%}.ae-segment button{flex:1}.ae-segment{width:100%}.ae-top>div:first-child{width:100%}.ae-ruler,.ae-track{grid-template-columns:77px 58px minmax(0,1fr);gap:6px}.ae-ruler{font-size:8px}.ae-track .ae-number-wrap>span{right:7px}.ae-track-name small{font-size:9px}.ae-track-bar{font-size:9px;padding-left:5px}#ae-ticks{font-size:8px}#ae-ticks span:nth-child(2),#ae-ticks span:nth-child(4),#ae-ticks span:nth-child(5){display:none}#tab-animation .ae-tracks{padding:9px}.ae-player{flex-wrap:wrap;gap:10px}.ae-scrub-wrap{flex-basis:100%}.ae-player-actions{gap:5px}#tab-animation .ae-player-actions button{font-size:10px;padding:8px 9px}.ae-edit-head{flex-wrap:wrap}.ae-edit-head strong{font-size:10px}#tab-animation .ae-parts button{font-size:10px;padding:8px}.ae-parts{padding-left:5px;padding-right:5px}.ae-content{padding:11px}.ae-more-grid{grid-template-columns:minmax(0,1fr)}.ae-states{gap:6px;grid-template-columns:minmax(0,1fr) 16px minmax(0,1fr)}.ae-state{padding:10px}.ae-state-values{grid-template-columns:minmax(0,1fr)}.ae-state-arrow{font-size:16px}.ae-state-head label{font-size:9px!important}.ae-basic{gap:9px}.ae-player-note{font-size:10px}}
+
+/* Compact, always-visible animation controls. */
+#tab-animation>.flow>*{margin-bottom:8px}
+#tab-animation .ae-edit{border:0;background:transparent;overflow:visible}
+#tab-animation .ae-edit-head{padding:6px 0;margin-bottom:8px}
+.ae-parts-grid{columns:270px;column-gap:10px}
+.ae-part-card{break-inside:avoid;background:rgba(62,82,105,.07);border-radius:10px;padding:10px 12px;margin-bottom:10px}
+.ae-part-title,.ae-section-title{margin:0 0 5px;color:#3e5269;font:700 11px/1.3 Lato,system-ui,sans-serif;letter-spacing:.04em;text-transform:uppercase}
+.ae-basic,.ae-more-grid,.ae-start-details{gap:4px;max-width:none}
+.ae-more-grid,.ae-start-details{margin-top:5px}
+.ae-section{border-top:1px solid #bfd0da;padding-top:7px;margin-top:8px}
+#tab-animation .ae-basic>label,#tab-animation .ae-more-grid>label,#tab-animation .ae-start-details>label{grid-template-columns:58px minmax(0,1fr) 42px;font-size:12px;margin-top:2px;gap:6px}
+#tab-animation :is(.ae-basic,.ae-more-grid,.ae-start-details)>label:has(select){grid-template-columns:58px minmax(0,1fr)}
+#tab-animation :is(.ae-part-card,.ae-global-grid) select{height:26px;font-size:12px}
+#tab-animation .ae-part-card .note{font-size:11px;line-height:1.35;margin:5px 0 0}
+.ae-states{grid-template-columns:minmax(0,1fr) 12px minmax(0,1fr);gap:5px;margin-top:5px}
+.ae-state{padding:7px}
+.ae-state-head{gap:3px;margin-bottom:5px}
+#tab-animation .ae-state-head label{font-size:9px;line-height:1.2}
+.ae-state-values{grid-template-columns:minmax(0,1fr);gap:3px}
+#tab-animation .ae-state-values>label{grid-template-columns:49px minmax(0,1fr);gap:3px;margin-top:0;font-size:10px}
+.ae-state .ae-number-wrap input{height:25px!important;padding-left:4px!important;padding-right:18px!important;font-size:11px}
+.ae-state .ae-number-wrap>span{right:5px;top:5px;font-size:10px}
+.ae-state-arrow{font-size:15px}
+.ae-global-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
+.ae-global-grid>.ae-section{margin-top:0;padding:10px 12px;border:0;border-radius:10px;background:rgba(62,82,105,.07)}
+@media(max-width:600px){.ae-parts-grid{columns:auto}.ae-global-grid{grid-template-columns:minmax(0,1fr)}#tab-animation .ae-edit-head{gap:6px}.ae-part-card{padding:10px}.ae-states{gap:5px}.ae-basic{gap:4px}}
 
 </style>
 <!-- the tabs' lettering (the page's own; nothing exported uses it) -->
@@ -2722,11 +2749,9 @@ function normaliseAnimation(m,count) {
  const saved=Array.isArray(m.lineParts)?m.lineParts:[];m.lineParts=Array.from({length:count},(_,i)=>{const value=saved[i]&&typeof saved[i]==='object'?saved[i]:Object.fromEntries(ANIMATION_PARTS.map(k=>[k,structuredClone(m[k])]));return {reverse:typeof value.reverse==='boolean'?value.reverse:m.reverse,preset:typeof value.preset==='string'?value.preset:m.preset,...Object.fromEntries(ANIMATION_PARTS.map(k=>[k,clean(value[k]||m[k],k)]))};});
  m.speed=clamp(m.speed,.1,4,1);m.hold=clamp(m.hold,0,10,2);return m;
 }
-let editorLine=0,editorPart='extrude',editorSolo=false;
-const editorOpen={more:false,states:false,timing:false,playback:false};
+let editorLine=0,editorSolo=false;
 const editorNames={face:'Face',deco:'Decoration',outline:'Outline',extrude:'Extrusion',dropShadow:'Drop shadow'};
 const editorScope=()=>motion.scope==='lines'?motion.lineParts[editorLine]:motion;
-const editorTarget=()=>editorScope()[editorPart];
 function editorChanged(custom=true) {
  if(custom)editorScope().preset='Custom';
  normaliseAnimation(motion,design.lines.length);rebuild();fillControls();refreshCode();play();commitEdit();
@@ -2736,17 +2761,17 @@ function editorSoloPreview(){moving.querySelectorAll('.letter').forEach(l=>l.sty
 function editorRange(label,target,key,min,max,step,unit='') {
  const input=el('input',{type:'range',min,max,step,value:target[key]??min}),value=el('output',{textContent:(target[key]??min)+unit});
  input.addEventListener('input',()=>{target[key]=+input.value;value.textContent=input.value+unit;refreshCode();});input.addEventListener('change',()=>editorChanged());
- editableSliderValue(input,value,unit,`${editorNames[editorPart]}: ${label}`);return field(label,null,input,value);
+ const part=ANIMATION_PARTS.find(key=>editorScope()[key]===target);editableSliderValue(input,value,unit,part?`${editorNames[part]}: ${label}`:label);return field(label,null,input,value);
 }
 function editorMenu(label,choices,current,change) {const select=menu(choices,current);select.setAttribute('aria-label',label);select.addEventListener('change',()=>change(select.value));return field(label,null,select,el('span'));}
 function editorNumber(label,value,min,max,step,change,unit='') {const input=el('input',{type:'number',min,max,step,value});input.setAttribute('aria-label',label);input.addEventListener('change',()=>{if(!Number.isFinite(+input.value)||input.value===''){fillControls();return;}input.value=Math.max(min,Math.min(max,+input.value));change(+input.value);});return el('label',{className:'ae-number'},el('span',{textContent:label}),el('span',{className:'ae-number-wrap'},input,el('span',{textContent:unit})));}
-function editorDetails(title,key,...children){const d=el('details',{open:editorOpen[key]},el('summary',{textContent:title}),...children);d.addEventListener('toggle',()=>editorOpen[key]=d.open);return d;}
+function editorSection(title,key,...children){const section=el('section',{className:'ae-section'},el('h4',{className:'ae-section-title',textContent:title}),...children);section.setAttribute('aria-label',title);return section;}
 // Friendly timing choices are a view of the existing anchors and offsets.
 // Rendering these controls never changes a preset or an imported design.
-function editorStarts(target){
- const face=editorPart==='face',finish=target.entrance==='finish';
+function editorStarts(target,part){
+ const face=part==='face',finish=target.entrance==='finish';
  const mode=finish?'finished':(target.delay||0)!==0?'custom':!face&&target.anchor==='faceEnd'?'after':face||target.anchor==='faceStart'||target.anchor==='letterStart'&&!(editorScope().face.delay||0)?'with':'custom';
- const choices=[['with',face?'With the line’s letters':'With the letters'],...(!face?[['after','After the letters']]:[]),['custom','At a specific time'],...(['outline','dropShadow'].includes(editorPart)?[['finished','After all parts finish']]:[])];
+ const choices=[['with',face?'With the line’s letters':'With the letters'],...(!face?[['after','After the letters']]:[]),['custom','At a specific time'],...(['outline','dropShadow'].includes(part)?[['finished','After all parts finish']]:[])];
  const starts=editorMenu('Starts',choices,mode,value=>{
   if(target.entrance==='finish'&&value!=='finished')target.entrance='fade';
   if(value==='finished'){target.entrance='finish';target.delay=0;}
@@ -2757,14 +2782,14 @@ function editorStarts(target){
  });
  const extra=el('div',{className:'ae-start-details'});
  if(mode==='custom'){
-  const references=[['letterStart','Each letter’s timeline cue'],['faceStart','Its face starts'],['faceEnd','Its face finishes'],['extrusionEnd','Its extrusion finishes']].filter(([key])=>editorPart!=='extrude'||key!=='extrusionEnd');
+  const references=[['letterStart','Each letter’s timeline cue'],['faceStart','Its face starts'],['faceEnd','Its face finishes'],['extrusionEnd','Its extrusion finishes']].filter(([key])=>part!=='extrude'||key!=='extrusionEnd');
   if(!face)extra.append(editorMenu('Count from',references,target.anchor,value=>{target.anchor=value;editorChanged();}));
-  extra.append(editorRange('Offset',target,'delay',editorPart==='extrude'?-5:0,30,.05,'s'),el('p',{className:'note',textContent:'Seconds from '+(face?'each letter’s timeline cue':'the selected reference')+'. Line start times and letter spread still apply.'}));
+  extra.append(editorRange('Offset',target,'delay',part==='extrude'?-5:0,30,.05,'s'),el('p',{className:'note',textContent:'Seconds from '+(face?'each letter’s timeline cue':'the selected reference')+'. Line start times and letter spread still apply.'}));
  }else if(finish&&target.delay)extra.append(editorRange('Extra wait',target,'delay',0,30,.05,'s'));
  return {starts,extra};
 }
-function renderEditorStates(target){
- const extrusion=editorPart==='extrude',kind=extrusion?'Depth':'Distance',distanceKey=extrusion?'Depth':'Distance',globalDistance=extrusion?look.length:look.dropDistance;
+function renderEditorStates(target,part){
+ const extrusion=part==='extrude',kind=extrusion?'Depth':'Distance',distanceKey=extrusion?'Depth':'Distance',globalDistance=extrusion?look.length:look.dropDistance;
  const boxes=['start','end'].map(which=>{
   const design=target[which+'Direction']==null&&target[which+distanceKey]==null&&(extrusion||target[which+'Opacity']==null);
   const use=el('input',{type:'checkbox',checked:design});use.setAttribute('aria-label',`${which}: Match current design`);
@@ -2777,7 +2802,7 @@ function renderEditorStates(target){
   }
   box.append(values);return box;
  });
- return editorDetails(extrusion?'Animate depth/direction':'Animate shadow movement','states',el('div',{className:'ae-states'},boxes[0],el('span',{className:'ae-state-arrow',textContent:'→','aria-hidden':'true'}),boxes[1]),el('p',{className:'note',textContent:'Match current design follows your 3D, Finish and individual-letter settings. Directions take the shortest turn. Changes affect animation; Still and static exports show the design.'}));
+ return editorSection(extrusion?'Animate depth/direction':'Animate shadow movement','states',el('div',{className:'ae-states'},boxes[0],el('span',{className:'ae-state-arrow',textContent:'→','aria-hidden':'true'}),boxes[1]),el('p',{className:'note',textContent:'Match current design follows your 3D, Finish and individual-letter settings. Directions take the shortest turn. Changes affect animation; Still and static exports show the design.'}));
 }
 function applyAnimationPreset(name) {
  const m=animationPreset(name),target=editorScope();
@@ -2787,6 +2812,7 @@ function applyAnimationPreset(name) {
 }
 function fillControls() {
  normaliseAnimation(motion,design.lines.length);editorLine=Math.max(0,Math.min(editorLine,design.lines.length-1));
+ const card=document.getElementById('tab-animation'),scroll=card.scrollTop;
  const p=panel('animation');p.replaceChildren();
  const mode=el('div',{className:'ae-segment',role:'group'});mode.setAttribute('aria-label','Animation scope');
  for(const [key,label] of [['shared','Same for all lines'],['lines','Per line']]){const b=button(label,()=>{motion.scope=key;editorChanged(false);},{'aria-pressed':motion.scope===key});b.setAttribute('aria-pressed',motion.scope===key);mode.append(b);}
@@ -2810,34 +2836,28 @@ function fillControls() {
  const transport=el('div',{className:'ae-transport'},el('div',{className:'ae-player'},el('div',{className:'ae-player-actions'},playButton,replay,reverse),el('div',{className:'ae-scrub-wrap'},scrub,el('output',{id:'ae-time',textContent:'0.00 / 0.00s'}))),el('div',{className:'ae-player-note'},el('span',{textContent:(motion.scope==='lines'?`Line ${editorLine+1} · `:'')+(editorScope().reverse?'Reverse · lettering animates out':'Forward · lettering animates in')}),el('label',{},solo,'Preview selected line only')));
  const scope=editorScope(),preset=menu([...(!EDITOR_PRESETS.includes(scope.preset)?[['Custom','Custom']]:[]),...EDITOR_PRESETS.map(n=>[n,n])],scope.preset);preset.setAttribute('aria-label','Animation preset');preset.addEventListener('change',()=>{if(preset.value!=='Custom')applyAnimationPreset(preset.value);});
  const head=el('div',{className:'ae-edit-head'},el('strong',{textContent:motion.scope==='lines'?`Editing line ${editorLine+1} · ${design.lines[editorLine].text}`:'Editing all lines'}),el('label',{},'Preset',preset));
- const parts=el('div',{className:'ae-parts',role:'tablist'});parts.setAttribute('aria-label','Animation part');for(const key of ANIMATION_PARTS){const b=button(editorNames[key],()=>{editorPart=key;fillControls();},{role:'tab'});b.setAttribute('aria-selected',editorPart===key);b.dataset.editorPart=key;b.tabIndex=editorPart===key?0:-1;parts.append(b);}
- parts.addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;e.preventDefault();let i=ANIMATION_PARTS.indexOf(editorPart);i=e.key==='Home'?0:e.key==='End'?ANIMATION_PARTS.length-1:(i+(e.key==='ArrowRight'?1:-1)+ANIMATION_PARTS.length)%ANIMATION_PARTS.length;editorPart=ANIMATION_PARTS[i];fillControls();document.querySelector('[data-editor-part='+editorPart+']')?.focus();});
- const target=editorTarget(),content=el('div',{className:'ae-content',role:'tabpanel'});content.setAttribute('aria-label',`${editorNames[editorPart]} settings`);
- const entrances=editorPart==='extrude'?[['grow','Grow'],['shrink','Shrink']]:editorPart==='dropShadow'?[['finish','Finish fade'],['fade','Fade'],['pop','Pop'],['drop','Drop']]:editorPart==='outline'?[['finish','Finish fade'],...ENTRANCES]:ENTRANCES;
- const entrance=editorMenu('Animation',entrances,target.entrance,v=>{target.entrance=v;if(editorPart==='extrude'){target.startDepth=v==='shrink'?null:0;target.endDepth=v==='shrink'?0:null;}editorChanged();});
- const timingControls=editorStarts(target);
- const basic=el('div',{className:'ae-basic'},entrance,editorRange('Duration',target,'duration',.1,10,.05,'s'),timingControls.starts);content.append(basic,timingControls.extra);
- const more=el('div',{className:'ae-more-grid'});
- more.append(editorMenu('Easing',EASES,target.ease,v=>{target.ease=v;editorChanged();}));if(target.ease!=='linear')more.append(editorRange('Strength',target,'strength',0,1,.05,''));
- content.append(editorDetails('Motion feel','more',more));
- if(['extrude','dropShadow'].includes(editorPart))content.append(renderEditorStates(target));
- if(editorPart==='dropShadow')content.append(el('p',{className:'note',textContent:'Set the shadow’s distance in Finish. To move it during playback, open Animate shadow movement. Set its color in Color or Letter.'}));
- const editCard=el('div',{className:'ae-edit'},head,parts,content);
+ const cards=el('div',{className:'ae-parts-grid'});
+ for(const part of ANIMATION_PARTS){
+  const target=scope[part],content=el('section',{className:'ae-part-card'},el('h3',{className:'ae-part-title',textContent:editorNames[part]}));
+  content.setAttribute('aria-label',`${editorNames[part]} settings`);content.dataset.editorPart=part;
+  const entrances=part==='extrude'?[['grow','Grow'],['shrink','Shrink']]:part==='dropShadow'?[['finish','Finish fade'],['fade','Fade'],['pop','Pop'],['drop','Drop']]:part==='outline'?[['finish','Finish fade'],...ENTRANCES]:ENTRANCES;
+  const entrance=editorMenu('Animation',entrances,target.entrance,v=>{target.entrance=v;if(part==='extrude'){target.startDepth=v==='shrink'?null:0;target.endDepth=v==='shrink'?0:null;}editorChanged();});
+  const timingControls=editorStarts(target,part);
+  content.append(el('div',{className:'ae-basic'},entrance,editorRange('Duration',target,'duration',.1,10,.05,'s'),timingControls.starts),timingControls.extra);
+  const more=el('div',{className:'ae-more-grid'},editorMenu('Easing',EASES,target.ease,v=>{target.ease=v;editorChanged();}));
+  if(target.ease!=='linear')more.append(editorRange('Strength',target,'strength',0,1,.05,''));
+  content.append(editorSection('Motion feel','more',more));
+  if(['extrude','dropShadow'].includes(part))content.append(renderEditorStates(target,part));
+  if(part==='dropShadow')content.append(el('p',{className:'note',textContent:'Set the design shadow in Finish and its color in Color or Letter. Start/end values below control its movement.'}));
+  cards.append(content);
+ }
+ const editCard=el('div',{className:'ae-edit'},head,cards);
  const timingTarget=motion.lines[editorLine],timing=el('div',{className:'ae-more-grid'},editorRange('spread',timingTarget,'spread',0,10,.05,'s'),editorMenu('order',ORDERS,timingTarget.order,v=>{timingTarget.order=v;editorChanged(false);}),button('Randomize',()=>{motion.seed=1+Math.floor(Math.random()*9999);editorChanged(false);}));
- const timingBox=editorDetails(`Letter timing · line ${editorLine+1}`,'timing',timing,el('p',{className:'note',textContent:'Spread is the time between the first and last letter starting. Individual-letter offsets from Letter still apply.'}));
+ const timingBox=editorSection(`Letter timing · line ${editorLine+1}`,'timing',timing,el('p',{className:'note',textContent:'Spread is the time between the first and last letter starting. Individual-letter offsets from Letter still apply.'}));
  const playback=el('div',{className:'ae-more-grid'},editorRange('speed',motion,'speed',.1,4,.05,'×'),editorMenu('play',[[false,'Once'],[true,'Loop']],motion.loop,v=>{motion.loop=v==='true';editorChanged(false);}),editorRange('hold',motion,'hold',0,10,.05,'s'),editorMenu('start',[[false,'On load'],[true,'When in view']],motion.whenVisible,v=>{motion.whenVisible=v==='true';editorChanged(false);}));
- p.append(top,tracks,transport,editCard,timingBox,editorDetails('Playback settings · applies to all lines','playback',playback));
- animationOverviewObserver.observe(p);sizeAnimationOverview();syncEditorPlayer();refreshCode();
+ p.append(top,tracks,transport,editCard,el('div',{className:'ae-global-grid'},timingBox,editorSection('Playback settings · applies to all lines','playback',playback)));
+ card.scrollTop=scroll;syncEditorPlayer();refreshCode();
 }
-// Keep the overview visible, with a glimpse of the settings below to invite scrolling.
-function sizeAnimationOverview(){
- const panel=document.getElementById("tab-animation"),card=panel?.querySelector(".ae-edit");
- if(!card||panel.hidden)return;
- const height=Math.ceil(card.getBoundingClientRect().top-panel.getBoundingClientRect().top+panel.scrollTop+30);
- panel.style.setProperty("--animation-overview-height",height+"px");
-}
-const animationOverviewObserver=new ResizeObserver(sizeAnimationOverview);
-window.addEventListener("resize",sizeAnimationOverview);
 let lastEditorPlayerUpdate=0;
 function editorPlayerVisible(){
  return !document.hidden&&!document.getElementById('tab-animation').hidden&&!document.getElementById('panels').classList.contains('shut');
@@ -3314,7 +3334,6 @@ function showTab(name, again = false, slide = true) {
     b.setAttribute('aria-selected', n === tab);
     b.setAttribute('aria-expanded', open && n === tab);
   }
-  if (tab === 'animation') sizeAnimationOverview();
   let to = 0;
   if (open) { panels.classList.remove('shut'); panels.style.height = ''; to = panels.getBoundingClientRect().height; }
   const still = !slide || matchMedia('(prefers-reduced-motion: reduce)').matches || Math.abs(to - from) < 1;
