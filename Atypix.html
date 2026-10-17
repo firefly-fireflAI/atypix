@@ -1350,7 +1350,7 @@ function layered(parts, id) {
     if (DROP) {
       const sx = kx + Math.min(0, DROP.dx) - 2 * DROP.soft, sy = ky + Math.min(0, DROP.dy) - 2 * DROP.soft;
       out += layer('shadow', sx, sy, kw + Math.abs(DROP.dx) + 4 * DROP.soft, kh + Math.abs(DROP.dy) + 4 * DROP.soft,
-        `<g filter="url(#${dropId}-drop)">${L.it.flat ? '' : `<use href="#${id}-k${n}"/>`}<use href="#${id}-f${n}"/></g>`, ';z-index:-1');
+        `<g filter="url(#${dropId}-drop)">${L.it.flat ? '' : `<use href="#${id}-k${n}"/>`}${L.it.style === 'lineart' ? `<path fill="none" stroke="white" stroke-width="${r1(letterOutline(L.it))}" stroke-linejoin="round" d="${L.d}"/>` : `<use href="#${id}-f${n}"/>`}</g>`, ';z-index:-1');
     }
     // the face and its decoration twice: drawn in along the pen, crisp (the grain and wobble
     // filter is costly to redo every frame, so this layer has none), hidden until the animation
