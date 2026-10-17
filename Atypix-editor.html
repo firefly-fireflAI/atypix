@@ -2870,7 +2870,7 @@ function fillControls() {
  partTabs.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();let index=available.indexOf(editorActivePart);index=event.key==='Home'?0:event.key==='End'?available.length-1:(index+(event.key==='ArrowRight'?1:-1)+available.length)%available.length;editorActivePart=available[index];fillControls();document.getElementById('ae-part-tab-'+editorActivePart)?.focus({preventScroll:true});});
  for(const part of editorPartOrder){
   if(!present[part])continue;
-  const target=scope[part],content=el('section',{className:'ae-part-card'},el('h3',{className:'ae-part-title',textContent:editorNames[part]}));
+  const target=scope[part],content=el('section',{className:'ae-part-card'});
   content.setAttribute('aria-label',`${editorNames[part]} settings`);content.dataset.editorPart=part;
   content.id='ae-part-panel-'+part;content.setAttribute('role','tabpanel');content.setAttribute('aria-labelledby','ae-part-tab-'+part);content.hidden=part!==editorActivePart;
   const entrances=part==='extrude'?[['grow','Grow'],['shrink','Shrink']]:part==='dropShadow'?[['finish','Finish fade'],['fade','Fade'],['pop','Pop'],['drop','Drop']]:part==='outline'?[['finish','Finish fade'],...ENTRANCES]:ENTRANCES;
