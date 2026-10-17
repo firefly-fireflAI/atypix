@@ -712,8 +712,37 @@ function unifiedGlyphCommands(commands) {
     const crossings = source.getIntersections().some(c => c.getPath() !== c.getIntersection().getPath());
     const nested = source.children.some((a,i) => source.children.some((b,j) => i !== j && Math.abs(a.area) < Math.abs(b.area) && a.area * b.area > 0 && b.contains(a.getInteriorPoint())));
     if (!crossings && !nested) return commands;
-    // Resolve component crossings using the font's nonzero fill rule.
-    merged = source.resolveCrossings().reorient(true, true);
+    // Combine separate components pairwise. Resolving all crossings at once can
+    // discard a diagonal when components share coincident edges (Google Sans X).
+    const contours = source.children;
+    const outerSign = Math.sign(contours.reduce((a,b) => Math.abs(a.area) > Math.abs(b.area) ? a : b).area);
+    const solids = contours.filter(path => Math.sign(path.area) === outerSign);
+    const holes = contours.filter(path => Math.sign(path.area) !== outerSign);
+    const groups = solids.map(path => ({ path, holes: [] }));
+    for (const hole of holes) {
+      const parent = groups.filter(g => g.path.bounds.contains(hole.bounds) && g.path.contains(hole.getInteriorPoint()))
+        .sort((a,b) => Math.abs(a.path.area) - Math.abs(b.path.area))[0];
+      if (parent) parent.holes.push(hole);
+      else groups.push({ path: hole, holes: [] }); // A disjoint reverse-winding component is still filled.
+    }
+    for (const group of groups) {
+      let component = group.path.clone({insert:false});
+      for (const hole of group.holes) {
+        const cut = component.subtract(hole, {insert:false});
+        component.remove(); component = cut;
+      }
+      if (!merged) merged = component;
+      else {
+        const union = merged.unite(component, {insert:false});
+        merged.remove(); component.remove(); merged = union;
+      }
+    }
+    // Never trade the original face for incomplete resolved geometry.
+    const bounds = source.bounds;
+    for (let x=0; x<32; x++) for (let y=0; y<32; y++) {
+      const point = new outlineScope.Point(bounds.x + bounds.width * (x+.37)/32, bounds.y + bounds.height * (y+.61)/32);
+      if (source.contains(point) !== merged.contains(point)) return commands;
+    }
     const paths = merged.className === 'CompoundPath' ? merged.children : [merged];
     const result = [];
     for (const path of paths) {
