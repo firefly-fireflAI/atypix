@@ -294,8 +294,15 @@
 .ae-content{padding:14px}
 .ae-basic{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
 #tab-animation .ae-basic>label{grid-template-columns:62px minmax(0,1fr) 48px;font-size:12px}
-#tab-animation .ae-basic>label:first-child{grid-template-columns:62px minmax(0,1fr)}
-#tab-animation .ae-basic>label:first-child>span{display:none}
+#tab-animation .ae-basic>label:has(select){grid-template-columns:65px minmax(0,1fr)}
+#tab-animation .ae-basic>label:has(select)>span{display:none}
+.ae-start-details:empty{display:none}
+.ae-start-details{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}
+.ae-start-details .note{grid-column:1/-1;margin:0}
+#tab-animation .ae-start-details>label{font-size:12px;grid-template-columns:70px minmax(0,1fr) 48px}
+#tab-animation .ae-start-details>label:has(select){grid-template-columns:70px minmax(0,1fr)}
+#tab-animation .ae-start-details>label:has(select)>span{display:none}
+@media(max-width:600px){.ae-start-details{grid-template-columns:minmax(0,1fr)}}
 #tab-animation details{border-top:1px solid #bfd0da;padding-top:12px;margin-top:14px}
 #tab-animation summary{font-size:12px;color:#3e5269;font-weight:700;cursor:pointer}
 .ae-more-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:12px}
@@ -2413,7 +2420,7 @@ function normaliseAnimation(m,count) {
  m.speed=clamp(m.speed,.1,4,1);m.hold=clamp(m.hold,0,10,2);return m;
 }
 let editorLine=0,editorPart='extrude',editorSolo=false;
-const editorOpen={more:false,states:true,timing:false,playback:false};
+const editorOpen={more:false,states:false,timing:false,playback:false};
 const editorNames={face:'Face',deco:'Decoration',outline:'Outline',extrude:'Extrusion',dropShadow:'Drop shadow'};
 const editorScope=()=>motion.scope==='lines'?motion.lineParts[editorLine]:motion;
 const editorTarget=()=>editorScope()[editorPart];
@@ -2431,12 +2438,34 @@ function editorRange(label,target,key,min,max,step,unit='') {
 function editorMenu(label,choices,current,change) {const select=menu(choices,current);select.setAttribute('aria-label',label);select.addEventListener('change',()=>change(select.value));return field(label,null,select,el('span'));}
 function editorNumber(label,value,min,max,step,change,unit='') {const input=el('input',{type:'number',min,max,step,value});input.setAttribute('aria-label',label);input.addEventListener('change',()=>{if(!Number.isFinite(+input.value)||input.value===''){fillControls();return;}input.value=Math.max(min,Math.min(max,+input.value));change(+input.value);});return el('label',{className:'ae-number'},el('span',{textContent:label}),el('span',{className:'ae-number-wrap'},input,el('span',{textContent:unit})));}
 function editorDetails(title,key,...children){const d=el('details',{open:editorOpen[key]},el('summary',{textContent:title}),...children);d.addEventListener('toggle',()=>editorOpen[key]=d.open);return d;}
+// Friendly timing choices are a view of the existing anchors and offsets.
+// Rendering these controls never changes a preset or an imported design.
+function editorStarts(target){
+ const face=editorPart==='face',finish=target.entrance==='finish';
+ const mode=finish?'finished':(target.delay||0)!==0?'custom':!face&&target.anchor==='faceEnd'?'after':face||target.anchor==='faceStart'||target.anchor==='letterStart'&&!(editorScope().face.delay||0)?'with':'custom';
+ const choices=[['with',face?'With the line’s letters':'With the letters'],...(!face?[['after','After the letters']]:[]),['custom','At a specific time'],...(['outline','dropShadow'].includes(editorPart)?[['finished','After all parts finish']]:[])];
+ const starts=editorMenu('Starts',choices,mode,value=>{
+  if(target.entrance==='finish'&&value!=='finished')target.entrance='fade';
+  if(value==='finished'){target.entrance='finish';target.delay=0;}
+  else if(value==='with'){target.anchor=face?'letterStart':'faceStart';target.delay=0;}
+  else if(value==='after'){target.anchor='faceEnd';target.delay=0;}
+  else {if(mode!=='custom')target.delay=.1;}
+  editorChanged();
+ });
+ const extra=el('div',{className:'ae-start-details'});
+ if(mode==='custom'){
+  const references=[['letterStart','Each letter’s timeline cue'],['faceStart','Its face starts'],['faceEnd','Its face finishes'],['extrusionEnd','Its extrusion finishes']].filter(([key])=>editorPart!=='extrude'||key!=='extrusionEnd');
+  if(!face)extra.append(editorMenu('Count from',references,target.anchor,value=>{target.anchor=value;editorChanged();}));
+  extra.append(editorRange('Offset',target,'delay',editorPart==='extrude'?-5:0,30,.05,'s'),el('p',{className:'note',textContent:'Seconds from '+(face?'each letter’s timeline cue':'the selected reference')+'. Line start times and letter spread still apply.'}));
+ }else if(finish&&target.delay)extra.append(editorRange('Extra wait',target,'delay',0,30,.05,'s'));
+ return {starts,extra};
+}
 function renderEditorStates(target){
  const extrusion=editorPart==='extrude',kind=extrusion?'Depth':'Distance',distanceKey=extrusion?'Depth':'Distance',globalDistance=extrusion?look.length:look.dropDistance;
  const boxes=['start','end'].map(which=>{
   const design=target[which+'Direction']==null&&target[which+distanceKey]==null&&(extrusion||target[which+'Opacity']==null);
-  const use=el('input',{type:'checkbox',checked:design});use.setAttribute('aria-label',`${which} uses design`);
-  const box=el('div',{className:'ae-state'},el('div',{className:'ae-state-head'},el('strong',{textContent:which.toUpperCase()}),el('label',{},use,'Use design')));
+  const use=el('input',{type:'checkbox',checked:design});use.setAttribute('aria-label',`${which}: Match current design`);
+  const box=el('div',{className:'ae-state'},el('div',{className:'ae-state-head'},el('strong',{textContent:which.toUpperCase()}),el('label',{},use,'Match current design')));
   use.addEventListener('change',()=>{for(const [key,fallback] of [['Direction',extrusion?look.direction:look.dropDirection],[distanceKey,globalDistance],...(!extrusion?[['Opacity',look.dropOpacity]]:[])])target[which+key]=use.checked?null:fallback;editorChanged();});
   const values=el('div',{className:'ae-state-values'});
   for(const [key,label,fallback,min,max,step,unit] of [['Direction','Direction',extrusion?look.direction:look.dropDirection,0,359,1,'°'],[distanceKey,kind,globalDistance,0,extrusion?3:80,extrusion?.05:1,extrusion?'×':'px'],...(!extrusion?[['Opacity','Opacity',look.dropOpacity,0,1,.05,'']]:[])]){
@@ -2445,7 +2474,7 @@ function renderEditorStates(target){
   }
   box.append(values);return box;
  });
- return editorDetails('Start / end settings','states',el('div',{className:'ae-states'},boxes[0],el('span',{className:'ae-state-arrow',textContent:'→','aria-hidden':'true'}),boxes[1]),el('p',{className:'note',textContent:'Use design follows your 3D, Finish and individual-letter settings. Directions take the shortest turn. Changes affect animation; Still and static exports show the design.'}));
+ return editorDetails(extrusion?'Animate depth/direction':'Animate shadow movement','states',el('div',{className:'ae-states'},boxes[0],el('span',{className:'ae-state-arrow',textContent:'→','aria-hidden':'true'}),boxes[1]),el('p',{className:'note',textContent:'Match current design follows your 3D, Finish and individual-letter settings. Directions take the shortest turn. Changes affect animation; Still and static exports show the design.'}));
 }
 function applyAnimationPreset(name) {
  const m=animationPreset(name),target=editorScope();
@@ -2482,14 +2511,14 @@ function fillControls() {
  parts.addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;e.preventDefault();let i=ANIMATION_PARTS.indexOf(editorPart);i=e.key==='Home'?0:e.key==='End'?ANIMATION_PARTS.length-1:(i+(e.key==='ArrowRight'?1:-1)+ANIMATION_PARTS.length)%ANIMATION_PARTS.length;editorPart=ANIMATION_PARTS[i];fillControls();document.querySelector('[data-editor-part='+editorPart+']')?.focus();});
  const target=editorTarget(),content=el('div',{className:'ae-content',role:'tabpanel'});content.setAttribute('aria-label',`${editorNames[editorPart]} settings`);
  const entrances=editorPart==='extrude'?[['grow','Grow'],['shrink','Shrink']]:editorPart==='dropShadow'?[['finish','Finish fade'],['fade','Fade'],['pop','Pop'],['drop','Drop']]:editorPart==='outline'?[['finish','Finish fade'],...ENTRANCES]:ENTRANCES;
- const entrance=editorMenu('entrance',entrances,target.entrance,v=>{target.entrance=v;if(editorPart==='extrude'){target.startDepth=v==='shrink'?null:0;target.endDepth=v==='shrink'?0:null;}editorChanged();});
- const basic=el('div',{className:'ae-basic'},entrance,editorRange('duration',target,'duration',.1,10,.05,'s'),editorRange('delay',target,'delay',editorPart==='extrude'?-5:0,30,.05,'s'));content.append(basic);
+ const entrance=editorMenu('Animation',entrances,target.entrance,v=>{target.entrance=v;if(editorPart==='extrude'){target.startDepth=v==='shrink'?null:0;target.endDepth=v==='shrink'?0:null;}editorChanged();});
+ const timingControls=editorStarts(target);
+ const basic=el('div',{className:'ae-basic'},entrance,editorRange('Duration',target,'duration',.1,10,.05,'s'),timingControls.starts);content.append(basic,timingControls.extra);
  const more=el('div',{className:'ae-more-grid'});
- if(editorPart!=='face')more.append(editorMenu('timed from',TIMING_ANCHORS.filter(([v])=>editorPart!=='extrude'||v!=='extrusionEnd'),target.anchor,v=>{target.anchor=v;editorChanged();}));
- more.append(editorMenu('easing',EASES,target.ease,v=>{target.ease=v;editorChanged();}));if(target.ease!=='linear')more.append(editorRange('strength',target,'strength',0,1,.05,''));
- content.append(editorDetails('More options','more',more));
+ more.append(editorMenu('Easing',EASES,target.ease,v=>{target.ease=v;editorChanged();}));if(target.ease!=='linear')more.append(editorRange('Strength',target,'strength',0,1,.05,''));
+ content.append(editorDetails('Motion feel','more',more));
  if(['extrude','dropShadow'].includes(editorPart))content.append(renderEditorStates(target));
- if(editorPart==='dropShadow')content.append(el('p',{className:'note',textContent:'Set a shadow distance in Finish, or give Start / End a custom distance. The shadow’s color comes from Color or Letter.'}));
+ if(editorPart==='dropShadow')content.append(el('p',{className:'note',textContent:'Set the shadow’s distance in Finish. To move it during playback, open Animate shadow movement. Set its color in Color or Letter.'}));
  const editCard=el('div',{className:'ae-edit'},head,parts,content);
  const timingTarget=motion.lines[editorLine],timing=el('div',{className:'ae-more-grid'},editorRange('spread',timingTarget,'spread',0,10,.05,'s'),editorMenu('order',ORDERS,timingTarget.order,v=>{timingTarget.order=v;editorChanged(false);}),button('Randomize',()=>{motion.seed=1+Math.floor(Math.random()*9999);editorChanged(false);}));
  const timingBox=editorDetails(`Letter timing · line ${editorLine+1}`,'timing',timing,el('p',{className:'note',textContent:'Spread is the time between the first and last letter starting. Individual-letter offsets from Letter still apply.'}));
