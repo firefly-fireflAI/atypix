@@ -992,8 +992,8 @@ function letterPaints(id) {
   const contexts = new Map();
   return {
     forLetter(L) {
-      const palette = letterColours(L.it), key = JSON.stringify(palette);
-      if (!contexts.has(key)) contexts.set(key, wallFills(contexts.size ? `${id}-color${contexts.size}` : id, palette));
+      const palette = letterColours(L.it), shading = letterShading(L.it), key = JSON.stringify([palette, shading]);
+      if (!contexts.has(key)) contexts.set(key, wallFills(contexts.size ? `${id}-color${contexts.size}` : id, palette, shading));
       return contexts.get(key).fills;
     },
     defs() { return [...contexts.values()].map(c => c.defs + [...c.fills.shared.values()].join('')).join(''); },
@@ -1006,7 +1006,8 @@ function cleanLetterColours(value) {
 // the walls' fills: a plain colour where they face right, and where they face down a pattern of
 // that colour with short scratches over it, in the side colour (the canvas version's hatching, as
 // strong as HATCH.amount, slanting HATCH.angle degrees up)
-function wallFills(id, pal = PAL) {
+function wallFills(id, pal = PAL, shading = letterShading({})) {
+  const HATCH = { style: shading.shadowStyle, amount: shading.hatching, angle: shading.hatchAngle };
   const random = seeded(7), tile = 44;
   const turn = -(HATCH.angle - 30) * Math.PI / 180, c = Math.cos(turn), s = Math.sin(turn);
   const hx = 0.85 * c + 0.5 * s, hy = 0.85 * s - 0.5 * c;   // (0.85, -0.5) turned: 30° up as drawn
@@ -1020,7 +1021,7 @@ function wallFills(id, pal = PAL) {
     const t = k / (SHADES - 1), color = ['None', 'Dots'].includes(HATCH.style) ? pal.side : mix(pal.side, pal.under, t);
     if ((t < 0.5 && HATCH.style !== 'Dots') || ['None', 'Smooth'].includes(HATCH.style)) { fills.push({ fill: color, color }); continue; }
     if (HATCH.style === 'Dots') {
-      const step = r1(FACE.risoStep * 300 / Math.sqrt(look.shadowDotDensity)), radius = r1(FACE.risoR * 300);
+      const step = r1(FACE.risoStep * 300 / Math.sqrt(shading.shadowDotDensity)), radius = r1(FACE.risoR * 300);
       defs.push(`<pattern id="${id}-h${k}" patternUnits="userSpaceOnUse" width="${step}" height="${step}" patternTransform="rotate(45)">`
         + `<rect width="${step}" height="${step}" fill="${color}"/>`
         + `<circle cx="${r1(step / 2)}" cy="${r1(step / 2)}" r="${radius}" fill="${pal.under}" opacity="${r1(t * FACE.risoOpacity)}"/></pattern>`);
@@ -1113,7 +1114,8 @@ function letter(it) {
 function wallsOf(L) {
   const EX = letterExtrusion(L.it);
   const len = Math.hypot(...EX) || 1, ux = EX[0] / len, uy = EX[1] / len;
-  const sx = Math.cos(SHADOW * Math.PI / 180), sy = Math.sin(SHADOW * Math.PI / 180);
+  const shadow = letterValue(L.it, 'shadow', look.shadow);
+  const sx = Math.cos(shadow * Math.PI / 180), sy = Math.sin(shadow * Math.PI / 180);
   return L.edges.filter(({ nx, ny }) => nx * EX[0] + ny * EX[1] > 0).map(({ a, b, nx, ny }) => ({
     k: Math.round(smooth(0.15, 0.75, nx * sx + ny * sy) * (SHADES - 1)),
     depth: ((a[0] + b[0]) / 2) * ux + ((a[1] + b[1]) / 2) * uy,
@@ -1144,6 +1146,11 @@ function simplify(pts, eps) {
 // shows whole
 const OUTLINE_STYLES = ['Solid', 'Dashed', 'Dotted'];
 const letterValue = (it, key, fallback) => Number.isFinite(it[key]) ? it[key] : fallback;
+function letterShading(it) {
+  return { shadowStyle: SHADOW_STYLES.includes(it.shadowStyle) ? it.shadowStyle : look.shadowStyle,
+    hatching: letterValue(it, 'hatching', look.hatching), hatchAngle: letterValue(it, 'hatchAngle', look.hatchAngle),
+    shadowDotDensity: letterValue(it, 'shadowDotDensity', look.shadowDotDensity) };
+}
 function letterExtrusion(it) {
   if (it.flat) return [0,0];
   const length = Math.hypot(...EX_BASE) * letterValue(it, 'extrusionDepth', look.length);
@@ -1223,7 +1230,7 @@ function letterSvg(L, id, n, fills, masks) {
   const face = pal.face2 === pal.face ? pal.face : masks ? `url(#${id}-g${n})` : `url(#${shared(fills, 'grad')})`;
   if (it.style === 'lineart') return `<g class="letter flat"><g class="face"></g>${ring}</g>`;
   if (it.flat) return `<g class="letter flat">${faceOf(face)}${ring}</g>`;
-  let svg = `<g class="letter"><g class="block"><path fill="${HATCH.style === 'None' ? pal.side : HATCH.style === 'Dots' ? fills[SHADES - 1].fill : pal.under}" transform="translate(${r1(ex[0])} ${r1(ex[1])})" d="${d}"/>`;
+  let svg = `<g class="letter"><g class="block"><path fill="${letterShading(it).shadowStyle === 'None' ? pal.side : letterShading(it).shadowStyle === 'Dots' ? fills[SHADES - 1].fill : pal.under}" transform="translate(${r1(ex[0])} ${r1(ex[1])})" d="${d}"/>`;
   for (let i = 0; i < walls.length;) {
     let j = i, run = '';
     while (j < walls.length && walls[j].k === walls[i].k) run += walls[j++].d();
@@ -1816,7 +1823,7 @@ function fillStyles() {
 let detailKey = null;
 function fillDetail(force = false) {
   const used = new Set(parts.map(L => L.it.style));
-  if (look.shadowStyle === 'Dots') used.add('risograph');
+  if (look.shadowStyle === 'Dots' || design.lines.some(ln => ln.letters.some(v => v?.shadowStyle === 'Dots'))) used.add('risograph');
   const groups = DETAIL.filter(([, styles]) => styles.some(s => used.has(s)));
   const key = groups.map(g => g[0]).join();
   if (key === detailKey && !force) return;
@@ -1844,6 +1851,18 @@ function outlinePatternControls(target, letter = false) {
   const select=menu([...inherited,...OUTLINE_STYLES.map(s=>[s,s])],letter ? target.outlineStyle||'' : target.outlineStyle);
   select.addEventListener('change',()=>{if(letter&&!select.value)delete target.outlineStyle;else target.outlineStyle=select.value;rebuild();letter?fillLetter():fillStyles();settled();});
   return field('pattern','solid, dashed or dotted outline',select);
+}
+function letterShadowControls(v) {
+  const shading = letterShading(v);
+  const settings = [['shadow','shadow',look.shadow,0,359,1,'°']];
+  if (shading.shadowStyle === 'Hatching') settings.push(['hatching','hatching',look.hatching,0,2,.05,'×'],['hatchAngle','hatch angle',look.hatchAngle,-90,90,1,'°']);
+  if (shading.shadowStyle === 'Dots') settings.push(['shadowDotDensity','dot density',look.shadowDotDensity,1,6,.25,'×']);
+  const group = letterOverrideGroup(v,'Letter 3D shadow',settings,'Shading on this letter’s extrusion. Unchanged settings follow 3D.');
+  const style = menu([['',`Use global (${look.shadowStyle})`],...SHADOW_STYLES.map(s=>[s,s])],v.shadowStyle || '');
+  style.addEventListener('change',()=>{if(style.value)v.shadowStyle=style.value;else delete v.shadowStyle;rebuild();fillLetter();settled();});
+  group.insertBefore(field('style','the shading on this letter’s extrusion',style),group.children[1]);
+  group.append(el('div',{className:'buttons'},button('Use global shadow',()=>{for(const key of ['shadow','shadowStyle','hatching','hatchAngle','shadowDotDensity'])delete v[key];rebuild();fillLetter();settled();})));
+  return group;
 }
 function fillLetter() {
   const set = box('Letter', el('p', { className: 'note', textContent: 'Click a letter to adjust it, or select one below.' }));
@@ -1885,7 +1904,7 @@ function fillLetter() {
     field('width', 'outline width for this letter only', outlineWidth, outlineValue),
     outlinePatternControls(v,true)));
   const patternSettings=letterOverrideGroup(v,'Outline spacing',[['outlineDash','dash length',look.outlineDash,1,40,.5,''],['outlineGap','spacing',look.outlineGap,.5,40,.5,'']],'Dash length applies to dashed outlines; spacing applies to dashes and dots.');
-  panel('letter').append(patternSettings,
+  panel('letter').append(patternSettings, letterShadowControls(v),
     letterOverrideGroup(v,'Letter extrusion',[['extrusionDepth','depth',look.length,0,3,.05,'×'],['extrusionDirection','direction',look.direction,0,359,1,'°']],'Flat and line art stay flat. Other styles can use their own depth and direction.'),
     letterOverrideGroup(v,'Letter animation',[['animationOffset','offset',0,-5,10,.05,'s']],'Negative starts earlier, positive starts later. This shifts all parts of this letter together; playback starts at 0.'),
     letterOverrideGroup(v,'Letter drop shadow',[['dropDistance','distance',look.dropDistance,0,80,1,''],['dropOpacity','opacity',look.dropOpacity,0,1,.05,'']],'Direction and softness follow Finish. Distance 0 removes this letter’s drop shadow.'),
@@ -2335,11 +2354,12 @@ function setCanvasColor(color) {
 }
 const snapshot = () => ({ atypix: 2, canvasColor, design: structuredClone(design), look: { ...look }, colours: { ...PAL }, face: { ...FACE },
   motion: structuredClone(motion) });
-const LETTER_LIMITS={extrusionDepth:[0,3],extrusionDirection:[0,359],animationOffset:[-5,10],dropDistance:[0,80],dropOpacity:[0,1],texture:[0,2],wobble:[0,12],outlineDash:[1,40],outlineGap:[.5,40]};
+const LETTER_LIMITS={shadow:[0,359],hatching:[0,2],hatchAngle:[-90,90],shadowDotDensity:[1,6],extrusionDepth:[0,3],extrusionDirection:[0,359],animationOffset:[-5,10],dropDistance:[0,80],dropOpacity:[0,1],texture:[0,2],wobble:[0,12],outlineDash:[1,40],outlineGap:[.5,40]};
 function cleanLetterOverrides(v) {
   if(!v)return v;
   for(const [key,[min,max]] of Object.entries(LETTER_LIMITS)) {if(Number.isFinite(v[key]))v[key]=Math.max(min,Math.min(max,v[key]));else delete v[key];}
   if(!OUTLINE_STYLES.includes(v.outlineStyle))delete v.outlineStyle;
+  if(!SHADOW_STYLES.includes(v.shadowStyle))delete v.shadowStyle;
   return v;
 }
 // a preset put back: anything missing or unknown in it falls back to the defaults
