@@ -78,7 +78,10 @@
   #tab-font .flow { display:grid; grid-template-columns:minmax(210px, 1fr) minmax(260px, 2fr) minmax(170px, .8fr); gap:12px; align-items:start; }
   #tab-font .flow > * { margin:0; }
   #tab-font a { color:var(--ink); }
-  #tab-font .font-selection > legend { margin-bottom:8px; }
+  #tab-font .font-line-controls > legend { margin-bottom:8px; }
+  .font-selection-stack { display:grid; gap:12px; min-width:0; }
+  .font-selection-stack > fieldset { margin:0; }
+  #tab-font .font-license { font:700 12px/1 Lato,ui-sans-serif,system-ui,sans-serif; letter-spacing:.04em; text-transform:uppercase; }
   .font-current { font-size:18px; margin:8px 0; overflow-wrap:anywhere; }
   .panel input.font-search { width:100%; box-sizing:border-box; min-width:0; padding:8px 10px; border:1px solid #889ba9; border-radius:6px; background:#eaf1f4; color:var(--ink); font:inherit; }
   .font-filters { flex-wrap:wrap; margin-top:8px; }
@@ -2047,10 +2050,12 @@ function fillFont(resetScroll = false) {
   const lineSelect = menu(design.lines.map((l,i)=>[String(i),`Line ${i+1}: ${l.text || '(empty)'}`]),String(fontLine));
   lineSelect.setAttribute('aria-label','Font line'); lineSelect.disabled = fontPickerBusy;
   lineSelect.addEventListener('change',()=>{fontLine=+lineSelect.value;fillFont();});
-  const current = box('Font for this line',field('line','choose the line to change',lineSelect),
-    el('div',{className:'buttons'},button('Edit text',()=>{showTab('text');})),
-    el('p',{className:'font-current',textContent:fontLabel(ln)}));
-  current.classList.add('font-selection');
+  const lineBox = box('Font for this line',field('line','choose the line to change',lineSelect),
+    el('div',{className:'buttons'},button('Edit text',()=>{showTab('text');})));
+  lineBox.classList.add('font-line-controls');
+  const current = el('fieldset',{className:'font-selection'},el('p',{className:'font-current',textContent:fontLabel(ln)}));
+  current.setAttribute('aria-label','Selected font');
+  const selectionStack = el('div',{className:'font-selection-stack'},lineBox,current);
   const family = fontCatalog?.get(ln.font);
   if (family?.variants.length) {
     const active = ln.fontSource || family.variants.find(v=>v.weight===400&&v.style==='normal') || family.variants[0];
@@ -2067,7 +2072,7 @@ function fillFont(resetScroll = false) {
     favoriteFonts=favoriteFonts.includes(ln.font)?favoriteFonts.filter(n=>n!==ln.font):[...favoriteFonts,ln.font];
     writeFontList('atypix-favorite-fonts',favoriteFonts);fillFont();
   });favorite.disabled=fontPickerBusy;
-  const link = el('a',{href:family?.licenseUrl || `https://fonts.google.com/specimen/${encodeURIComponent(ln.font)}`,target:'_blank',rel:'noopener noreferrer',textContent:`Font & license${family ? ' · '+family.license : ''} ↗`});
+  const link = el('a',{className:'font-license',href:family?.licenseUrl || `https://fonts.google.com/specimen/${encodeURIComponent(ln.font)}`,target:'_blank',rel:'noopener noreferrer',textContent:`Font & license${family ? ' · '+family.license : ''} ↗`});
   current.append(el('p',{className:'note font-download-note',textContent:fontPickerBusy ? 'Loading font… Your current font stays until it is ready.' : 'Choose a family above. Only the selected font downloads.'}),el('div',{className:'buttons'},favorite,link));
   const search = el('input',{type:'search',value:fontSearch,placeholder:'Search Google Fonts',className:'font-search'});
   search.setAttribute('aria-label','Search Google Fonts');search.disabled=fontPickerBusy;
@@ -2106,7 +2111,7 @@ function fillFont(resetScroll = false) {
   }
   search.addEventListener('input',()=>{fontSearch=search.value;fontResultLimit=40;renderResults(true);});
   search.addEventListener('keydown',e=>{if(e.key==='ArrowDown'){e.preventDefault();results.querySelector('button:not(:disabled)')?.focus();}if(e.key==='Escape'){search.value='';fontSearch='';renderResults(true);}});
-  p.append(current,browser,box('Font support',el('p',{className:'note',textContent:'Weights and styles vary by family. Some fonts do not include every character; we’ll let you know when one is missing. Connected scripts may not display correctly.'})));
+  p.append(selectionStack,browser,box('Font support',el('p',{className:'note',textContent:'Weights and styles vary by family. Some fonts do not include every character; we’ll let you know when one is missing. Connected scripts may not display correctly.'})));
   renderResults();
   const restoreScroll = () => {
     if (!results.isConnected) return;
